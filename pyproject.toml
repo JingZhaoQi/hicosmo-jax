@@ -1,0 +1,155 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hicosmo"
+version = "0.1.0"
+description = "High-performance cosmological parameter estimation framework based on JAX and NumPyro"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "HiCosmo Team", email = "hicosmo@example.com"}
+]
+keywords = ["cosmology", "mcmc", "bayesian", "jax", "numpyro"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    # Core computational libraries
+    "jax>=0.4.20",
+    "jaxlib>=0.4.20",
+    "numpyro>=0.13.0",
+    
+    # Scientific computing
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "pandas>=2.0.0",
+    
+    # Cosmology specific
+    "astropy>=5.3.0",
+    "healpy>=1.16.0",
+    
+    # Visualization
+    "matplotlib>=3.7.0",
+    "corner>=2.2.0",
+    "getdist>=1.4.0",
+    
+    # Utilities
+    "pyyaml>=6.0",
+    "h5py>=3.8.0",
+    "tqdm>=4.65.0",
+    "rich>=13.0.0",  # For better terminal output
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.3.0",
+    "pytest-cov>=4.0.0",
+    "pytest-benchmark>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.3.0",
+    "flake8>=6.0.0",
+    "pre-commit>=3.3.0",
+]
+
+gpu = [
+    "jax[cuda12_pip]>=0.4.20",  # For CUDA 12.x
+]
+
+cobaya = [
+    "cobaya>=3.4",  # For Cobaya compatibility
+]
+
+camb = [
+    "camb>=1.5.0",  # For power spectrum calculations
+]
+
+docs = [
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+    "nbsphinx>=0.9.0",
+    "sphinx-autodoc-typehints>=1.23.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/hicosmo/hicosmo"
+Documentation = "https://hicosmo.readthedocs.io"
+Repository = "https://github.com/hicosmo/hicosmo"
+Issues = "https://github.com/hicosmo/hicosmo/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hicosmo*"]
+
+[tool.setuptools.package-data]
+hicosmo = [
+    "data/**/*",
+    "configs/**/*.yaml",
+    "configs/**/*.yml",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py39', 'py310', 'py311']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_unimported = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
+testpaths = [
+    "tests",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "gpu: marks tests that require GPU",
+    "integration: marks integration tests",
+]
+
+[tool.coverage.run]
+source = ["hicosmo"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
