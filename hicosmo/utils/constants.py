@@ -14,6 +14,7 @@ G_cgs = 6.67430e-8  # cm^3 g^-1 s^-2
 
 # Planck constant
 h = 6.62607015e-34  # J·s
+h_planck = h  # Alias for compatibility
 hbar = 1.054571817e-34  # J·s
 
 # Boltzmann constant
@@ -67,11 +68,15 @@ Omega_r_h2 = Omega_gamma_h2 * (1 + 0.2271 * N_eff)  # Total radiation * h^2
 eV_to_J = 1.602176634e-19  # eV to Joules
 eV_to_kg = 1.782661921e-36  # eV/c^2 to kg
 
+# Rydberg constant in eV
+Rydberg_eV = 13.605693122994  # eV
+
 # Thomson scattering
 sigma_T = 6.6524587321e-29  # m^2
 
 # Fine structure constant
 alpha = 1.0 / 137.035999084
+alpha_fine = alpha  # Alias for compatibility
 
 # Electron mass
 m_e = 9.1093837015e-31  # kg

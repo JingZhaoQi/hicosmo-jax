@@ -12,7 +12,7 @@ from . import models
 from . import likelihoods
 from . import samplers
 from . import parameters
-from . import fisher
+# from . import fisher  # Temporarily disabled during refactoring
 from . import utils
 from . import visualization
 
@@ -22,7 +22,7 @@ __all__ = [
     "likelihoods",
     "samplers",
     "parameters",
-    "fisher",
+    # "fisher",  # Temporarily disabled
     "utils",
     "visualization",
 ]
