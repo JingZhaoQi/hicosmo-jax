@@ -12,6 +12,9 @@ import warnings
 from pathlib import Path
 import yaml
 import json
+import jax
+import jax.numpy as jnp
+import optax
 
 from .config import ParameterConfig, AutoParameter
 from .utils import ParameterMapper, analyze_likelihood_function
@@ -69,6 +72,10 @@ class AutoMCMC:
         likelihood_func: Callable,
         strict_mode: bool = False,
         chain_name: Optional[str] = None,
+        # Optimization options
+        optimize_init: bool = True,
+        max_opt_iterations: int = 1000,
+        opt_learning_rate: float = 0.01,
         # Checkpoint and resume options
         enable_checkpoints: bool = True,
         checkpoint_interval: int = 1000,
@@ -93,6 +100,12 @@ class AutoMCMC:
             If True, raise errors for parameter mismatches instead of warnings.
         chain_name : str, optional
             Name for the MCMC chain (used for saving results).
+        optimize_init : bool
+            If True, use JAX optimization to find best-fit values as initial points.
+        max_opt_iterations : int
+            Maximum iterations for the optimization process.
+        opt_learning_rate : float
+            Learning rate for the optimization process.
         enable_checkpoints : bool
             Whether to enable automatic checkpointing during sampling.
         checkpoint_interval : int
@@ -128,6 +141,11 @@ class AutoMCMC:
             chain_name = f"mcmc_{func_name}_{timestamp}"
         self.chain_name = chain_name
         self.data_kwargs = data_kwargs
+        
+        # Optimization configuration
+        self.optimize_init = optimize_init
+        self.max_opt_iterations = max_opt_iterations
+        self.opt_learning_rate = opt_learning_rate
         
         # Checkpoint system configuration
         self.enable_checkpoints = enable_checkpoints
@@ -185,6 +203,91 @@ class AutoMCMC:
         """
         # Use ParameterConfig.from_dict which handles all formats
         return ParameterConfig.from_dict(config)
+    
+    def _jax_optimize_init(self):
+        """Use JAX optimization to find best initial values."""
+        print("🔍 Optimizing initial values using JAX...")
+        
+        # Get parameter names and bounds
+        param_names = list(self.param_config.parameters.keys())
+        param_bounds = {}
+        initial_values = {}
+        
+        for name, param in self.param_config.parameters.items():
+            if param.prior['dist'] == 'uniform':
+                param_bounds[name] = (param.prior['min'], param.prior['max'])
+                initial_values[name] = param.ref or (param.prior['min'] + param.prior['max']) / 2
+            else:
+                # For non-uniform priors, use reasonable bounds
+                param_bounds[name] = (param.ref * 0.1, param.ref * 10) if param.ref else (0.1, 10)
+                initial_values[name] = param.ref or 1.0
+        
+        # Define loss function (negative log-likelihood)
+        @jax.jit
+        def loss_fn(params_array):
+            # Convert array to parameter dict
+            params_dict = {name: params_array[i] for i, name in enumerate(param_names)}
+            
+            # Apply bounds constraints using JAX-friendly operations
+            penalty = 0.0
+            for i, name in enumerate(param_names):
+                value = params_array[i]
+                min_val, max_val = param_bounds[name]
+                # Use JAX-friendly soft constraint
+                penalty += 1000 * jnp.maximum(0, min_val - value)**2
+                penalty += 1000 * jnp.maximum(0, value - max_val)**2
+            
+            # Compute likelihood
+            log_like = self.likelihood_func(**params_dict)
+            
+            # Handle NaN/inf with JAX-friendly operations
+            log_like = jnp.where(jnp.isfinite(log_like), log_like, -1e10)
+            
+            return -log_like + penalty
+        
+        # Initial parameter array
+        initial_array = jnp.array([initial_values[name] for name in param_names])
+        
+        # Set up optimizer
+        optimizer = optax.adam(learning_rate=self.opt_learning_rate)
+        opt_state = optimizer.init(initial_array)
+        
+        # Optimization loop
+        params = initial_array
+        best_loss = float('inf')
+        best_params = params
+        
+        for i in range(self.max_opt_iterations):
+            loss_value, grads = jax.value_and_grad(loss_fn)(params)
+            
+            if loss_value < best_loss:
+                best_loss = loss_value
+                best_params = params
+            
+            # Early stopping if loss becomes very small
+            if loss_value < 1e-10:
+                break
+                
+            # Update parameters
+            updates, opt_state = optimizer.update(grads, opt_state)
+            params = optax.apply_updates(params, updates)
+            
+            # Progress report every 100 iterations
+            if (i + 1) % 100 == 0:
+                print(f"  Iteration {i+1}/{self.max_opt_iterations}, Loss: {loss_value:.6f}")
+        
+        # Update reference values with optimized results
+        optimized_params = {name: float(best_params[i]) for i, name in enumerate(param_names)}
+        
+        print(f"✓ Optimization completed after {i+1} iterations")
+        print("  Optimized initial values:")
+        for name, value in optimized_params.items():
+            original_ref = self.param_config.parameters[name].ref
+            print(f"    {name}: {original_ref:.4f} → {value:.4f}")
+            # Update the parameter's ref value
+            self.param_config.parameters[name].ref = value
+        
+        return optimized_params
     
     def _setup_mcmc(self):
         """Set up MCMC sampler with automatic model generation."""
@@ -284,6 +387,10 @@ class AutoMCMC:
         run_kwargs = dict(self.data_kwargs)
         run_kwargs.update(extra_kwargs)
         
+        # Optimize initial values if requested
+        if self.optimize_init:
+            self._jax_optimize_init()
+        
         # Create initial MCMC state
         if not self.mcmc_state:
             self._create_mcmc_state()
@@ -323,13 +430,13 @@ class AutoMCMC:
         
         return samples
     
-    def print_summary(self, prob: float = 0.9):
-        """Print MCMC results summary."""
+    def print_summary(self, prob: float = 0.9, burnin_frac: float = 0.1):
+        """Print MCMC results summary with automatic burn-in removal."""
         if self._samples is None:
             print("No samples available. Run MCMC first.")
             return
         
-        self.sampler.print_summary(prob=prob)
+        self.sampler.print_summary(prob=prob, burnin_frac=burnin_frac)
     
     def get_samples(self, param: Optional[str] = None) -> Union[Dict, List]:
         """

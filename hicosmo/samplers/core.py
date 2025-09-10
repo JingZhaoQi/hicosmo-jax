@@ -62,7 +62,7 @@ class MCMCSampler:
     def __init__(self,
                  model_fn: Callable,
                  kernel: Optional[object] = None,
-                 num_warmup: int = 1000,
+                 num_warmup: int = 0,  # 默认不需要warmup，从优化初始值开始
                  num_samples: int = 2000,
                  num_chains: int = 4,
                  chain_method: str = 'parallel',
@@ -214,7 +214,7 @@ class MCMCSampler:
             self._samples = self.mcmc.get_samples(group_by_chain=group_by_chain)
         return self._samples
     
-    def print_summary(self, prob: float = 0.9) -> None:
+    def print_summary(self, prob: float = 0.9, burnin_frac: float = 0.1) -> None:
         """
         Print a beautiful summary of MCMC results.
         
@@ -222,12 +222,25 @@ class MCMCSampler:
         ----------
         prob : float
             Probability for credible intervals
+        burnin_frac : float
+            Fraction of samples to discard as burn-in (default: 0.1 = 10%)
         """
         if self._samples is None:
             raise RuntimeError("No samples available. Run MCMC first.")
         
         # Get samples grouped by chain for summary statistics
         samples_grouped = self.mcmc.get_samples(group_by_chain=True)
+        
+        # Apply burn-in removal
+        if burnin_frac > 0:
+            samples_with_burnin = {}
+            for param_name, samples in samples_grouped.items():
+                # samples shape: (num_chains, num_samples, ...)
+                num_samples = samples.shape[1]
+                burnin_samples = int(burnin_frac * num_samples)
+                samples_with_burnin[param_name] = samples[:, burnin_samples:]
+            samples_grouped = samples_with_burnin
+        
         # Use NumPyro's summary function
         summary_dict = summary(samples_grouped, prob=prob)
         
@@ -275,9 +288,14 @@ class MCMCSampler:
         else:
             print(table)
     
-    def get_diagnostics(self) -> Dict[str, Any]:
+    def get_diagnostics(self, burnin_frac: float = 0.1) -> Dict[str, Any]:
         """
         Get comprehensive MCMC diagnostics.
+        
+        Parameters
+        ----------
+        burnin_frac : float
+            Fraction of samples to discard as burn-in (default: 0.1 = 10%)
         
         Returns
         -------
@@ -289,6 +307,16 @@ class MCMCSampler:
         
         # Get samples grouped by chain for diagnostics
         samples_by_chain = self.mcmc.get_samples(group_by_chain=True)
+        
+        # Apply burn-in removal
+        if burnin_frac > 0:
+            samples_with_burnin = {}
+            for param_name, samples in samples_by_chain.items():
+                # samples shape: (num_chains, num_samples, ...)
+                num_samples = samples.shape[1]
+                burnin_samples = int(burnin_frac * num_samples)
+                samples_with_burnin[param_name] = samples[:, burnin_samples:]
+            samples_by_chain = samples_with_burnin
         
         diagnostics = {}
         
