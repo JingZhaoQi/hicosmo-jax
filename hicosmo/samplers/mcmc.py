@@ -1,17 +1,25 @@
 """
-Advanced MCMC sampler framework with enterprise features.
+Lightweight MCMC wrapper around NumPyro for flexible Bayesian inference.
 
-This module provides a production-ready MCMC implementation using NumPyro
-with comprehensive diagnostics, visualization, and checkpointing capabilities.
+This module provides a thin wrapper around NumPyro's MCMC implementation,
+adding convenience features while maintaining full flexibility for users
+to define their own models and parameter management.
+
+Key Features:
+- Direct use of NumPyro's mature MCMC implementations (NUTS, HMC, etc.)
+- Enhanced diagnostics and visualization
+- Checkpoint save/restore functionality
+- Beautiful progress display with rich
+- No assumptions about parameter management or model structure
 """
 
-from typing import Dict, List, Optional, Any, Callable, Tuple, Union
+from typing import Dict, List, Optional, Any, Callable, Union
 import numpy as np
 import jax
 import jax.numpy as jnp
+from jax import jit, vmap
 import numpyro
-import numpyro.distributions as dist
-from numpyro.infer import MCMC, NUTS, Predictive, init_to_median, init_to_sample
+from numpyro.infer import MCMC, NUTS, HMC, SA
 from numpyro.diagnostics import summary, effective_sample_size, gelman_rubin, hpdi
 import arviz as az
 from pathlib import Path
@@ -19,445 +27,135 @@ import pickle
 import json
 import h5py
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
 from rich.table import Table
 from rich.panel import Panel
-from rich.layout import Layout
-from rich.live import Live
 import warnings
-
-
-class SmartInitializer:
-    """
-    Intelligent parameter initialization strategies for MCMC sampling.
-    """
-    
-    def __init__(self, param_manager: 'ParameterManager'):
-        """
-        Initialize with parameter manager.
-        
-        Parameters
-        ----------
-        param_manager : ParameterManager
-            Parameter management instance
-        """
-        self.param_manager = param_manager
-        
-    def maximize_likelihood(self, model_fn: Callable, 
-                          rng_key: jax.random.PRNGKey,
-                          n_attempts: int = 10) -> Dict[str, float]:
-        """
-        Find maximum likelihood parameters using optimization.
-        
-        Parameters
-        ----------
-        model_fn : callable
-            NumPyro model function
-        rng_key : jax.random.PRNGKey
-            Random key for optimization
-        n_attempts : int
-            Number of optimization attempts from random starts
-            
-        Returns
-        -------
-        dict
-            Best-fit parameter values
-        """
-        from numpyro.infer import SVI, Trace_ELBO
-        from numpyro.optim import Adam
-        
-        best_params = {}
-        best_loss = float('inf')
-        
-        # Define guide function for SVI
-        def guide():
-            for param_name, param_info in self.param_manager.get_free_params().items():
-                prior_dist = self.param_manager.get_numpyro_prior(param_name)
-                # Use mean of prior as guide parameter
-                if hasattr(prior_dist, 'loc'):
-                    init_val = prior_dist.loc
-                elif hasattr(prior_dist, 'low') and hasattr(prior_dist, 'high'):
-                    init_val = (prior_dist.low + prior_dist.high) / 2
-                else:
-                    init_val = 0.0
-                
-                numpyro.sample(param_name, dist.Delta(numpyro.param(
-                    f"{param_name}_guide", init_val)))
-        
-        # Multiple optimization attempts
-        for i in range(n_attempts):
-            try:
-                rng_key, subkey = jax.random.split(rng_key)
-                
-                # Setup SVI
-                optimizer = Adam(step_size=0.001)
-                svi = SVI(model_fn, guide, optimizer, loss=Trace_ELBO())
-                svi_result = svi.run(subkey, num_steps=2000)
-                
-                # Extract parameters
-                params = {}
-                for param_name in self.param_manager.get_free_params().keys():
-                    params[param_name] = float(svi_result.params[f"{param_name}_guide"])
-                
-                # Evaluate loss
-                if svi_result.losses[-1] < best_loss:
-                    best_loss = svi_result.losses[-1]
-                    best_params = params
-                    
-            except Exception as e:
-                warnings.warn(f"Optimization attempt {i+1} failed: {str(e)}")
-                continue
-        
-        if not best_params:
-            # Fallback to prior means
-            for param_name, param_info in self.param_manager.get_free_params().items():
-                best_params[param_name] = param_info.get('ref', 0.0)
-        
-        return best_params
-    
-    def get_initialization_strategy(self, strategy: str) -> Callable:
-        """
-        Get NumPyro initialization function based on strategy.
-        
-        Parameters
-        ----------
-        strategy : str
-            Initialization strategy ('median', 'uniform', 'prior', 'optimize')
-            
-        Returns
-        -------
-        callable
-            NumPyro initialization function
-        """
-        if strategy == 'median':
-            return init_to_median(num_samples=100)
-        
-        elif strategy == 'uniform':
-            return self._init_to_uniform_in_bounds()
-        
-        elif strategy == 'prior':
-            return None  # Use prior sampling
-        
-        elif strategy == 'optimize':
-            # This requires the model function, handled in MCMCSampler
-            return 'optimize'
-        
-        else:
-            raise ValueError(f"Unknown initialization strategy: {strategy}")
-    
-    def _init_to_uniform_in_bounds(self):
-        """Initialize parameters uniformly within prior bounds."""
-        def init_fn(site):
-            if site is None:
-                return {}
-                
-            values = {}
-            for param_name, param_info in self.param_manager.get_free_params().items():
-                if 'prior' in param_info:
-                    prior = param_info['prior']
-                    if 'min' in prior and 'max' in prior:
-                        # Uniform in bounds
-                        values[param_name] = np.random.uniform(
-                            prior['min'], prior['max'])
-                    else:
-                        # Use reference value
-                        values[param_name] = param_info.get('ref', 0.0)
-                else:
-                    values[param_name] = param_info.get('ref', 0.0)
-                    
-            return values
-        
-        return init_fn
-
-
-class ConvergenceDiagnostics:
-    """
-    Comprehensive convergence diagnostics for MCMC chains.
-    """
-    
-    @staticmethod
-    def gelman_rubin_diagnostic(samples: Dict[str, jnp.ndarray], 
-                               num_chains: int) -> Dict[str, float]:
-        """
-        Compute Gelman-Rubin R-hat statistic for all parameters.
-        
-        Parameters
-        ----------
-        samples : dict
-            Dictionary of parameter samples
-        num_chains : int
-            Number of chains
-            
-        Returns
-        -------
-        dict
-            R-hat statistics for each parameter
-        """
-        r_hats = {}
-        
-        for param_name, param_samples in samples.items():
-            # Reshape samples to (chains, samples_per_chain)
-            if param_samples.ndim == 1:
-                samples_per_chain = len(param_samples) // num_chains
-                reshaped = param_samples[:num_chains * samples_per_chain].reshape(
-                    num_chains, samples_per_chain)
-            else:
-                reshaped = param_samples
-            
-            try:
-                r_hat = float(gelman_rubin(reshaped))
-                r_hats[param_name] = r_hat
-            except Exception:
-                r_hats[param_name] = float('inf')
-        
-        return r_hats
-    
-    @staticmethod
-    def effective_sample_size_diagnostic(samples: Dict[str, jnp.ndarray],
-                                       num_chains: int) -> Dict[str, float]:
-        """
-        Compute effective sample size for all parameters.
-        
-        Parameters
-        ----------
-        samples : dict
-            Dictionary of parameter samples
-        num_chains : int
-            Number of chains
-            
-        Returns
-        -------
-        dict
-            Effective sample sizes
-        """
-        ess_values = {}
-        
-        for param_name, param_samples in samples.items():
-            # Reshape samples to (chains, samples_per_chain)
-            if param_samples.ndim == 1:
-                samples_per_chain = len(param_samples) // num_chains
-                reshaped = param_samples[:num_chains * samples_per_chain].reshape(
-                    num_chains, samples_per_chain)
-            else:
-                reshaped = param_samples
-            
-            try:
-                ess = float(effective_sample_size(reshaped))
-                ess_values[param_name] = ess
-            except Exception:
-                ess_values[param_name] = 0.0
-        
-        return ess_values
-    
-    @staticmethod
-    def autocorrelation_time(samples: jnp.ndarray) -> float:
-        """
-        Estimate integrated autocorrelation time.
-        
-        Parameters
-        ----------
-        samples : array_like
-            1D array of parameter samples
-            
-        Returns
-        -------
-        float
-            Autocorrelation time
-        """
-        # Simple autocorrelation calculation
-        n = len(samples)
-        samples = samples - jnp.mean(samples)
-        
-        # Compute autocorrelation function
-        autocorr = jnp.correlate(samples, samples, mode='full')
-        autocorr = autocorr[n-1:]  # Take positive lags only
-        autocorr = autocorr / autocorr[0]  # Normalize
-        
-        # Find where autocorrelation drops below 1/e
-        try:
-            tau_int = jnp.where(autocorr < 1.0/jnp.e)[0][0]
-            return float(tau_int)
-        except IndexError:
-            return float(n)  # If never drops, return chain length
 
 
 class MCMCSampler:
     """
-    Production-ready MCMC sampler with enterprise features.
+    A lightweight wrapper around NumPyro's MCMC with enhanced utilities.
     
-    This class provides comprehensive MCMC sampling capabilities including:
-    - Multiple initialization strategies
-    - Real-time convergence monitoring
-    - Automatic checkpointing and recovery
-    - Rich progress displays
-    - Comprehensive diagnostics
+    This class provides a thin abstraction layer over NumPyro's MCMC,
+    offering convenience features while maintaining full flexibility.
+    Users can define any NumPyro-compatible model without restrictions.
+    
+    Example
+    -------
+    >>> import numpyro.distributions as dist
+    >>> 
+    >>> def my_model(data):
+    >>>     # User defines their own parameters and priors
+    >>>     theta = numpyro.sample("theta", dist.Normal(0, 1))
+    >>>     sigma = numpyro.sample("sigma", dist.HalfNormal(1))
+    >>>     # User defines their own likelihood
+    >>>     numpyro.sample("obs", dist.Normal(theta, sigma), obs=data)
+    >>> 
+    >>> sampler = MCMCSampler(my_model)
+    >>> sampler.run(data=my_data)
+    >>> samples = sampler.get_samples()
     """
     
     def __init__(self,
                  model_fn: Callable,
-                 param_manager: 'ParameterManager',
-                 num_warmup: int = 2000,
-                 num_samples: int = 4000,
+                 kernel: Optional[object] = None,
+                 num_warmup: int = 1000,
+                 num_samples: int = 2000,
                  num_chains: int = 4,
-                 target_accept: float = 0.8,
-                 max_tree_depth: int = 10,
-                 step_size: Optional[float] = None,
-                 checkpoint_dir: Optional[str] = None,
+                 chain_method: str = 'parallel',
                  progress_bar: bool = True,
-                 verbose: bool = True):
+                 verbose: bool = True,
+                 **mcmc_kwargs):
         """
-        Initialize MCMC sampler.
+        Initialize the MCMC sampler.
         
         Parameters
         ----------
-        model_fn : callable
-            NumPyro model function
-        param_manager : ParameterManager
-            Parameter management instance
+        model_fn : Callable
+            A NumPyro model function. Users have complete freedom
+            in how they define this model.
+        kernel : object, optional
+            A NumPyro kernel (NUTS, HMC, SA, etc.). If None, uses NUTS
+            with default settings.
         num_warmup : int
-            Number of warmup steps
-        num_samples : int  
-            Number of samples per chain
+            Number of warmup/burn-in steps
+        num_samples : int
+            Number of samples to draw per chain
         num_chains : int
-            Number of parallel chains
-        target_accept : float
-            Target acceptance probability for NUTS
-        max_tree_depth : int
-            Maximum tree depth for NUTS
-        step_size : float, optional
-            Initial step size (auto-tuned if None)
-        checkpoint_dir : str, optional
-            Directory for checkpoints
+            Number of MCMC chains to run
+        chain_method : str
+            How to run chains: 'parallel', 'sequential', or 'vectorized'
         progress_bar : bool
-            Show rich progress bar
+            Whether to show progress bar
         verbose : bool
-            Enable verbose output
+            Whether to print diagnostic information
+        **mcmc_kwargs
+            Additional keyword arguments passed to NumPyro's MCMC class
         """
         self.model_fn = model_fn
-        self.param_manager = param_manager
         self.num_warmup = num_warmup
         self.num_samples = num_samples
         self.num_chains = num_chains
-        self.target_accept = target_accept
-        self.max_tree_depth = max_tree_depth
-        self.step_size = step_size
+        self.chain_method = chain_method
         self.progress_bar = progress_bar
         self.verbose = verbose
         
-        # Setup components
+        # Initialize console for pretty output
         self.console = Console() if verbose else None
-        self.initializer = SmartInitializer(param_manager)
         
-        # Setup checkpoint directory
-        if checkpoint_dir:
-            self.checkpoint_dir = Path(checkpoint_dir)
-            self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
-        else:
-            self.checkpoint_dir = None
+        # Setup kernel (default to NUTS if not provided)
+        if kernel is None:
+            kernel = NUTS(model_fn)
         
-        # State variables
-        self.mcmc = None
-        self.samples = None
-        self.diagnostics = {}
-        self.timing_info = {}
-        self._start_time = None
-    
-    def run(self,
-            rng_key: Optional[jax.random.PRNGKey] = None,
-            init_strategy: str = 'median',
-            resume: bool = True,
-            save_every: int = 1000) -> Dict[str, jnp.ndarray]:
+        # Create NumPyro MCMC object
+        self.mcmc = MCMC(
+            kernel,
+            num_warmup=num_warmup,
+            num_samples=num_samples,
+            num_chains=num_chains,
+            chain_method=chain_method,
+            progress_bar=False,  # We'll use our own progress display
+            **mcmc_kwargs
+        )
+        
+        # Storage for results
+        self._samples = None
+        self._run_time = None
+        
+    def run(self, rng_key: Optional[jax.random.PRNGKey] = None, 
+            *args, **kwargs) -> Dict[str, jnp.ndarray]:
         """
-        Run MCMC sampling with comprehensive monitoring.
+        Run MCMC sampling.
+        
+        This method directly calls NumPyro's MCMC.run() with enhanced
+        progress display and timing.
         
         Parameters
         ----------
         rng_key : jax.random.PRNGKey, optional
-            Random key for sampling
-        init_strategy : str
-            Initialization strategy ('median', 'uniform', 'prior', 'optimize')
-        resume : bool
-            Attempt to resume from checkpoint
-        save_every : int
-            Save checkpoint every N samples
+            Random key for JAX. If None, generates one from current time.
+        *args, **kwargs
+            Arguments passed directly to the model function
             
         Returns
         -------
-        dict
-            Dictionary of parameter samples
+        Dict[str, jnp.ndarray]
+            Dictionary of samples for each parameter
         """
         if rng_key is None:
-            rng_key = jax.random.PRNGKey(int(time.time()))
+            rng_key = jax.random.PRNGKey(int(time.time() * 1000) % 2**32)
         
-        self._start_time = time.time()
-        
-        # Attempt to resume if requested
-        if resume and self.checkpoint_dir:
-            if self._try_resume():
-                if self.verbose:
-                    self.console.print("[green]✓ Successfully resumed from checkpoint[/green]")
-                return self.samples
-        
-        # Initialize sampler
-        self._initialize_sampler(rng_key, init_strategy)
-        
-        # Run sampling with monitoring
-        self._run_with_monitoring(rng_key, save_every)
-        
-        # Final diagnostics
-        self._compute_final_diagnostics()
-        
-        # Save final results
-        if self.checkpoint_dir:
-            self._save_final_results()
-        
-        return self.samples
-    
-    def _initialize_sampler(self, rng_key: jax.random.PRNGKey, init_strategy: str):
-        """Initialize the NUTS sampler with specified strategy."""
-        
-        # Get initialization function
-        if init_strategy == 'optimize':
-            if self.verbose:
-                self.console.print("[cyan]Optimizing for initial parameters...[/cyan]")
-            init_params = self.initializer.maximize_likelihood(
-                self.model_fn, rng_key)
-            init_fn = lambda site: init_params if site is None else {}
-        else:
-            init_fn = self.initializer.get_initialization_strategy(init_strategy)
-        
-        # Create NUTS kernel
-        nuts_kwargs = {
-            'target_accept_prob': self.target_accept,
-            'max_tree_depth': self.max_tree_depth,
-        }
-        
-        if self.step_size is not None:
-            nuts_kwargs['step_size'] = self.step_size
-        
-        if init_fn is not None:
-            nuts_kwargs['init_strategy'] = init_fn
-        
-        kernel = NUTS(self.model_fn, **nuts_kwargs)
-        
-        # Create MCMC object
-        self.mcmc = MCMC(
-            kernel,
-            num_warmup=self.num_warmup,
-            num_samples=self.num_samples,
-            num_chains=self.num_chains,
-            progress_bar=False,  # We handle our own progress bar
-            jit_model_args=True
-        )
-        
+        # Print configuration if verbose
         if self.verbose:
-            self._print_sampler_info(init_strategy)
-    
-    def _run_with_monitoring(self, rng_key: jax.random.PRNGKey, save_every: int):
-        """Run MCMC with real-time monitoring and checkpointing."""
+            self._print_config()
         
+        # Track timing
+        start_time = time.time()
+        
+        # Run MCMC with progress display
         if self.progress_bar and self.verbose:
             with Progress(
                 SpinnerColumn(),
@@ -467,366 +165,497 @@ class MCMCSampler:
                 TimeRemainingColumn(),
                 console=self.console
             ) as progress:
+                # Create progress task
+                total_steps = self.num_warmup + self.num_samples
+                task = progress.add_task(
+                    f"Running MCMC ({self.num_chains} chains)", 
+                    total=total_steps
+                )
                 
-                # Add tasks for warmup and sampling
-                warmup_task = progress.add_task("Warmup", total=self.num_warmup)
-                sampling_task = progress.add_task("Sampling", total=self.num_samples)
+                # Run MCMC (NumPyro handles everything internally)
+                self.mcmc.run(rng_key, *args, **kwargs)
                 
-                # Run MCMC (this is where the heavy computation happens)
-                self.mcmc.run(rng_key)
-                
-                # Update progress bars (they complete instantly since MCMC is done)
-                progress.update(warmup_task, completed=self.num_warmup)
-                progress.update(sampling_task, completed=self.num_samples)
-                
+                # Update progress to complete
+                progress.update(task, completed=total_steps)
         else:
-            # Run without progress bar
-            self.mcmc.run(rng_key)
+            # Run without progress display
+            self.mcmc.run(rng_key, *args, **kwargs)
         
-        # Extract samples
-        self.samples = self.mcmc.get_samples()
-        self.timing_info['total_time'] = time.time() - self._start_time
+        # Record run time
+        self._run_time = time.time() - start_time
         
+        # Cache samples
+        self._samples = self.mcmc.get_samples()
+        
+        # Print summary if verbose
         if self.verbose:
-            self.console.print(f"[green]✓ Sampling completed in {self.timing_info['total_time']:.1f}s[/green]")
+            self._print_summary()
+        
+        return self._samples
     
-    def _compute_final_diagnostics(self):
-        """Compute comprehensive convergence diagnostics."""
+    def get_samples(self, group_by_chain: bool = False) -> Dict[str, jnp.ndarray]:
+        """
+        Get MCMC samples.
         
-        if self.samples is None:
-            return
-        
-        if self.verbose:
-            self.console.print("[cyan]Computing convergence diagnostics...[/cyan]")
-        
-        # Gelman-Rubin diagnostic
-        r_hats = ConvergenceDiagnostics.gelman_rubin_diagnostic(
-            self.samples, self.num_chains)
-        
-        # Effective sample size
-        ess_values = ConvergenceDiagnostics.effective_sample_size_diagnostic(
-            self.samples, self.num_chains)
-        
-        # Store diagnostics
-        self.diagnostics = {
-            'r_hat': r_hats,
-            'ess': ess_values,
-            'n_eff_per_sec': {k: v / self.timing_info['total_time'] 
-                             for k, v in ess_values.items()}
-        }
-        
-        # Print diagnostics table
-        if self.verbose:
-            self._print_diagnostics_table()
-    
-    def _print_sampler_info(self, init_strategy: str):
-        """Print sampler configuration information."""
-        
-        info_table = Table(title="MCMC Configuration")
-        info_table.add_column("Parameter", style="cyan")
-        info_table.add_column("Value", justify="right")
-        
-        info_table.add_row("Sampler", "NUTS (No-U-Turn)")
-        info_table.add_row("Chains", str(self.num_chains))
-        info_table.add_row("Warmup steps", str(self.num_warmup))
-        info_table.add_row("Sampling steps", str(self.num_samples))
-        info_table.add_row("Target accept", f"{self.target_accept:.2f}")
-        info_table.add_row("Max tree depth", str(self.max_tree_depth))
-        info_table.add_row("Initialization", init_strategy)
-        
-        free_params = self.param_manager.get_free_params()
-        info_table.add_row("Free parameters", str(len(free_params)))
-        
-        self.console.print(info_table)
-    
-    def _print_diagnostics_table(self):
-        """Print convergence diagnostics in a formatted table."""
-        
-        table = Table(title="Convergence Diagnostics")
-        table.add_column("Parameter", style="cyan")
-        table.add_column("R̂", justify="right")
-        table.add_column("ESS", justify="right") 
-        table.add_column("ESS/sec", justify="right")
-        table.add_column("Status", justify="center")
-        
-        # Sort parameters by R-hat (worst first)
-        sorted_params = sorted(
-            self.diagnostics['r_hat'].items(),
-            key=lambda x: x[1], reverse=True
-        )
-        
-        for param_name, r_hat in sorted_params:
-            ess = self.diagnostics['ess'].get(param_name, 0)
-            ess_per_sec = self.diagnostics['n_eff_per_sec'].get(param_name, 0)
+        Parameters
+        ----------
+        group_by_chain : bool
+            If True, returns samples grouped by chain.
+            Shape will be (num_chains, num_samples, ...)
+            If False, returns flattened samples.
+            Shape will be (num_chains * num_samples, ...)
             
-            # Color-code R-hat
+        Returns
+        -------
+        Dict[str, jnp.ndarray]
+            Dictionary of samples for each parameter
+        """
+        if self._samples is None:
+            self._samples = self.mcmc.get_samples(group_by_chain=group_by_chain)
+        return self._samples
+    
+    def print_summary(self, prob: float = 0.9) -> None:
+        """
+        Print a beautiful summary of MCMC results.
+        
+        Parameters
+        ----------
+        prob : float
+            Probability for credible intervals
+        """
+        if self._samples is None:
+            raise RuntimeError("No samples available. Run MCMC first.")
+        
+        # Use NumPyro's summary function
+        summary_dict = summary(self._samples, prob=prob)
+        
+        # Create beautiful table with rich
+        table = Table(title="MCMC Summary Statistics")
+        table.add_column("Parameter", style="cyan", no_wrap=True)
+        table.add_column("Mean", justify="right")
+        table.add_column("Std", justify="right")
+        table.add_column(f"{int(prob*100)}% CI", justify="center")
+        table.add_column("n_eff", justify="right")
+        table.add_column("r_hat", justify="right")
+        
+        for param_name in self._samples.keys():
+            stats = summary_dict[param_name]
+            mean = stats['mean']
+            std = stats['std']
+            ci_low = stats[f'{prob*50:.1f}%']
+            ci_high = stats[f'{100-prob*50:.1f}%']
+            n_eff = stats['n_eff']
+            r_hat = stats['r_hat']
+            
+            # Color code r_hat
             if r_hat < 1.01:
                 r_hat_str = f"[green]{r_hat:.3f}[/green]"
-                status = "[green]✓[/green]"
             elif r_hat < 1.05:
                 r_hat_str = f"[yellow]{r_hat:.3f}[/yellow]"
-                status = "[yellow]⚠[/yellow]"
             else:
                 r_hat_str = f"[red]{r_hat:.3f}[/red]"
-                status = "[red]✗[/red]"
             
             table.add_row(
                 param_name,
-                r_hat_str,
-                f"{ess:.0f}",
-                f"{ess_per_sec:.1f}",
-                status
+                f"{mean:.4f}",
+                f"{std:.4f}",
+                f"[{ci_low:.4f}, {ci_high:.4f}]",
+                f"{n_eff:.0f}",
+                r_hat_str
             )
         
-        self.console.print(table)
-        
-        # Summary statistics
-        converged_count = sum(1 for r in self.diagnostics['r_hat'].values() if r < 1.01)
-        total_count = len(self.diagnostics['r_hat'])
-        
-        if converged_count == total_count:
-            self.console.print(f"[green]✓ All {total_count} parameters converged (R̂ < 1.01)[/green]")
+        if self.console:
+            self.console.print(table)
         else:
-            unconverged = total_count - converged_count
-            self.console.print(f"[yellow]⚠ {unconverged}/{total_count} parameters may not have converged[/yellow]")
+            print(table)
     
-    def _try_resume(self) -> bool:
-        """Attempt to resume from checkpoint."""
-        
-        checkpoint_file = self.checkpoint_dir / 'mcmc_state.pkl'
-        if not checkpoint_file.exists():
-            return False
-        
-        try:
-            with open(checkpoint_file, 'rb') as f:
-                state = pickle.load(f)
-            
-            self.samples = state.get('samples')
-            self.diagnostics = state.get('diagnostics', {})
-            self.timing_info = state.get('timing_info', {})
-            
-            return self.samples is not None
-            
-        except Exception as e:
-            if self.verbose:
-                self.console.print(f"[yellow]Warning: Failed to load checkpoint: {e}[/yellow]")
-            return False
-    
-    def _save_final_results(self):
-        """Save final MCMC results to multiple formats."""
-        
-        if not self.checkpoint_dir or self.samples is None:
-            return
-        
-        # Save as pickle
-        results = {
-            'samples': self.samples,
-            'diagnostics': self.diagnostics,
-            'timing_info': self.timing_info,
-            'config': {
-                'num_warmup': self.num_warmup,
-                'num_samples': self.num_samples,
-                'num_chains': self.num_chains,
-                'target_accept': self.target_accept
-            },
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        with open(self.checkpoint_dir / 'mcmc_results.pkl', 'wb') as f:
-            pickle.dump(results, f)
-        
-        # Save as HDF5 for easy access
-        self._save_hdf5()
-        
-        # Save as GetDist format
-        self._save_getdist_format()
-        
-        if self.verbose:
-            self.console.print(f"[green]✓ Results saved to {self.checkpoint_dir}[/green]")
-    
-    def _save_hdf5(self):
-        """Save results in HDF5 format."""
-        
-        h5_file = self.checkpoint_dir / 'chains.h5'
-        
-        with h5py.File(h5_file, 'w') as f:
-            # Save samples
-            chains_group = f.create_group('chains')
-            for param_name, samples in self.samples.items():
-                chains_group.create_dataset(param_name, data=np.array(samples))
-            
-            # Save parameter specifications
-            param_specs_group = f.create_group('parameter_specs')
-            for param_name, param_info in self.param_manager.get_free_params().items():
-                param_group = param_specs_group.create_group(param_name)
-                
-                # Save latex label
-                if 'latex' in param_info:
-                    param_group.attrs['latex'] = param_info['latex']
-                
-                # Save bounds if available
-                if 'prior' in param_info:
-                    prior = param_info['prior']
-                    if 'min' in prior and 'max' in prior:
-                        param_group.create_dataset('bounds', data=[prior['min'], prior['max']])
-            
-            # Save diagnostics
-            if self.diagnostics:
-                diag_group = f.create_group('diagnostics')
-                for key, values in self.diagnostics.items():
-                    if isinstance(values, dict):
-                        subgroup = diag_group.create_group(key)
-                        for param, val in values.items():
-                            subgroup.attrs[param] = val
-                    else:
-                        diag_group.attrs[key] = values
-    
-    def _save_getdist_format(self):
-        """Save in GetDist-compatible text format."""
-        
-        # Flatten samples for GetDist
-        param_names = list(self.samples.keys())
-        n_samples = len(self.samples[param_names[0]])
-        
-        # Create chains array: [weight, -2*logL, param1, param2, ...]
-        chains_array = np.zeros((n_samples, len(param_names) + 2))
-        chains_array[:, 0] = 1.0  # weights
-        chains_array[:, 1] = 0.0  # placeholder for -2*logL
-        
-        for i, param_name in enumerate(param_names):
-            chains_array[:, i + 2] = np.array(self.samples[param_name])
-        
-        # Save chains
-        np.savetxt(self.checkpoint_dir / 'chains.txt', chains_array)
-        
-        # Save parameter names
-        with open(self.checkpoint_dir / 'chains.paramnames', 'w') as f:
-            for param_name in param_names:
-                latex_label = self.param_manager.params[param_name].get('latex', param_name)
-                f.write(f"{param_name}    {latex_label}\n")
-    
-    def get_summary(self) -> Dict[str, Dict[str, float]]:
+    def get_diagnostics(self) -> Dict[str, Any]:
         """
-        Get comprehensive parameter summary statistics.
+        Get comprehensive MCMC diagnostics.
         
         Returns
         -------
-        dict
-            Parameter summary with mean, std, percentiles, etc.
+        Dict[str, Any]
+            Dictionary containing various diagnostic metrics
         """
-        if self.samples is None:
+        if self._samples is None:
             raise RuntimeError("No samples available. Run MCMC first.")
         
-        summary_dict = {}
+        # Get samples grouped by chain for diagnostics
+        samples_by_chain = self.mcmc.get_samples(group_by_chain=True)
         
-        for param_name, param_samples in self.samples.items():
-            samples_flat = np.array(param_samples).flatten()
+        diagnostics = {}
+        
+        # For each parameter, compute diagnostics
+        for param_name, param_samples in samples_by_chain.items():
+            # Gelman-Rubin statistic
+            r_hat = float(gelman_rubin(param_samples))
             
-            # Basic statistics
-            stats = {
-                'mean': float(np.mean(samples_flat)),
-                'std': float(np.std(samples_flat)),
-                'median': float(np.median(samples_flat)),
-                'var': float(np.var(samples_flat)),
-                'min': float(np.min(samples_flat)),
-                'max': float(np.max(samples_flat))
+            # Effective sample size
+            ess = float(effective_sample_size(param_samples))
+            
+            # Effective samples per second
+            ess_per_sec = ess / self._run_time if self._run_time else 0
+            
+            diagnostics[param_name] = {
+                'r_hat': r_hat,
+                'ess': ess,
+                'ess_per_sec': ess_per_sec,
+                'mean': float(jnp.mean(param_samples)),
+                'std': float(jnp.std(param_samples)),
+                'min': float(jnp.min(param_samples)),
+                'max': float(jnp.max(param_samples))
             }
-            
-            # Percentiles
-            percentiles = [2.5, 16, 25, 50, 75, 84, 97.5]
-            for p in percentiles:
-                stats[f'q{p:g}'] = float(np.percentile(samples_flat, p))
-            
-            # HPDI intervals (highest posterior density intervals)
-            try:
-                hpdi_68 = hpdi(jnp.array(samples_flat), 0.68)
-                hpdi_95 = hpdi(jnp.array(samples_flat), 0.95)
-                stats['hpdi_68_lower'] = float(hpdi_68[0])
-                stats['hpdi_68_upper'] = float(hpdi_68[1])
-                stats['hpdi_95_lower'] = float(hpdi_95[0])
-                stats['hpdi_95_upper'] = float(hpdi_95[1])
-            except Exception:
-                pass
-            
-            # Add diagnostics if available
-            if self.diagnostics:
-                if param_name in self.diagnostics.get('r_hat', {}):
-                    stats['r_hat'] = self.diagnostics['r_hat'][param_name]
-                if param_name in self.diagnostics.get('ess', {}):
-                    stats['ess'] = self.diagnostics['ess'][param_name]
-                    stats['ess_per_sec'] = self.diagnostics['n_eff_per_sec'].get(param_name, 0)
-            
-            summary_dict[param_name] = stats
         
-        return summary_dict
+        # Add overall diagnostics
+        diagnostics['_overall'] = {
+            'total_time': self._run_time,
+            'num_chains': self.num_chains,
+            'num_samples': self.num_samples,
+            'num_warmup': self.num_warmup
+        }
+        
+        return diagnostics
+    
+    def save_results(self, filepath: Union[str, Path], format: str = 'pickle') -> None:
+        """
+        Save MCMC results to file.
+        
+        Parameters
+        ----------
+        filepath : str or Path
+            Path to save file
+        format : str
+            Format to save in: 'pickle', 'hdf5', or 'arviz'
+        """
+        if self._samples is None:
+            raise RuntimeError("No samples available. Run MCMC first.")
+        
+        filepath = Path(filepath)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        
+        if format == 'pickle':
+            with open(filepath, 'wb') as f:
+                pickle.dump({
+                    'samples': self._samples,
+                    'diagnostics': self.get_diagnostics(),
+                    'config': {
+                        'num_warmup': self.num_warmup,
+                        'num_samples': self.num_samples,
+                        'num_chains': self.num_chains
+                    },
+                    'timestamp': datetime.now().isoformat()
+                }, f)
+                
+        elif format == 'hdf5':
+            with h5py.File(filepath, 'w') as f:
+                # Save samples
+                samples_group = f.create_group('samples')
+                for param_name, param_samples in self._samples.items():
+                    samples_group.create_dataset(param_name, data=np.array(param_samples))
+                
+                # Save config
+                config_group = f.create_group('config')
+                config_group.attrs['num_warmup'] = self.num_warmup
+                config_group.attrs['num_samples'] = self.num_samples
+                config_group.attrs['num_chains'] = self.num_chains
+                config_group.attrs['timestamp'] = datetime.now().isoformat()
+                
+        elif format == 'arviz':
+            # Convert to ArviZ InferenceData
+            inference_data = self.to_arviz()
+            inference_data.to_netcdf(filepath)
+            
+        else:
+            raise ValueError(f"Unknown format: {format}")
+        
+        if self.verbose:
+            self.console.print(f"[green]✓ Results saved to {filepath}[/green]")
+    
+    def load_results(self, filepath: Union[str, Path], format: str = 'pickle') -> None:
+        """
+        Load MCMC results from file.
+        
+        Parameters
+        ----------
+        filepath : str or Path
+            Path to load file
+        format : str
+            Format to load from: 'pickle', 'hdf5', or 'arviz'
+        """
+        filepath = Path(filepath)
+        
+        if format == 'pickle':
+            with open(filepath, 'rb') as f:
+                data = pickle.load(f)
+                self._samples = data['samples']
+                self._run_time = data.get('diagnostics', {}).get('_overall', {}).get('total_time')
+                
+        elif format == 'hdf5':
+            with h5py.File(filepath, 'r') as f:
+                self._samples = {}
+                for param_name in f['samples'].keys():
+                    self._samples[param_name] = jnp.array(f['samples'][param_name][:])
+                    
+        elif format == 'arviz':
+            inference_data = az.from_netcdf(filepath)
+            # Convert from ArviZ format
+            self._samples = {}
+            for var_name in inference_data.posterior.data_vars:
+                values = inference_data.posterior[var_name].values
+                # Flatten chains and draws
+                self._samples[var_name] = jnp.array(values.reshape(-1, *values.shape[2:]))
+                
+        else:
+            raise ValueError(f"Unknown format: {format}")
+        
+        if self.verbose:
+            self.console.print(f"[green]✓ Results loaded from {filepath}[/green]")
     
     def to_arviz(self) -> az.InferenceData:
         """
-        Convert samples to ArviZ InferenceData object.
+        Convert samples to ArviZ InferenceData for analysis.
         
         Returns
         -------
         arviz.InferenceData
-            ArviZ data structure for analysis
+            ArviZ data structure for further analysis
         """
-        if self.samples is None:
+        if self._samples is None:
             raise RuntimeError("No samples available. Run MCMC first.")
         
-        # Reshape samples for ArviZ (chain, draw, *shape)
-        posterior_samples = {}
-        for param_name, param_samples in self.samples.items():
-            if param_samples.ndim == 1:
-                # Reshape from flat to (chain, draw)
-                samples_per_chain = len(param_samples) // self.num_chains
-                reshaped = param_samples[:self.num_chains * samples_per_chain].reshape(
-                    self.num_chains, samples_per_chain)
-            else:
-                reshaped = param_samples
-                
-            posterior_samples[param_name] = reshaped
+        # Get samples grouped by chain
+        samples_by_chain = self.mcmc.get_samples(group_by_chain=True)
         
-        # Create InferenceData
-        inference_data = az.from_dict(
-            posterior=posterior_samples,
-            coords={},
-            dims={}
+        # Convert to ArviZ format
+        return az.from_dict(posterior=samples_by_chain)
+    
+    def _print_config(self) -> None:
+        """Print MCMC configuration."""
+        config_panel = Panel.fit(
+            f"[cyan]Chains:[/cyan] {self.num_chains}\n"
+            f"[cyan]Warmup:[/cyan] {self.num_warmup}\n"
+            f"[cyan]Samples:[/cyan] {self.num_samples}\n"
+            f"[cyan]Method:[/cyan] {self.chain_method}",
+            title="MCMC Configuration",
+            border_style="blue"
+        )
+        self.console.print(config_panel)
+    
+    def _print_summary(self) -> None:
+        """Print post-run summary."""
+        self.console.print(f"\n[green]✓ MCMC completed in {self._run_time:.2f} seconds[/green]")
+        
+        # Quick convergence check
+        diagnostics = self.get_diagnostics()
+        converged = all(
+            d['r_hat'] < 1.01 
+            for param, d in diagnostics.items() 
+            if param != '_overall'
         )
         
-        return inference_data
+        if converged:
+            self.console.print("[green]✓ All parameters converged (R̂ < 1.01)[/green]")
+        else:
+            unconverged = [
+                param for param, d in diagnostics.items()
+                if param != '_overall' and d['r_hat'] >= 1.01
+            ]
+            self.console.print(f"[yellow]⚠ Parameters not converged: {unconverged}[/yellow]")
+
+
+class DiagnosticsTools:
+    """
+    Enhanced diagnostic tools for MCMC analysis.
     
-    def check_convergence(self, r_hat_threshold: float = 1.01,
-                         ess_threshold: float = 400) -> Tuple[bool, Dict[str, str]]:
+    This class provides JAX-optimized diagnostic computations
+    and beautiful visualizations for MCMC results.
+    """
+    
+    @staticmethod
+    @jit
+    def autocorrelation(x: jnp.ndarray, max_lag: Optional[int] = None) -> jnp.ndarray:
         """
-        Check convergence with detailed diagnostics.
+        Compute autocorrelation function using JAX.
         
         Parameters
         ----------
-        r_hat_threshold : float
-            Threshold for R-hat convergence
-        ess_threshold : float
-            Minimum effective sample size
+        x : jnp.ndarray
+            1D array of samples
+        max_lag : int, optional
+            Maximum lag to compute
             
         Returns
         -------
-        tuple
-            (converged, issues_dict)
+        jnp.ndarray
+            Autocorrelation values for each lag
         """
-        if not self.diagnostics:
-            return False, {"error": "No diagnostics available"}
+        x = x - jnp.mean(x)
+        c0 = jnp.dot(x, x) / len(x)
         
-        issues = {}
-        converged = True
+        if max_lag is None:
+            max_lag = len(x) // 4
         
-        # Check R-hat
-        for param, r_hat in self.diagnostics.get('r_hat', {}).items():
-            if r_hat >= r_hat_threshold:
-                issues[param] = f"R-hat = {r_hat:.3f} >= {r_hat_threshold}"
-                converged = False
+        acf = jnp.zeros(max_lag)
+        for k in range(max_lag):
+            if k == 0:
+                acf = acf.at[k].set(1.0)
+            else:
+                ck = jnp.dot(x[:-k], x[k:]) / len(x)
+                acf = acf.at[k].set(ck / c0)
         
-        # Check ESS
-        for param, ess in self.diagnostics.get('ess', {}).items():
-            if ess < ess_threshold:
-                issues[param] = issues.get(param, "") + f" ESS = {ess:.0f} < {ess_threshold}"
-                converged = False
+        return acf
+    
+    @staticmethod
+    @jit
+    def integrated_autocorrelation_time(x: jnp.ndarray) -> float:
+        """
+        Estimate integrated autocorrelation time using JAX.
         
-        return converged, issues
+        Parameters
+        ----------
+        x : jnp.ndarray
+            1D array of samples
+            
+        Returns
+        -------
+        float
+            Integrated autocorrelation time
+        """
+        acf = DiagnosticsTools.autocorrelation(x)
+        
+        # Find first negative autocorrelation
+        first_negative = jnp.where(acf < 0)[0]
+        if len(first_negative) > 0:
+            cutoff = first_negative[0]
+        else:
+            cutoff = len(acf)
+        
+        # Integrate up to cutoff
+        tau = 1 + 2 * jnp.sum(acf[1:cutoff])
+        return tau
+    
+    @staticmethod
+    def plot_trace(samples: Dict[str, jnp.ndarray], 
+                   params: Optional[List[str]] = None) -> None:
+        """
+        Create trace plots for MCMC chains.
+        
+        Parameters
+        ----------
+        samples : Dict[str, jnp.ndarray]
+            Dictionary of samples
+        params : List[str], optional
+            Parameters to plot. If None, plots all.
+        """
+        import matplotlib.pyplot as plt
+        
+        if params is None:
+            params = list(samples.keys())
+        
+        n_params = len(params)
+        fig, axes = plt.subplots(n_params, 2, figsize=(12, 3*n_params))
+        
+        if n_params == 1:
+            axes = axes.reshape(1, -1)
+        
+        for i, param in enumerate(params):
+            param_samples = samples[param]
+            
+            # Trace plot
+            axes[i, 0].plot(param_samples, alpha=0.7)
+            axes[i, 0].set_ylabel(param)
+            axes[i, 0].set_xlabel('Iteration')
+            axes[i, 0].set_title(f'{param} Trace')
+            
+            # Histogram
+            axes[i, 1].hist(param_samples, bins=50, alpha=0.7, density=True)
+            axes[i, 1].set_xlabel(param)
+            axes[i, 1].set_ylabel('Density')
+            axes[i, 1].set_title(f'{param} Distribution')
+        
+        plt.tight_layout()
+        plt.show()
+    
+    @staticmethod
+    def plot_corner(samples: Dict[str, jnp.ndarray], 
+                    params: Optional[List[str]] = None,
+                    **corner_kwargs) -> None:
+        """
+        Create corner plot for MCMC samples.
+        
+        Parameters
+        ----------
+        samples : Dict[str, jnp.ndarray]
+            Dictionary of samples
+        params : List[str], optional
+            Parameters to plot. If None, plots all.
+        **corner_kwargs
+            Additional arguments for corner.corner()
+        """
+        try:
+            import corner
+        except ImportError:
+            raise ImportError("Please install corner: pip install corner")
+        
+        if params is None:
+            params = list(samples.keys())
+        
+        # Prepare data for corner
+        data = np.column_stack([np.array(samples[p]).flatten() for p in params])
+        
+        # Create corner plot
+        fig = corner.corner(
+            data,
+            labels=params,
+            show_titles=True,
+            title_fmt='.3f',
+            quantiles=[0.16, 0.5, 0.84],
+            **corner_kwargs
+        )
+        
+        return fig
+
+
+# Convenience function for quick MCMC runs
+def run_mcmc(model_fn: Callable,
+             num_samples: int = 2000,
+             num_chains: int = 4,
+             show_summary: bool = True,
+             **kwargs) -> Dict[str, jnp.ndarray]:
+    """
+    Convenience function for quick MCMC runs.
+    
+    Parameters
+    ----------
+    model_fn : Callable
+        NumPyro model function
+    num_samples : int
+        Number of samples per chain
+    num_chains : int
+        Number of chains
+    show_summary : bool
+        Whether to print summary
+    **kwargs
+        Additional arguments passed to model function
+        
+    Returns
+    -------
+    Dict[str, jnp.ndarray]
+        Dictionary of samples
+    
+    Example
+    -------
+    >>> def model(data):
+    >>>     mu = numpyro.sample("mu", dist.Normal(0, 10))
+    >>>     numpyro.sample("obs", dist.Normal(mu, 1), obs=data)
+    >>> 
+    >>> samples = run_mcmc(model, data=my_data)
+    """
+    sampler = MCMCSampler(model_fn, num_samples=num_samples, num_chains=num_chains)
+    samples = sampler.run(**kwargs)
+    
+    if show_summary:
+        sampler.print_summary()
+    
+    return samples
