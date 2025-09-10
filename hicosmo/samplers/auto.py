@@ -73,7 +73,7 @@ class AutoMCMC:
         strict_mode: bool = False,
         chain_name: Optional[str] = None,
         # Optimization options
-        optimize_init: bool = True,
+        optimize_init: bool = False,  # 默认关闭JAX优化，使用标准warmup
         max_opt_iterations: int = 1000,
         opt_learning_rate: float = 0.01,
         # Checkpoint and resume options
@@ -100,8 +100,10 @@ class AutoMCMC:
             If True, raise errors for parameter mismatches instead of warnings.
         chain_name : str, optional
             Name for the MCMC chain (used for saving results).
-        optimize_init : bool
+        optimize_init : bool, default=False
             If True, use JAX optimization to find best-fit values as initial points.
+            Most beneficial for: expensive likelihoods (>10ms/call), high dimensions (>20 params),
+            or multi-modal problems. For typical problems, standard warmup is recommended.
         max_opt_iterations : int
             Maximum iterations for the optimization process.
         opt_learning_rate : float
@@ -147,6 +149,10 @@ class AutoMCMC:
         self.max_opt_iterations = max_opt_iterations
         self.opt_learning_rate = opt_learning_rate
         
+        # Show optimization advice if user explicitly enabled it
+        if optimize_init:
+            self._show_optimization_advice()
+        
         # Checkpoint system configuration
         self.enable_checkpoints = enable_checkpoints
         self.checkpoint_interval = checkpoint_interval
@@ -191,6 +197,32 @@ class AutoMCMC:
         # Store results
         self._samples = None
         self._mapping_result = None
+    
+    def _show_optimization_advice(self):
+        """Show advice about when JAX optimization is most beneficial."""
+        num_params = len(self.param_config.parameters)
+        print("\n" + "🔧" * 60)
+        print("JAX OPTIMIZATION ENABLED")
+        print("🔧" * 60)
+        print("📝 Optimization is most beneficial when:")
+        print("  • Likelihood computation time > 10ms per call")
+        print("  • High-dimensional problems (>20 parameters)")  
+        print("  • Complex multi-modal distributions")
+        print("  • Convergence problems with traditional warmup")
+        print()
+        
+        if num_params < 10:
+            print("⚠️  Note: For simple problems (<10 parameters), optimization")
+            print("   overhead may exceed benefits. Consider traditional warmup.")
+        elif num_params < 20:
+            print("ℹ️  Medium complexity problem. Optimization may help if")
+            print("   likelihood computation is expensive.")
+        else:
+            print("✅ Large problem size. JAX optimization likely beneficial.")
+            
+        print("\n💡 To disable optimization: set optimize_init=False")
+        print("   This will use standard warmup (recommended for most cases)")
+        print("🔧" * 60)
     
     def _parse_dict_config(self, config: Dict) -> ParameterConfig:
         """Parse dictionary configuration into ParameterConfig.
@@ -289,6 +321,39 @@ class AutoMCMC:
         
         return optimized_params
     
+    def _apply_intelligent_defaults(self, mcmc_kwargs: dict) -> dict:
+        """
+        Apply intelligent MCMC defaults based on optimization settings.
+        
+        Strategy:
+        - JAX optimization ON  → warmup=300  (minimal for HMC tuning)
+        - JAX optimization OFF → warmup=2000 (standard warmup)
+        - User can override any defaults explicitly
+        """
+        # Don't override user-specified values
+        if 'num_warmup' not in mcmc_kwargs:
+            if self.optimize_init:
+                # JAX optimization enabled: minimal warmup needed
+                mcmc_kwargs['num_warmup'] = 300
+                if mcmc_kwargs.get('verbose', True):
+                    print("📝 Using minimal warmup (300) with JAX optimization")
+            else:
+                # No optimization: use standard warmup
+                mcmc_kwargs['num_warmup'] = 2000
+                if mcmc_kwargs.get('verbose', True):
+                    print("📝 Using standard warmup (2000) without optimization")
+        else:
+            # User specified warmup value
+            user_warmup = mcmc_kwargs['num_warmup']
+            if mcmc_kwargs.get('verbose', True):
+                print(f"📝 Using user-specified warmup ({user_warmup})")
+        
+        # Set other reasonable defaults
+        mcmc_kwargs.setdefault('num_samples', 2000)
+        mcmc_kwargs.setdefault('num_chains', 4)
+        
+        return mcmc_kwargs
+    
     def _setup_mcmc(self):
         """Set up MCMC sampler with automatic model generation."""
         # Create NumPyro model with automatic mapping
@@ -296,9 +361,12 @@ class AutoMCMC:
             self.likelihood_func, **self.data_kwargs
         )
         
-        # Create MCMCSampler
+        # Create MCMCSampler with intelligent warmup defaults
         mcmc_kwargs = self.param_config.mcmc.copy()
         verbose = mcmc_kwargs.pop('verbose', True)
+        
+        # Apply intelligent warmup defaults based on optimization setting
+        mcmc_kwargs = self._apply_intelligent_defaults(mcmc_kwargs)
         
         self.sampler = MCMCSampler(
             self.numpyro_model,

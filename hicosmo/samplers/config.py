@@ -405,7 +405,7 @@ class ParameterConfig:
     def _set_mcmc_defaults(self):
         """Set default MCMC configuration."""
         defaults = {
-            'num_warmup': 0,  # 默认不需要warmup，从优化初始值开始
+            # num_warmup removed - now set intelligently by AutoMCMC based on optimize_init
             'num_samples': 4000,
             'num_chains': 4,
             'verbose': True

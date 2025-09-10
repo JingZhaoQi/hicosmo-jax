@@ -62,7 +62,7 @@ class MCMCSampler:
     def __init__(self,
                  model_fn: Callable,
                  kernel: Optional[object] = None,
-                 num_warmup: int = 0,  # 默认不需要warmup，从优化初始值开始
+                 num_warmup: int = 1000,  # 基础默认值，由AutoMCMC智能调整
                  num_samples: int = 2000,
                  num_chains: int = 4,
                  chain_method: str = 'parallel',
