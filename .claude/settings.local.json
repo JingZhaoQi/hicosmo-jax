@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "Bash(python -m pytest tests/ -v --tb=no)"
+      "Bash(python -m pytest tests/ -v --tb=no)",
+      "Bash(cat:*)",
+      "WebFetch(domain:cobaya.readthedocs.io)"
     ],
     "deny": [],
     "ask": []
