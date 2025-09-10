@@ -6,7 +6,7 @@ Created on Fri Dec 20 09:58:47 2019
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from hicosmo.MCMC import MCMC_class
+from qcosmc.MCMC import MCMC_class
 
 
 
