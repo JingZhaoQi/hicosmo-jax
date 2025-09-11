@@ -16,7 +16,7 @@ import time
 import numpyro
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from hicosmo.samplers import AutoMCMC
+from hicosmo.samplers import MCMC
 
 numpyro.set_host_device_count(4)
 
@@ -95,7 +95,7 @@ def test_expensive_likelihood():
     config1['mcmc'] = {'num_warmup': 1000, 'num_samples': 1000, 'num_chains': 2}
     
     start_time = time.time()
-    mcmc1 = AutoMCMC(config1, likelihood, optimize_init=False, chain_name="expensive_trad")
+    mcmc1 = MCMC(config1, likelihood, optimize_init=False, chain_name="expensive_trad")
     samples1 = mcmc1.run()
     time1 = time.time() - start_time
     
@@ -109,7 +109,7 @@ def test_expensive_likelihood():
     config2['mcmc'] = {'num_warmup': 200, 'num_samples': 1000, 'num_chains': 2}
     
     start_time = time.time()
-    mcmc2 = AutoMCMC(config2, likelihood, optimize_init=True, 
+    mcmc2 = MCMC(config2, likelihood, optimize_init=True, 
                      max_opt_iterations=100, chain_name="expensive_opt")
     samples2 = mcmc2.run()
     time2 = time.time() - start_time
@@ -142,7 +142,7 @@ def test_multimodal_problem():
     
     try:
         start_time = time.time()
-        mcmc1 = AutoMCMC(config1, likelihood, optimize_init=False, chain_name="multimodal_trad")
+        mcmc1 = MCMC(config1, likelihood, optimize_init=False, chain_name="multimodal_trad")
         samples1 = mcmc1.run()
         time1 = time.time() - start_time
         
@@ -166,7 +166,7 @@ def test_multimodal_problem():
     
     try:
         start_time = time.time()
-        mcmc2 = AutoMCMC(config2, likelihood, optimize_init=True,
+        mcmc2 = MCMC(config2, likelihood, optimize_init=True,
                         max_opt_iterations=300, chain_name="multimodal_opt")
         samples2 = mcmc2.run()
         time2 = time.time() - start_time

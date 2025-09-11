@@ -18,6 +18,12 @@ import warnings
 import gzip
 import pickle
 
+from .constants import (
+    DEFAULT_CHECKPOINT_INTERVAL, DEFAULT_CHECKPOINT_DIR,
+    CHECKPOINT_FILE_EXTENSION, CHECKPOINT_PATTERN_TEMPLATE,
+    FINAL_RESULT_PATTERN
+)
+
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -172,7 +178,7 @@ class CheckpointManager:
     def __init__(
         self,
         checkpoint_dir: Union[str, Path] = "./mcmc_checkpoints",
-        checkpoint_interval: int = 1000,
+        checkpoint_interval: int = DEFAULT_CHECKPOINT_INTERVAL,
         backup_count: int = 5,
         compression: str = "gzip",
         save_warmup: bool = True,

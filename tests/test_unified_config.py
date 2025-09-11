@@ -12,7 +12,7 @@ import numpyro
 # Add HiCosmo to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hicosmo.samplers import AutoMCMC
+from hicosmo.samplers import MCMC
 
 # Enable multi-core for testing
 numpyro.set_host_device_count(2)
@@ -44,7 +44,7 @@ def test_unified_config():
     
     print("\n🧪 测试1: 默认模式 (无优化)")
     print("-" * 40)
-    mcmc1 = AutoMCMC(base_config, simple_likelihood, chain_name="test_no_opt")
+    mcmc1 = MCMC(base_config, simple_likelihood, chain_name="test_no_opt")
     print(f"✓ optimize_init = {mcmc1.optimize_init}")
     print(f"✓ num_warmup = {mcmc1.sampler.num_warmup} (应该是2000)")
     assert mcmc1.optimize_init == False
@@ -52,7 +52,7 @@ def test_unified_config():
     
     print("\n🧪 测试2: 启用优化模式")
     print("-" * 40)  
-    mcmc2 = AutoMCMC(base_config, simple_likelihood, 
+    mcmc2 = MCMC(base_config, simple_likelihood, 
                      optimize_init=True, chain_name="test_opt")
     print(f"✓ optimize_init = {mcmc2.optimize_init}")
     print(f"✓ num_warmup = {mcmc2.sampler.num_warmup} (应该是300)")
@@ -64,7 +64,7 @@ def test_unified_config():
     custom_config = base_config.copy()
     custom_config['mcmc']['num_warmup'] = 1500  # 用户指定
     
-    mcmc3 = AutoMCMC(custom_config, simple_likelihood, 
+    mcmc3 = MCMC(custom_config, simple_likelihood, 
                      optimize_init=True, chain_name="test_custom")
     print(f"✓ optimize_init = {mcmc3.optimize_init}")
     print(f"✓ num_warmup = {mcmc3.sampler.num_warmup} (应该是1500，用户指定)")
@@ -73,7 +73,7 @@ def test_unified_config():
     
     print("\n🧪 测试4: 用户指定warmup，无优化")
     print("-" * 40)
-    mcmc4 = AutoMCMC(custom_config, simple_likelihood, 
+    mcmc4 = MCMC(custom_config, simple_likelihood, 
                      optimize_init=False, chain_name="test_custom_no_opt")
     print(f"✓ optimize_init = {mcmc4.optimize_init}")
     print(f"✓ num_warmup = {mcmc4.sampler.num_warmup} (应该是1500，用户指定)")
@@ -86,7 +86,7 @@ def test_unified_config():
     print("   • 无优化 + 无warmup指定 → 2000")
     print("   • 有优化 + 无warmup指定 → 300")
     print("   • 用户指定warmup → 用户值（优先级最高）")
-    print("   • 所有逻辑集中在AutoMCMC._apply_intelligent_defaults()")
+    print("   • 所有逻辑集中在MCMC._apply_intelligent_defaults()")
 
 if __name__ == "__main__":
     test_unified_config()

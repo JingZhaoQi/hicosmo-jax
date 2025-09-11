@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test JAX optimization initialization for AutoMCMC.
+Test JAX optimization initialization for MCMC.
 
 This test demonstrates the new JAX-based optimization initialization
 that finds best-fit values before starting MCMC sampling.
@@ -16,7 +16,7 @@ import numpyro
 # Add HiCosmo to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hicosmo.samplers import AutoMCMC
+from hicosmo.samplers import MCMC
 
 # Enable multi-core sampling
 numpyro.set_host_device_count(4)
@@ -59,7 +59,7 @@ def test_jax_optimization_basic():
     # Run with optimization
     print("\n🚀 Running MCMC with JAX optimization...")
     start_time = time.time()
-    mcmc = AutoMCMC(config, likelihood, 
+    mcmc = MCMC(config, likelihood, 
                     chain_name="test_jax_opt",
                     optimize_init=True,
                     max_opt_iterations=500)
@@ -126,7 +126,7 @@ def test_optimization_vs_no_optimization():
     # Test without optimization
     print("\n📈 Running MCMC without optimization (with warmup)...")
     start_time = time.time()
-    mcmc_no_opt = AutoMCMC(config, likelihood, 
+    mcmc_no_opt = MCMC(config, likelihood, 
                           chain_name="test_no_opt",
                           optimize_init=False)
     samples_no_opt = mcmc_no_opt.run()
@@ -136,7 +136,7 @@ def test_optimization_vs_no_optimization():
     config['mcmc']['num_warmup'] = 0  # No warmup when optimized
     print("\n🚀 Running MCMC with optimization (no warmup)...")
     start_time = time.time()
-    mcmc_opt = AutoMCMC(config, likelihood, 
+    mcmc_opt = MCMC(config, likelihood, 
                        chain_name="test_opt_compare",
                        optimize_init=True,
                        max_opt_iterations=500)
@@ -192,7 +192,7 @@ def test_optimization_with_different_priors():
         }
     }
     
-    mcmc = AutoMCMC(config, likelihood, 
+    mcmc = MCMC(config, likelihood, 
                    chain_name="test_mixed_priors",
                    optimize_init=True)
     samples = mcmc.run()
@@ -263,7 +263,7 @@ def main():
         print("  • Significant speedup compared to warmup approach")
         print("  • Accurate parameter recovery from optimized starts")
         print("  • Support for mixed prior types")
-        print("  • Integration with all API levels (AutoMCMC, quick_mcmc)")
+        print("  • Integration with all API levels (MCMC, quick_mcmc)")
         print("  • Default warmup=0 with optimization")
         
         print("\n⚡ Performance Benefits:")

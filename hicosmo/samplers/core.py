@@ -28,6 +28,10 @@ import json
 import h5py
 import time
 from datetime import datetime
+from .constants import (
+    DEFAULT_NUM_SAMPLES, DEFAULT_NUM_CHAINS,
+    DEFAULT_WARMUP_STANDARD, RNG_SEED_MODULO
+)
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
 from rich.table import Table
@@ -62,8 +66,8 @@ class MCMCSampler:
     def __init__(self,
                  model_fn: Callable,
                  kernel: Optional[object] = None,
-                 num_warmup: int = 1000,  # 基础默认值，由AutoMCMC智能调整
-                 num_samples: int = 2000,
+                 num_warmup: int = DEFAULT_WARMUP_STANDARD,  # 默认值，由MCMC智能调整
+                 num_samples: int = DEFAULT_NUM_SAMPLES,
                  num_chains: int = 4,
                  chain_method: str = 'parallel',
                  progress_bar: bool = True,
@@ -146,7 +150,7 @@ class MCMCSampler:
             Dictionary of samples for each parameter
         """
         if rng_key is None:
-            rng_key = jax.random.PRNGKey(int(time.time() * 1000) % 2**32)
+            rng_key = jax.random.PRNGKey(int(time.time() * 1000) % RNG_SEED_MODULO)
         
         # Print configuration if verbose
         if self.verbose:
@@ -653,7 +657,7 @@ class DiagnosticsTools:
 
 # Convenience function for quick MCMC runs
 def run_mcmc(model_fn: Callable,
-             num_samples: int = 2000,
+             num_samples: int = DEFAULT_NUM_SAMPLES,
              num_chains: int = 4,
              show_summary: bool = True,
              **kwargs) -> Dict[str, jnp.ndarray]:

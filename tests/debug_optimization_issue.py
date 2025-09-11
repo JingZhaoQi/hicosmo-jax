@@ -15,7 +15,7 @@ import numpyro
 # Add HiCosmo to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hicosmo.samplers import AutoMCMC
+from hicosmo.samplers import MCMC
 
 # Enable multi-core sampling
 numpyro.set_host_device_count(4)
@@ -52,7 +52,7 @@ def debug_simple_case():
     config1 = config.copy()
     config1['mcmc'] = {'num_warmup': 1000, 'num_samples': 1000}
     
-    mcmc1 = AutoMCMC(config1, likelihood, 
+    mcmc1 = MCMC(config1, likelihood, 
                     optimize_init=False, 
                     chain_name="debug_traditional")
     start = time.time()
@@ -69,7 +69,7 @@ def debug_simple_case():
     config2 = config.copy()
     config2['mcmc'] = {'num_warmup': 3000, 'num_samples': 1000}  # More warmup
     
-    mcmc2 = AutoMCMC(config2, likelihood, 
+    mcmc2 = MCMC(config2, likelihood, 
                     optimize_init=False, 
                     chain_name="debug_more_warmup")
     start = time.time()
@@ -86,7 +86,7 @@ def debug_simple_case():
     config3 = config.copy()
     config3['mcmc'] = {'num_warmup': 500, 'num_samples': 1000}  # Some warmup even after optimization
     
-    mcmc3 = AutoMCMC(config3, likelihood, 
+    mcmc3 = MCMC(config3, likelihood, 
                     optimize_init=True,
                     max_opt_iterations=200,  # Shorter optimization
                     chain_name="debug_opt_warmup")
@@ -104,7 +104,7 @@ def debug_simple_case():
     config4 = config.copy()
     config4['mcmc'] = {'num_warmup': 0, 'num_samples': 3000}  # More samples instead of warmup
     
-    mcmc4 = AutoMCMC(config4, likelihood, 
+    mcmc4 = MCMC(config4, likelihood, 
                     optimize_init=True,
                     max_opt_iterations=200,
                     chain_name="debug_opt_more_samples")

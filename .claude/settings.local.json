@@ -4,7 +4,10 @@
       "WebSearch",
       "Bash(python -m pytest tests/ -v --tb=no)",
       "Bash(cat:*)",
-      "WebFetch(domain:cobaya.readthedocs.io)"
+      "WebFetch(domain:cobaya.readthedocs.io)",
+      "Bash(python:*)",
+      "Bash(find:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

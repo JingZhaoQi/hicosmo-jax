@@ -31,7 +31,7 @@ warnings.filterwarnings('ignore')
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import numpyro
-from hicosmo.samplers import AutoMCMC
+from hicosmo.samplers import MCMC
 
 # 使用单核以确保性能分析器能正确捕获数据
 numpyro.set_host_device_count(1)
@@ -201,7 +201,7 @@ def run_hicosmo_benchmark(problem_name: str, problem_data: dict) -> dict:
     try:
         profiler.__enter__()  # 手动开始性能分析
         
-        mcmc = AutoMCMC(config, problem_data['likelihood'], 
+        mcmc = MCMC(config, problem_data['likelihood'], 
                       chain_name=f"bench_hicosmo_{problem_name}")
         samples = mcmc.run()
         

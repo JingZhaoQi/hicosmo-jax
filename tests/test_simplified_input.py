@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test simplified parameter input format for AutoMCMC.
+Test simplified parameter input format for MCMC.
 
 This test demonstrates the new simplified input format that allows
 users to specify parameters using tuples, lists, or sets.
@@ -13,11 +13,11 @@ import sys
 # Add HiCosmo to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hicosmo.samplers import AutoMCMC
+from hicosmo.samplers import MCMC
 
 
 def test_simplified_tuple_format():
-    """Test AutoMCMC with simplified tuple format."""
+    """Test MCMC with simplified tuple format."""
     print("=" * 70)
     print("Test 1: Simplified Tuple Format")
     print("=" * 70)
@@ -48,7 +48,7 @@ def test_simplified_tuple_format():
         }
     }
     
-    mcmc = AutoMCMC(config, likelihood, chain_name="test_tuple_format")
+    mcmc = MCMC(config, likelihood, chain_name="test_tuple_format")
     samples = mcmc.run()
     
     print("\nResults with tuple format:")
@@ -61,7 +61,7 @@ def test_simplified_tuple_format():
 
 
 def test_simplified_list_format():
-    """Test AutoMCMC with simplified list format."""
+    """Test MCMC with simplified list format."""
     print("\n" + "=" * 70)
     print("Test 2: Simplified List Format")
     print("=" * 70)
@@ -92,7 +92,7 @@ def test_simplified_list_format():
         }
     }
     
-    mcmc = AutoMCMC(config, likelihood, chain_name="test_list_format")
+    mcmc = MCMC(config, likelihood, chain_name="test_list_format")
     samples = mcmc.run()
     
     print("\nResults with list format:")
@@ -105,7 +105,7 @@ def test_simplified_list_format():
 
 
 def test_simplified_set_format():
-    """Test AutoMCMC with simplified set format."""
+    """Test MCMC with simplified set format."""
     print("\n" + "=" * 70)
     print("Test 3: Simplified Set Format")
     print("=" * 70)
@@ -136,7 +136,7 @@ def test_simplified_set_format():
         }
     }
     
-    mcmc = AutoMCMC(config, likelihood, chain_name="test_set_format")
+    mcmc = MCMC(config, likelihood, chain_name="test_set_format")
     samples = mcmc.run()
     
     print("\nResults with set format:")
@@ -149,7 +149,7 @@ def test_simplified_set_format():
 
 
 def test_mixed_formats():
-    """Test AutoMCMC with mixed parameter formats."""
+    """Test MCMC with mixed parameter formats."""
     print("\n" + "=" * 70)
     print("Test 4: Mixed Parameter Formats")
     print("=" * 70)
@@ -180,7 +180,7 @@ def test_mixed_formats():
         }
     }
     
-    mcmc = AutoMCMC(config, likelihood, chain_name="test_mixed_formats")
+    mcmc = MCMC(config, likelihood, chain_name="test_mixed_formats")
     samples = mcmc.run()
     
     print("\nResults with mixed formats:")

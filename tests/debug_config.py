@@ -9,7 +9,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hicosmo.samplers import AutoMCMC
+from hicosmo.samplers import MCMC
 from hicosmo.samplers.config import ParameterConfig
 
 def debug_config_flow():
@@ -35,12 +35,12 @@ def debug_config_flow():
     print(f"  param_config.mcmc: {param_config.mcmc}")
     print(f"  'num_warmup' in param_config.mcmc: {'num_warmup' in param_config.mcmc}")
     
-    print("\n3. AutoMCMC处理：")
+    print("\n3. MCMC处理：")
     
     def dummy_likelihood(a):
         return -0.5 * a**2
     
-    mcmc = AutoMCMC(config, dummy_likelihood, chain_name="debug")
+    mcmc = MCMC(config, dummy_likelihood, chain_name="debug")
     print(f"  final num_warmup: {mcmc.sampler.num_warmup}")
 
 if __name__ == "__main__":

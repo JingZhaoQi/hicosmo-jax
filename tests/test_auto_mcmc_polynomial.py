@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test the new AutoMCMC system with the polynomial fitting example.
+Test the new MCMC system with the polynomial fitting example.
 
 This test demonstrates the dramatically simplified API compared to the previous
 NumPyro implementation, while maintaining all the power and flexibility.
@@ -14,7 +14,7 @@ import sys
 # Add HiCosmo to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hicosmo.samplers import AutoMCMC, quick_mcmc
+from hicosmo.samplers import MCMC, quick_mcmc
 
 
 def load_test_data():
@@ -43,7 +43,7 @@ def load_test_data():
 
 
 def test_dictionary_config():
-    """Test AutoMCMC with dictionary configuration."""
+    """Test MCMC with dictionary configuration."""
     print("=" * 70)
     print("Test 1: Dictionary-Based Configuration")
     print("=" * 70)
@@ -85,7 +85,7 @@ def test_dictionary_config():
     }
     
     # One line to create and configure MCMC! (much cleaner)
-    mcmc = AutoMCMC(config, polynomial_likelihood, 
+    mcmc = MCMC(config, polynomial_likelihood, 
                    chain_name="test1_dict_config")
     
     # One line to run!
@@ -108,7 +108,7 @@ def test_dictionary_config():
 
 
 def test_simple_list_config():
-    """Test AutoMCMC with qcosmc-style simple list."""
+    """Test MCMC with qcosmc-style simple list."""
     print("\n" + "=" * 70)
     print("Test 2: Simple List Configuration (qcosmc-compatible)")
     print("=" * 70)
@@ -131,7 +131,7 @@ def test_simple_list_config():
     ]
     
     # Clean and simple call
-    mcmc = AutoMCMC.from_simple_list(
+    mcmc = MCMC.from_simple_list(
         params,
         likelihood, 
         chain_name="test2_simple_list",
@@ -224,8 +224,8 @@ def test_advanced_features():
         
         return log_likelihood
     
-    # Create AutoMCMC (clean and simple)
-    mcmc = AutoMCMC(config, advanced_likelihood, 
+    # Create MCMC (clean and simple)
+    mcmc = MCMC(config, advanced_likelihood, 
                    chain_name="test4_advanced_features")
     
     # Check setup validation
@@ -279,7 +279,7 @@ samples = sampler.run(x_data=jnp.array(x), y_obs=jnp.array(y_obs), y_err=jnp.arr
 """
     print(old_code)
     
-    print("NEW API (AutoMCMC):")
+    print("NEW API (MCMC):")
     print("=" * 30) 
     new_code = """
 # Data loaded once at the beginning  
@@ -298,7 +298,7 @@ config = {
     }
 }
 
-mcmc = AutoMCMC(config, likelihood)  # Clean call
+mcmc = MCMC(config, likelihood)  # Clean call
 samples = mcmc.run()
 """
     print(new_code)
@@ -316,7 +316,7 @@ results = quick_mcmc(
 
 def main():
     """Run all tests."""
-    print("AutoMCMC System Test Suite")
+    print("MCMC System Test Suite")
     print("=" * 70)
     print("Testing the new dictionary-driven MCMC system")
     print()

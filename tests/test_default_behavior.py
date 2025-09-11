@@ -11,7 +11,7 @@ import sys
 # Add HiCosmo to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hicosmo.samplers import AutoMCMC
+from hicosmo.samplers import MCMC
 
 def simple_likelihood(a, b, c):
     """简单的似然函数用于测试"""
@@ -43,7 +43,7 @@ def test_default_behavior():
     }
     
     print("\n1. 测试默认设置 (应该关闭优化)")
-    mcmc1 = AutoMCMC(config, simple_likelihood, chain_name="test_default")
+    mcmc1 = MCMC(config, simple_likelihood, chain_name="test_default")
     
     print(f"✓ optimize_init = {mcmc1.optimize_init}")
     print(f"✓ num_warmup = {mcmc1.sampler.num_warmup}")
@@ -57,7 +57,7 @@ def test_default_behavior():
     print(f"✓ 采样完成，获得参数: {list(samples1.keys())}")
     
     print("\n2. 测试手动启用优化 (应该显示建议信息)")
-    mcmc2 = AutoMCMC(config, simple_likelihood, 
+    mcmc2 = MCMC(config, simple_likelihood, 
                      optimize_init=True,  # 手动启用
                      chain_name="test_optimized")
     

@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 # Add HiCosmo to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hicosmo.samplers import AutoMCMC
+from hicosmo.samplers import MCMC
 
 # Enable multi-core sampling for fair comparison
 numpyro.set_host_device_count(4)
@@ -126,7 +126,7 @@ def run_traditional_mcmc(likelihood, config, num_samples=2000, num_warmup=2000):
     }
     
     start_time = time.time()
-    mcmc = AutoMCMC(config_warmup, likelihood, 
+    mcmc = MCMC(config_warmup, likelihood, 
                    optimize_init=False,  # No optimization
                    chain_name=f"traditional_{int(time.time())}")
     samples = mcmc.run()
@@ -149,7 +149,7 @@ def run_optimized_mcmc(likelihood, config, num_samples=2000):
     }
     
     start_time = time.time()
-    mcmc = AutoMCMC(config_opt, likelihood,
+    mcmc = MCMC(config_opt, likelihood,
                    optimize_init=True,  # JAX optimization
                    max_opt_iterations=500,
                    chain_name=f"optimized_{int(time.time())}")

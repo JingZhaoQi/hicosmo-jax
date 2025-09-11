@@ -19,7 +19,7 @@ import sys
 # Add HiCosmo to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hicosmo.samplers import AutoMCMC, CheckpointManager, ResumeManager, MCMCState
+from hicosmo.samplers import MCMC, CheckpointManager, ResumeManager, MCMCState
 
 
 def create_test_likelihood():
@@ -74,7 +74,7 @@ def test_basic_checkpointing():
         
         # Run MCMC with checkpointing
         print("Running MCMC with checkpointing enabled...")
-        mcmc = AutoMCMC(
+        mcmc = MCMC(
             config, 
             likelihood,
             enable_checkpoints=True,
@@ -136,7 +136,7 @@ def test_resume_functionality():
         
         print("Step 1: Running initial MCMC...")
         # Initial run
-        mcmc1 = AutoMCMC(
+        mcmc1 = MCMC(
             config, 
             likelihood,
             enable_checkpoints=True,
@@ -160,7 +160,7 @@ def test_resume_functionality():
         print(f"   🔄 Resuming from: {checkpoint_path.name}")
         
         # Resume and continue
-        mcmc2 = AutoMCMC.resume(checkpoint_path, likelihood)
+        mcmc2 = MCMC.resume(checkpoint_path, likelihood)
         additional_results = mcmc2.continue_sampling(additional_samples=300)
         
         print(f"   ✅ Resume complete: {len(additional_results['a'])} total samples")
@@ -209,7 +209,7 @@ def test_checkpoint_file_format():
         }
         
         print("Running MCMC to generate checkpoint...")
-        mcmc = AutoMCMC(
+        mcmc = MCMC(
             config, 
             likelihood,
             enable_checkpoints=True,
@@ -315,7 +315,7 @@ def test_compatibility_validation():
         
         print("Creating original checkpoint...")
         # Create original checkpoint
-        mcmc1 = AutoMCMC(
+        mcmc1 = MCMC(
             original_config, 
             original_likelihood,
             enable_checkpoints=True,
@@ -338,7 +338,7 @@ def test_compatibility_validation():
         # Test 1: Compatible configuration
         print(f"\nTest 4a: Compatible configuration")
         try:
-            compatible_mcmc = AutoMCMC.resume(checkpoint_path, original_likelihood)
+            compatible_mcmc = MCMC.resume(checkpoint_path, original_likelihood)
             print("   ✅ Compatible checkpoint loaded successfully")
         except Exception as e:
             print(f"   ❌ Compatible checkpoint failed: {e}")
@@ -362,7 +362,7 @@ def test_compatibility_validation():
         
         try:
             # Try with strict validation (should fail)
-            modified_mcmc = AutoMCMC.resume(
+            modified_mcmc = MCMC.resume(
                 checkpoint_path, 
                 modified_likelihood, 
                 strict_validation=True
@@ -374,7 +374,7 @@ def test_compatibility_validation():
         
         try:
             # Try with relaxed validation (should warn but proceed)
-            modified_mcmc = AutoMCMC.resume(
+            modified_mcmc = MCMC.resume(
                 checkpoint_path, 
                 modified_likelihood, 
                 strict_validation=False
@@ -432,7 +432,7 @@ def test_checkpoint_cleanup():
         # Create several runs to generate multiple checkpoint files
         for i in range(5):
             print(f"  Run {i+1}/5...")
-            mcmc = AutoMCMC(
+            mcmc = MCMC(
                 config, 
                 likelihood,
                 enable_checkpoints=True,

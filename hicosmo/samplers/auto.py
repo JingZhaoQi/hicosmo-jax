@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Automatic MCMC Interface with Intelligent Parameter Management.
+MCMC Interface with Intelligent Parameter Management.
 
-This module provides the main AutoMCMC class that combines dictionary-driven
+This module provides the main MCMC class that combines dictionary-driven
 configuration, automatic parameter mapping, and comprehensive data persistence
 for effortless MCMC sampling.
 """
@@ -20,11 +20,18 @@ from .config import ParameterConfig, AutoParameter
 from .utils import ParameterMapper, analyze_likelihood_function
 from .core import MCMCSampler
 from .persistence import MCMCState, CheckpointManager, ResumeManager, create_likelihood_info, create_data_info
+from .constants import (
+    DEFAULT_NUM_SAMPLES, DEFAULT_NUM_CHAINS,
+    DEFAULT_WARMUP_STANDARD, DEFAULT_WARMUP_OPTIMIZED,
+    DEFAULT_MAX_OPTIMIZATION_ITERATIONS, OPTIMIZATION_PROGRESS_INTERVAL,
+    OPTIMIZATION_PENALTY_FACTOR, DEFAULT_CHECKPOINT_INTERVAL,
+    DEFAULT_CHECKPOINT_DIR, RNG_SEED_MODULO
+)
 
 
-class AutoMCMC:
+class MCMC:
     """
-    Automatic MCMC sampling with intelligent parameter management.
+    MCMC sampling with intelligent parameter management.
     
     This class provides a qcosmc-style simple API while leveraging the powerful
     NumPyro backend. It automatically handles parameter mapping, model generation,
@@ -53,7 +60,7 @@ class AutoMCMC:
     ...     return log_likelihood_value
     
     >>> # One-line MCMC with automatic checkpointing
-    >>> mcmc = AutoMCMC(config, my_likelihood, sn_data=supernova_data)
+    >>> mcmc = MCMC(config, my_likelihood, sn_data=supernova_data)
     >>> results = mcmc.run()
     >>> mcmc.print_summary()
     
@@ -62,7 +69,7 @@ class AutoMCMC:
     ...     ['H0', 70, 50, 100],
     ...     ['Omega_m', 0.3, 0.1, 0.5]
     ... ]
-    >>> mcmc = AutoMCMC.from_simple_list(params, my_likelihood, sn_data=data)
+    >>> mcmc = MCMC.from_simple_list(params, my_likelihood, sn_data=data)
     >>> results = mcmc.run()
     """
     
@@ -74,12 +81,12 @@ class AutoMCMC:
         chain_name: Optional[str] = None,
         # Optimization options
         optimize_init: bool = False,  # 默认关闭JAX优化，使用标准warmup
-        max_opt_iterations: int = 1000,
+        max_opt_iterations: int = DEFAULT_MAX_OPTIMIZATION_ITERATIONS,
         opt_learning_rate: float = 0.01,
         # Checkpoint and resume options
         enable_checkpoints: bool = True,
-        checkpoint_interval: int = 1000,
-        checkpoint_dir: Union[str, Path] = "./mcmc_chains",
+        checkpoint_interval: int = DEFAULT_CHECKPOINT_INTERVAL,
+        checkpoint_dir: Union[str, Path] = DEFAULT_CHECKPOINT_DIR,
         backup_versions: int = 5,
         save_warmup: bool = True,
         compression: str = "gzip",
@@ -87,7 +94,7 @@ class AutoMCMC:
         **data_kwargs
     ):
         """
-        Initialize AutoMCMC sampler.
+        Initialize MCMC sampler.
         
         Parameters
         ----------
@@ -266,8 +273,8 @@ class AutoMCMC:
                 value = params_array[i]
                 min_val, max_val = param_bounds[name]
                 # Use JAX-friendly soft constraint
-                penalty += 1000 * jnp.maximum(0, min_val - value)**2
-                penalty += 1000 * jnp.maximum(0, value - max_val)**2
+                penalty += OPTIMIZATION_PENALTY_FACTOR * jnp.maximum(0, min_val - value)**2
+                penalty += OPTIMIZATION_PENALTY_FACTOR * jnp.maximum(0, value - max_val)**2
             
             # Compute likelihood
             log_like = self.likelihood_func(**params_dict)
@@ -305,7 +312,7 @@ class AutoMCMC:
             params = optax.apply_updates(params, updates)
             
             # Progress report every 100 iterations
-            if (i + 1) % 100 == 0:
+            if (i + 1) % OPTIMIZATION_PROGRESS_INTERVAL == 0:
                 print(f"  Iteration {i+1}/{self.max_opt_iterations}, Loss: {loss_value:.6f}")
         
         # Update reference values with optimized results
@@ -334,14 +341,14 @@ class AutoMCMC:
         if 'num_warmup' not in mcmc_kwargs:
             if self.optimize_init:
                 # JAX optimization enabled: minimal warmup needed
-                mcmc_kwargs['num_warmup'] = 300
+                mcmc_kwargs['num_warmup'] = DEFAULT_WARMUP_OPTIMIZED
                 if mcmc_kwargs.get('verbose', True):
-                    print("📝 Using minimal warmup (300) with JAX optimization")
+                    print(f"📝 Using minimal warmup ({DEFAULT_WARMUP_OPTIMIZED}) with JAX optimization")
             else:
                 # No optimization: use standard warmup
-                mcmc_kwargs['num_warmup'] = 2000
+                mcmc_kwargs['num_warmup'] = DEFAULT_WARMUP_STANDARD
                 if mcmc_kwargs.get('verbose', True):
-                    print("📝 Using standard warmup (2000) without optimization")
+                    print(f"📝 Using standard warmup ({DEFAULT_WARMUP_STANDARD}) without optimization")
         else:
             # User specified warmup value
             user_warmup = mcmc_kwargs['num_warmup']
@@ -349,8 +356,8 @@ class AutoMCMC:
                 print(f"📝 Using user-specified warmup ({user_warmup})")
         
         # Set other reasonable defaults
-        mcmc_kwargs.setdefault('num_samples', 2000)
-        mcmc_kwargs.setdefault('num_chains', 4)
+        mcmc_kwargs.setdefault('num_samples', DEFAULT_NUM_SAMPLES)
+        mcmc_kwargs.setdefault('num_chains', DEFAULT_NUM_CHAINS)
         
         return mcmc_kwargs
     
@@ -386,7 +393,7 @@ class AutoMCMC:
     def _print_mapping_info(self):
         """Print parameter mapping information."""
         print("=" * 60)
-        print("AutoMCMC Parameter Mapping")
+        print("MCMC Parameter Mapping")
         print("=" * 60)
         
         if self._mapping_result.parameter_mapping:
@@ -609,7 +616,7 @@ class AutoMCMC:
         likelihood_func: Optional[Callable] = None,
         strict_validation: bool = True,
         **new_kwargs
-    ) -> 'AutoMCMC':
+    ) -> 'MCMC':
         """
         Resume MCMC from a checkpoint file.
         
@@ -626,8 +633,8 @@ class AutoMCMC:
             
         Returns
         -------
-        AutoMCMC
-            Resumed AutoMCMC instance
+        MCMC
+            Resumed MCMC instance
         """
         resume_manager = ResumeManager(strict_validation=strict_validation)
         saved_state = resume_manager.load_checkpoint(checkpoint_path)
@@ -744,9 +751,9 @@ class AutoMCMC:
         likelihood_func: Callable,
         chain_name: Optional[str] = None,
         **kwargs
-    ) -> 'AutoMCMC':
+    ) -> 'MCMC':
         """
-        Create AutoMCMC from simple parameter list (qcosmc-style).
+        Create MCMC from simple parameter list (qcosmc-style).
         
         Parameters
         ----------
@@ -783,8 +790,8 @@ class AutoMCMC:
         yaml_file: Union[str, Path],
         likelihood_func: Callable,
         **data_kwargs
-    ) -> 'AutoMCMC':
-        """Create AutoMCMC from YAML configuration file."""
+    ) -> 'MCMC':
+        """Create MCMC from YAML configuration file."""
         with open(yaml_file, 'r') as f:
             config = yaml.safe_load(f)
         
@@ -796,8 +803,8 @@ class AutoMCMC:
         json_file: Union[str, Path],
         likelihood_func: Callable,
         **data_kwargs
-    ) -> 'AutoMCMC':
-        """Create AutoMCMC from JSON configuration file."""
+    ) -> 'MCMC':
+        """Create MCMC from JSON configuration file."""
         with open(json_file, 'r') as f:
             config = json.load(f)
         
@@ -829,9 +836,9 @@ def quick_mcmc(
     Dict[str, Any]
         Dictionary with samples and summary statistics.
     """
-    # Create appropriate AutoMCMC instance
+    # Create appropriate MCMC instance
     if isinstance(params, list):
-        mcmc = AutoMCMC.from_simple_list(
+        mcmc = MCMC.from_simple_list(
             params, likelihood_func, 
             num_samples=num_samples, 
             verbose=False,
@@ -844,7 +851,7 @@ def quick_mcmc(
         if 'num_samples' not in params['mcmc']:
             params['mcmc']['num_samples'] = num_samples
         
-        mcmc = AutoMCMC(params, likelihood_func, **kwargs)
+        mcmc = MCMC(params, likelihood_func, **kwargs)
     
     # Run MCMC
     samples = mcmc.run()

@@ -16,7 +16,7 @@ import numpyro
 # Add HiCosmo to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hicosmo.samplers import AutoMCMC
+from hicosmo.samplers import MCMC
 
 # Enable multi-core sampling
 numpyro.set_host_device_count(4)
@@ -124,7 +124,7 @@ def run_large_scale_benchmark():
         }
         
         start_time = time.time()
-        mcmc1 = AutoMCMC(config1, likelihood,
+        mcmc1 = MCMC(config1, likelihood,
                         optimize_init=False,
                         chain_name=f"trad_large_{name}")
         samples1 = mcmc1.run()
@@ -148,7 +148,7 @@ def run_large_scale_benchmark():
         }
         
         start_time = time.time()
-        mcmc2 = AutoMCMC(config2, likelihood,
+        mcmc2 = MCMC(config2, likelihood,
                         optimize_init=True,
                         max_opt_iterations=500,  # More optimization for complex problems
                         chain_name=f"opt_large_{name}")
