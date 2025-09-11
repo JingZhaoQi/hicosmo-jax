@@ -52,8 +52,11 @@ class MCMC:
     ...             'bounds': [0.1, 0.5]
     ...         }
     ...     },
-    ...     'mcmc': {'num_samples': 4000, 'num_chains': 4}
+    ...     'mcmc': {'num_samples': 4000, 'num_chains': 4}  # 4000 total samples
     ... }
+    
+    # Note: num_samples represents TOTAL samples across all chains.
+    # With 4 chains, this will be 1000 samples per chain (4000/4=1000).
     
     >>> def my_likelihood(H0, Omega_m, sn_data):
     ...     # Your likelihood computation
@@ -358,6 +361,28 @@ class MCMC:
         # Set other reasonable defaults
         mcmc_kwargs.setdefault('num_samples', DEFAULT_NUM_SAMPLES)
         mcmc_kwargs.setdefault('num_chains', DEFAULT_NUM_CHAINS)
+        
+        # 🔧 Convert total samples to per-chain samples
+        # User input should be interpreted as TOTAL samples, not per-chain samples
+        total_samples = mcmc_kwargs['num_samples']
+        num_chains = mcmc_kwargs['num_chains']
+        
+        if num_chains > 1:
+            # Distribute total samples across chains
+            samples_per_chain = max(1, total_samples // num_chains)
+            mcmc_kwargs['num_samples'] = samples_per_chain
+            
+            if mcmc_kwargs.get('verbose', True):
+                actual_total = samples_per_chain * num_chains
+                print(f"📊 Sample distribution: {total_samples} total → {samples_per_chain} per chain × {num_chains} chains = {actual_total} actual total")
+                
+                if actual_total != total_samples:
+                    diff = total_samples - actual_total
+                    print(f"⚠️  Rounded down by {diff} samples due to even distribution")
+        else:
+            # Single chain: no conversion needed
+            if mcmc_kwargs.get('verbose', True):
+                print(f"📊 Single chain: {total_samples} samples")
         
         return mcmc_kwargs
     
@@ -827,7 +852,9 @@ def quick_mcmc(
     likelihood_func : Callable
         Likelihood function.
     num_samples : int
-        Number of samples to draw.
+        Total number of samples to draw across all chains. 
+        Will be automatically distributed across chains (e.g., 1000 samples 
+        with 4 chains → 250 samples per chain).
     **kwargs
         Additional arguments.
         

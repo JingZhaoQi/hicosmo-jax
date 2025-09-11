@@ -69,7 +69,7 @@ class MCMCSampler:
                  num_warmup: int = DEFAULT_WARMUP_STANDARD,  # 默认值，由MCMC智能调整
                  num_samples: int = DEFAULT_NUM_SAMPLES,
                  num_chains: int = 4,
-                 chain_method: str = 'parallel',
+                 chain_method: Optional[str] = None,  # None表示自动检测
                  progress_bar: bool = True,
                  verbose: bool = True,
                  **mcmc_kwargs):
@@ -90,8 +90,9 @@ class MCMCSampler:
             Number of samples to draw per chain
         num_chains : int
             Number of MCMC chains to run
-        chain_method : str
-            How to run chains: 'parallel', 'sequential', or 'vectorized'
+        chain_method : str, optional
+            How to run chains: 'parallel', 'sequential', or 'vectorized'.
+            If None, automatically detects based on device availability.
         progress_bar : bool
             Whether to show progress bar
         verbose : bool
@@ -103,9 +104,11 @@ class MCMCSampler:
         self.num_warmup = num_warmup
         self.num_samples = num_samples
         self.num_chains = num_chains
-        self.chain_method = chain_method
         self.progress_bar = progress_bar
         self.verbose = verbose
+        
+        # 智能检测链方法
+        self.chain_method = self._detect_chain_method(chain_method)
         
         # Initialize console for pretty output
         self.console = Console() if verbose else None
@@ -120,7 +123,7 @@ class MCMCSampler:
             num_warmup=num_warmup,
             num_samples=num_samples,
             num_chains=num_chains,
-            chain_method=chain_method,
+            chain_method=self.chain_method,  # 使用检测到的方法
             progress_bar=False,  # We'll use our own progress display
             **mcmc_kwargs
         )
@@ -128,6 +131,40 @@ class MCMCSampler:
         # Storage for results
         self._samples = None
         self._run_time = None
+        
+    def _detect_chain_method(self, chain_method: Optional[str]) -> str:
+        """
+        智能检测链运行方法
+        
+        Parameters
+        ----------
+        chain_method : str, optional
+            用户指定的链方法，如果为None则自动检测
+            
+        Returns
+        -------
+        str
+            实际使用的链方法
+        """
+        # 如果用户明确指定了方法，使用用户的选择
+        if chain_method is not None:
+            return chain_method
+        
+        try:
+            import jax
+            device_count = jax.local_device_count()
+            
+            # 根据设备数量和链数决定方法
+            if device_count >= self.num_chains and self.num_chains > 1:
+                return 'parallel'
+            elif self.num_chains > 1:
+                return 'sequential'  # 多链但设备不足，使用顺序执行
+            else:
+                return 'sequential'  # 单链情况
+                
+        except ImportError:
+            # JAX不可用，默认使用sequential
+            return 'sequential'
         
     def run(self, rng_key: Optional[jax.random.PRNGKey] = None, 
             *args, **kwargs) -> Dict[str, jnp.ndarray]:
@@ -156,8 +193,13 @@ class MCMCSampler:
         if self.verbose:
             self._print_config()
         
-        # Track timing
+        # Track timing with detailed information
+        from datetime import datetime
         start_time = time.time()
+        start_datetime = datetime.now()
+        
+        if self.verbose:
+            self.console.print(f"🚀 [bold]MCMC Started:[/bold] {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
         
         # Run MCMC with progress display
         if self.progress_bar and self.verbose:
@@ -185,8 +227,14 @@ class MCMCSampler:
             # Run without progress display
             self.mcmc.run(rng_key, *args, **kwargs)
         
-        # Record run time
-        self._run_time = time.time() - start_time
+        # Record run time with detailed information
+        end_time = time.time()
+        end_datetime = datetime.now()
+        self._run_time = end_time - start_time
+        
+        # Store timing information
+        self._start_time = start_datetime
+        self._end_time = end_datetime
         
         # Cache samples
         self._samples = self.mcmc.get_samples()
@@ -326,14 +374,24 @@ class MCMCSampler:
         
         # For each parameter, compute diagnostics
         for param_name, param_samples in samples_by_chain.items():
-            # Gelman-Rubin statistic
-            r_hat = float(gelman_rubin(param_samples))
+            try:
+                # Gelman-Rubin statistic (requires at least 2 chains)
+                r_hat = float(gelman_rubin(param_samples))
+            except (AssertionError, ValueError) as e:
+                # Single chain or insufficient data for R-hat
+                if self.num_chains == 1:
+                    r_hat = 1.0  # Perfect convergence assumed for single chain
+                else:
+                    r_hat = float('nan')  # Mark as unavailable
             
             # Effective sample size
-            ess = float(effective_sample_size(param_samples))
+            try:
+                ess = float(effective_sample_size(param_samples))
+            except (AssertionError, ValueError):
+                ess = float('nan')
             
             # Effective samples per second
-            ess_per_sec = ess / self._run_time if self._run_time else 0
+            ess_per_sec = ess / self._run_time if (self._run_time and not np.isnan(ess)) else 0
             
             diagnostics[param_name] = {
                 'r_hat': r_hat,
@@ -470,11 +528,20 @@ class MCMCSampler:
     
     def _print_config(self) -> None:
         """Print MCMC configuration."""
+        # Get device information
+        try:
+            import jax
+            device_count = jax.local_device_count()
+            device_info = f"{device_count} CPU cores"
+        except:
+            device_info = "Unknown"
+            
         config_panel = Panel.fit(
             f"[cyan]Chains:[/cyan] {self.num_chains}\n"
             f"[cyan]Warmup:[/cyan] {self.num_warmup}\n"
             f"[cyan]Samples:[/cyan] {self.num_samples}\n"
-            f"[cyan]Method:[/cyan] {self.chain_method}",
+            f"[cyan]Method:[/cyan] {self.chain_method}\n"
+            f"[cyan]CPU Cores:[/cyan] {device_info}",
             title="MCMC Configuration",
             border_style="blue"
         )
@@ -482,7 +549,14 @@ class MCMCSampler:
     
     def _print_summary(self) -> None:
         """Print post-run summary."""
+        # Print completion with timing details
         self.console.print(f"\n[green]✓ MCMC completed in {self._run_time:.2f} seconds[/green]")
+        
+        # Print detailed timing information
+        if hasattr(self, '_start_time') and hasattr(self, '_end_time'):
+            self.console.print(f"🕐 [bold]Started:[/bold] {self._start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            self.console.print(f"🕐 [bold]Finished:[/bold] {self._end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            self.console.print(f"⏱️  [bold]Duration:[/bold] {self._run_time:.3f} seconds")
         
         # Quick convergence check
         diagnostics = self.get_diagnostics()

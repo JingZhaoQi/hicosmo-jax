@@ -57,3 +57,14 @@ RHAT_CONVERGENCE_THRESHOLD = 1.1
 
 # Minimum effective sample size
 MIN_EFFECTIVE_SAMPLE_SIZE = 100
+
+# ========== Multi-core Optimization ==========
+
+# Default number of CPU devices for parallel execution
+DEFAULT_NUM_CPU_DEVICES = 4
+
+# Auto-detect CPU cores
+AUTO_DETECT_CPU_CORES = True
+
+# Warning threshold for device count mismatch
+DEVICE_MISMATCH_WARNING_THRESHOLD = 2
