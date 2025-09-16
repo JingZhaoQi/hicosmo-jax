@@ -1,461 +1,385 @@
+#!/usr/bin/env python3
 """
-HiCosmo Visualization Module
-===========================
+HIcosmo极简可视化系统 - 核心绘图功能
 
-Elegant plotting utilities inspired by professional matplotlib aesthetics.
-Provides simple, publication-ready plots for MCMC analysis and cosmological functions.
+基于奥卡姆剃刀原则的激进简化：
+- 删除所有Manager类和过度抽象
+- 直接封装GetDist，无中间层
+- 统一简洁的函数接口
+- 专业样式内置，无复杂配置
 
-Key Features:
-- Corner plots with GetDist integration
-- Trace plots with convergence diagnostics
-- Cosmological function plots
-- Professional styling and formatting
-- Smart tick formatting and layout
+Author: Jingzhao Qi
+Total Lines: ~400 (vs 原来3818行)
 """
 
-from typing import Dict, List, Optional, Union, Tuple, Any
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-from matplotlib.colors import LinearSegmentedColormap
-import jax.numpy as jnp
 from pathlib import Path
+from typing import Dict, List, Optional, Union, Any, Tuple
 
 try:
-    import corner
-    HAS_CORNER = True
-except ImportError:
-    HAS_CORNER = False
-
-try:
-    import getdist
-    from getdist import plots
+    from getdist import plots, MCSamples
     HAS_GETDIST = True
 except ImportError:
     HAS_GETDIST = False
+    raise ImportError("GetDist is required. Install with: pip install getdist")
 
-try:
-    import arviz as az
-    HAS_ARVIZ = True
-except ImportError:
-    HAS_ARVIZ = False
+# 专业配色方案 - 基于analysis/core.py
+MODERN_COLORS = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#592E83', '#0F7173', '#7B2D26']
+CLASSIC_COLORS = ['#348ABD', '#7A68A6', '#E24A33', '#467821', '#ffb3a6', '#188487', '#A60628']
 
-
-# Professional color scheme
-HICOSMO_COLORS = {
-    'primary': '#2E86C1',      # Blue
-    'secondary': '#E74C3C',    # Red  
-    'accent': '#F39C12',       # Orange
-    'success': '#27AE60',      # Green
-    'warning': '#F1C40F',      # Yellow
-    'dark': '#34495E',         # Dark gray
-    'light': '#BDC3C7',       # Light gray
-    'purple': '#8E44AD',       # Purple
-    'teal': '#16A085',         # Teal
+# LaTeX标签映射 - 只保留常用的
+LATEX_LABELS = {
+    'H0': r'H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]',
+    'Omega_m': r'\Omega_m',
+    'Omega_b': r'\Omega_b',
+    'sigma8': r'\sigma_8',
+    'w': r'w',
+    'w0': r'w_0',
+    'wa': r'w_a',
 }
 
-# Color cycles for multiple datasets
-COLOR_CYCLE = [
-    HICOSMO_COLORS['primary'],
-    HICOSMO_COLORS['secondary'], 
-    HICOSMO_COLORS['accent'],
-    HICOSMO_COLORS['success'],
-    HICOSMO_COLORS['purple'],
-    HICOSMO_COLORS['teal'],
-]
+# 默认保存目录
+RESULTS_DIR = Path('results')
+RESULTS_DIR.mkdir(exist_ok=True)
 
+def _apply_qijing_style():
+    """应用你的专业绘图风格 - 基于FigStyle.py"""
+    import seaborn as sns
 
-def setup_style() -> None:
-    """Setup professional matplotlib style inspired by core.py aesthetics."""
-    plt.style.use('default')
-    
-    # Professional settings
-    plt.rcParams.update({
-        # Figure settings
-        'figure.figsize': (8, 6),
-        'figure.dpi': 100,
-        'savefig.dpi': 300,
-        'savefig.bbox': 'tight',
-        'savefig.pad_inches': 0.1,
-        
-        # Font settings
-        'font.family': 'serif',
-        'font.serif': ['Computer Modern Roman', 'Times', 'serif'],
-        'font.size': 11,
-        'mathtext.fontset': 'cm',
-        
-        # Axes settings
-        'axes.labelsize': 12,
-        'axes.titlesize': 14,
-        'axes.linewidth': 0.8,
+    # 基础样式配置 (合并自原来5套样式的最佳部分)
+    style_config = {
+        'axes.linewidth': 1.2,
+        'axes.labelsize': 16,
+        'axes.titlesize': 16,
+        'xtick.labelsize': 11,
+        'ytick.labelsize': 11,
+        'legend.fontsize': 14,
+        'legend.frameon': False,  # 关键：无边框图例
+        'figure.facecolor': 'white',
+        'axes.facecolor': 'white',
+        'savefig.facecolor': 'white',
+        'font.size': 12,
+        'lines.linewidth': 2.0,
         'axes.grid': True,
-        'axes.axisbelow': True,
-        'axes.prop_cycle': plt.cycler('color', COLOR_CYCLE),
-        
-        # Grid settings
         'grid.alpha': 0.3,
-        'grid.linewidth': 0.5,
-        
-        # Tick settings
-        'xtick.labelsize': 10,
-        'ytick.labelsize': 10,
-        'xtick.major.size': 4,
-        'ytick.major.size': 4,
-        'xtick.minor.size': 2,
-        'ytick.minor.size': 2,
-        
-        # Legend settings
-        'legend.frameon': True,
-        'legend.framealpha': 0.9,
-        'legend.fontsize': 10,
-        'legend.numpoints': 1,
-        'legend.scatterpoints': 1,
-    })
+        'mathtext.fontset': 'cm',
+        'mathtext.rm': 'serif',
+    }
 
+    plt.rcParams.update(style_config)
 
-class HiCosmoPlotter:
+    # 设置颜色循环
+    plt.rcParams['axes.prop_cycle'] = plt.cycler(color=MODERN_COLORS)
+
+def _optimize_ticks(fig):
+    """智能刻度优化 - 基于analysis/core.py"""
+    for ax in fig.axes:
+        if hasattr(ax, 'xaxis') and hasattr(ax, 'yaxis'):
+            # 根据子图尺寸自适应刻度数量
+            bbox = ax.get_position()
+            width_inch = bbox.width * fig.get_figwidth()
+            height_inch = bbox.height * fig.get_figheight()
+
+            x_nbins = 3 if width_inch < 1.5 else (4 if width_inch < 2.5 else 5)
+            y_nbins = 3 if height_inch < 1.5 else (4 if height_inch < 2.5 else 5)
+
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=x_nbins, prune='both', min_n_ticks=2))
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=y_nbins, prune='both', min_n_ticks=2))
+
+            # 小子图旋转标签
+            if width_inch < 1.8:
+                plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+
+def _load_chain_data(data) -> Tuple[np.ndarray, List[str]]:
     """
-    Professional plotting class for cosmological analysis.
-    
-    Provides elegant, publication-ready plots with consistent styling.
+    简单数据加载 - 替代复杂的ChainManager
+
+    Parameters
+    ----------
+    data : various
+        链数据，支持多种格式
+
+    Returns
+    -------
+    samples : np.ndarray
+        样本数组 (n_samples, n_params)
+    param_names : list
+        参数名列表
     """
-    
-    def __init__(self, style: str = 'professional'):
-        """Initialize plotter with specified style."""
-        self.style = style
-        setup_style()
-        
-    def corner_plot(self, 
-                   samples: Union[np.ndarray, Dict[str, np.ndarray]],
-                   labels: Optional[List[str]] = None,
-                   truths: Optional[List[float]] = None,
-                   title: Optional[str] = None,
-                   save_path: Optional[Union[str, Path]] = None,
-                   **kwargs) -> plt.Figure:
-        """
-        Create elegant corner plot for parameter posterior distributions.
-        
-        Args:
-            samples: MCMC samples array or dictionary
-            labels: Parameter labels
-            truths: True parameter values (optional)
-            title: Plot title
-            save_path: Path to save figure
-            **kwargs: Additional corner plot arguments
-            
-        Returns:
-            matplotlib Figure object
-        """
-        if not HAS_CORNER:
-            raise ImportError("corner package required for corner plots. Install with: pip install corner")
-            
-        # Handle different input formats
-        if isinstance(samples, dict):
-            param_names = list(samples.keys())
-            samples_array = np.column_stack([samples[name] for name in param_names])
-            if labels is None:
-                labels = param_names
+    if isinstance(data, str):
+        # 文件路径
+        file_path = Path(data)
+        if file_path.suffix == '.npy':
+            samples = np.load(file_path)
+            param_names = [f'param_{i}' for i in range(samples.shape[1])]
         else:
-            samples_array = samples
-            
-        # Default settings
-        corner_kwargs = {
-            'bins': 30,
-            'smooth': 1.0,
-            'show_titles': True,
-            'title_kwargs': {'fontsize': 11},
-            'label_kwargs': {'fontsize': 12},
-            'color': HICOSMO_COLORS['primary'],
-            'hist_kwargs': {'alpha': 0.8},
-            'contour_kwargs': {'colors': [HICOSMO_COLORS['primary']], 'linewidths': 1.2},
-            'fill_contours': True,
-            'levels': [0.68, 0.95],
-            'plot_density': False,
-            'plot_contours': True,
-        }
-        corner_kwargs.update(kwargs)
-        
-        # Create corner plot
-        fig = corner.corner(
-            samples_array,
-            labels=labels,
-            truths=truths,
-            **corner_kwargs
-        )
-        
-        if title:
-            fig.suptitle(title, fontsize=14, y=0.98)
-            
-        # Adjust layout
-        fig.subplots_adjust(top=0.92 if title else 0.98)
-        
-        if save_path:
-            fig.savefig(save_path)
-            
-        return fig
-    
-    def trace_plot(self,
-                  samples: Union[np.ndarray, Dict[str, np.ndarray]],
-                  labels: Optional[List[str]] = None,
-                  title: Optional[str] = None,
-                  save_path: Optional[Union[str, Path]] = None,
-                  **kwargs) -> plt.Figure:
-        """
-        Create trace plots for MCMC diagnostics.
-        
-        Args:
-            samples: MCMC samples (shape: [n_chains, n_samples, n_params] or dict)
-            labels: Parameter labels
-            title: Plot title
-            save_path: Path to save figure
-            **kwargs: Additional plot arguments
-            
-        Returns:
-            matplotlib Figure object
-        """
-        # Handle different input formats
-        if isinstance(samples, dict):
-            param_names = list(samples.keys())
-            n_params = len(param_names)
-            if labels is None:
-                labels = param_names
-        else:
-            n_params = samples.shape[-1] if samples.ndim > 1 else 1
-            if labels is None:
-                labels = [f'Parameter {i+1}' for i in range(n_params)]
-        
-        # Create subplots
-        fig, axes = plt.subplots(
-            n_params, 1, 
-            figsize=(10, 2.5 * n_params),
-            sharex=True
-        )
-        
-        if n_params == 1:
-            axes = [axes]
-            
-        # Plot traces
-        for i, (ax, label) in enumerate(zip(axes, labels)):
-            if isinstance(samples, dict):
-                param_samples = samples[param_names[i]]
-                if param_samples.ndim == 2:  # Multiple chains
-                    for chain_idx in range(param_samples.shape[0]):
-                        ax.plot(param_samples[chain_idx], 
-                               alpha=0.8, 
-                               color=COLOR_CYCLE[chain_idx % len(COLOR_CYCLE)],
-                               linewidth=0.8)
-                else:  # Single chain
-                    ax.plot(param_samples, color=HICOSMO_COLORS['primary'], linewidth=0.8)
+            raise ValueError(f"Unsupported file format: {file_path.suffix}")
+
+    elif isinstance(data, dict):
+        # 字典格式 {'H0': array, 'Omega_m': array}
+        param_names = list(data.keys())
+        samples = np.column_stack([data[p] for p in param_names])
+
+    elif hasattr(data, 'samples') and hasattr(data, 'params'):
+        # ChainData对象
+        samples = data.samples
+        param_names = data.params
+
+    elif isinstance(data, np.ndarray):
+        # 直接数组
+        samples = data
+        param_names = [f'param_{i}' for i in range(data.shape[1])]
+
+    else:
+        raise ValueError(f"Unsupported data format: {type(data)}")
+
+    return samples, param_names
+
+def _prepare_getdist_samples(data, params=None, label="Chain") -> MCSamples:
+    """
+    转换为GetDist格式 - 替代复杂的适配器
+    """
+    samples, param_names = _load_chain_data(data)
+
+    # 选择参数
+    if params is not None:
+        if isinstance(params, (int, str)):
+            params = [params]
+
+        # 处理索引或名称
+        selected_indices = []
+        selected_names = []
+
+        for p in params:
+            if isinstance(p, int):
+                # 基于1的索引转为基于0的索引
+                idx = p - 1 if p > 0 else p
+                selected_indices.append(idx)
+                selected_names.append(param_names[idx])
             else:
-                if samples.ndim == 3:  # [n_chains, n_samples, n_params]
-                    for chain_idx in range(samples.shape[0]):
-                        ax.plot(samples[chain_idx, :, i],
-                               alpha=0.8,
-                               color=COLOR_CYCLE[chain_idx % len(COLOR_CYCLE)],
-                               linewidth=0.8)
-                else:  # [n_samples, n_params] or [n_samples]
-                    sample_data = samples[:, i] if samples.ndim > 1 else samples
-                    ax.plot(sample_data, color=HICOSMO_COLORS['primary'], linewidth=0.8)
-            
-            ax.set_ylabel(label, fontsize=12)
-            ax.grid(True, alpha=0.3)
-            
-        # Set x-label for bottom plot
-        axes[-1].set_xlabel('Iteration', fontsize=12)
-        
-        if title:
-            fig.suptitle(title, fontsize=14, y=0.98)
-            
-        plt.tight_layout()
-        
-        if save_path:
-            fig.savefig(save_path)
-            
-        return fig
-    
-    def cosmology_plot(self,
-                      z: np.ndarray,
-                      functions: Dict[str, np.ndarray],
-                      xlabel: str = 'Redshift $z$',
-                      ylabel: str = '',
-                      title: Optional[str] = None,
-                      save_path: Optional[Union[str, Path]] = None,
-                      **kwargs) -> plt.Figure:
-        """
-        Plot cosmological functions (distances, Hubble parameter, etc.).
-        
-        Args:
-            z: Redshift array
-            functions: Dictionary of function name -> values
-            xlabel: X-axis label
-            ylabel: Y-axis label
-            title: Plot title
-            save_path: Path to save figure
-            **kwargs: Additional plot arguments
-            
-        Returns:
-            matplotlib Figure object
-        """
-        fig, ax = plt.subplots(figsize=(8, 6))
-        
-        # Plot each function
-        for i, (name, values) in enumerate(functions.items()):
-            color = COLOR_CYCLE[i % len(COLOR_CYCLE)]
-            ax.plot(z, values, label=name, color=color, linewidth=2, **kwargs)
-            
-        ax.set_xlabel(xlabel, fontsize=12)
-        ax.set_ylabel(ylabel, fontsize=12)
-        
-        if title:
-            ax.set_title(title, fontsize=14)
-            
-        if len(functions) > 1:
-            ax.legend(frameon=True, framealpha=0.9)
-            
-        ax.grid(True, alpha=0.3)
-        
-        # Smart tick formatting
-        ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=8))
-        ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=8))
-        
-        plt.tight_layout()
-        
-        if save_path:
-            fig.savefig(save_path)
-            
-        return fig
-    
-    def comparison_plot(self,
-                       x: np.ndarray,
-                       datasets: Dict[str, Dict[str, np.ndarray]],
-                       xlabel: str = 'x',
-                       ylabel: str = 'y',
-                       title: Optional[str] = None,
-                       save_path: Optional[Union[str, Path]] = None) -> plt.Figure:
-        """
-        Create comparison plot for multiple models/datasets.
-        
-        Args:
-            x: X-axis values
-            datasets: Nested dict {model_name: {'y': values, 'yerr': errors (optional)}}
-            xlabel: X-axis label
-            ylabel: Y-axis label
-            title: Plot title
-            save_path: Path to save figure
-            
-        Returns:
-            matplotlib Figure object
-        """
-        fig, ax = plt.subplots(figsize=(8, 6))
-        
-        for i, (name, data) in enumerate(datasets.items()):
-            color = COLOR_CYCLE[i % len(COLOR_CYCLE)]
-            
-            if 'yerr' in data:
-                ax.errorbar(x, data['y'], yerr=data['yerr'], 
-                           label=name, color=color, 
-                           linewidth=2, capsize=3, alpha=0.8)
+                # 参数名
+                if p in param_names:
+                    idx = param_names.index(p)
+                    selected_indices.append(idx)
+                    selected_names.append(p)
+
+        samples = samples[:, selected_indices]
+        param_names = selected_names
+
+    # 准备LaTeX标签
+    labels = []
+    for param in param_names:
+        latex_label = LATEX_LABELS.get(param, param)
+        # 清理多余的$符号
+        if latex_label.startswith('$') and latex_label.endswith('$'):
+            latex_label = latex_label[1:-1]
+        labels.append(latex_label)
+
+    return MCSamples(samples=samples, names=param_names, labels=labels, label=label)
+
+def plot_corner(data, params=None, style='modern', filename=None, **kwargs) -> plt.Figure:
+    """
+    创建Corner图 - 统一简洁接口
+
+    Parameters
+    ----------
+    data : various
+        链数据 (文件路径、数组、字典、ChainData对象)
+    params : list, optional
+        要绘制的参数 (索引或名称)
+    style : str
+        配色方案 ('modern' 或 'classic')
+    filename : str, optional
+        保存文件名 (自动保存到results/)
+    **kwargs
+        传递给GetDist的参数
+
+    Returns
+    -------
+    fig : plt.Figure
+        Corner图
+    """
+    # 应用样式
+    _apply_qijing_style()
+
+    # 选择配色
+    colors = MODERN_COLORS if style == 'modern' else CLASSIC_COLORS
+
+    # 转换数据
+    samples = _prepare_getdist_samples(data, params)
+
+    # 创建GetDist绘图器
+    plotter = plots.get_subplot_plotter(width_inch=8)
+
+    # GetDist专业设置
+    plotter.settings.axes_fontsize = 12
+    plotter.settings.lab_fontsize = 14
+    plotter.settings.legend_fontsize = 12
+    plotter.settings.figure_legend_frame = False
+
+    # 绘制 - 使用单色专业风格
+    contour_colors = [colors[0]]
+    line_args = {'color': colors[0], 'lw': 2}
+
+    plotter.triangle_plot([samples], filled=True,
+                         contour_colors=contour_colors,
+                         line_args=line_args, **kwargs)
+
+    # 优化刻度
+    _optimize_ticks(plotter.fig)
+    plt.tight_layout()
+
+    # 自动保存
+    if filename:
+        save_path = RESULTS_DIR / filename
+        if not save_path.suffix:
+            save_path = save_path.with_suffix('.pdf')
+
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plotter.fig.savefig(save_path, dpi=300, bbox_inches='tight',
+                           facecolor='white', edgecolor='none')
+        print(f"Corner plot saved to: {save_path}")
+
+    return plotter.fig
+
+def plot_chains(data, params=None, style='modern', filename=None, **kwargs) -> plt.Figure:
+    """
+    创建链迹线图 - 收敛诊断
+
+    Parameters
+    ----------
+    data : various
+        链数据
+    params : list, optional
+        要绘制的参数
+    style : str
+        配色方案
+    filename : str, optional
+        保存文件名
+    **kwargs
+        额外参数
+
+    Returns
+    -------
+    fig : plt.Figure
+        迹线图
+    """
+    _apply_qijing_style()
+
+    # 加载数据
+    samples, param_names = _load_chain_data(data)
+
+    # 选择参数
+    if params is not None:
+        if isinstance(params, (int, str)):
+            params = [params]
+
+        selected_indices = []
+        selected_names = []
+
+        for p in params:
+            if isinstance(p, int):
+                idx = p - 1 if p > 0 else p
+                selected_indices.append(idx)
+                selected_names.append(param_names[idx])
             else:
-                ax.plot(x, data['y'], label=name, color=color, linewidth=2)
-                
-        ax.set_xlabel(xlabel, fontsize=12)
-        ax.set_ylabel(ylabel, fontsize=12)
-        
-        if title:
-            ax.set_title(title, fontsize=14)
-            
-        ax.legend(frameon=True, framealpha=0.9)
+                if p in param_names:
+                    idx = param_names.index(p)
+                    selected_indices.append(idx)
+                    selected_names.append(p)
+
+        samples = samples[:, selected_indices]
+        param_names = selected_names
+
+    # 选择配色
+    colors = MODERN_COLORS if style == 'modern' else CLASSIC_COLORS
+
+    # 创建图像
+    n_params = len(param_names)
+    fig, axes = plt.subplots(n_params, 1, figsize=(10, max(4, n_params * 2)), squeeze=False)
+
+    for i, param in enumerate(param_names):
+        ax = axes[i, 0]
+
+        # 绘制迹线
+        ax.plot(samples[:, i], color=colors[0], alpha=0.8, lw=1.0)
+
+        # 设置标签
+        latex_label = LATEX_LABELS.get(param, param)
+        if latex_label.startswith('$') and latex_label.endswith('$'):
+            latex_label = latex_label[1:-1]
+
+        ax.set_ylabel(f'${latex_label}$' if '\\' in latex_label else latex_label)
         ax.grid(True, alpha=0.3)
-        
-        plt.tight_layout()
-        
-        if save_path:
-            fig.savefig(save_path)
-            
-        return fig
-    
-    def hubble_diagram(self,
-                      z_obs: np.ndarray,
-                      mu_obs: np.ndarray,
-                      mu_err: Optional[np.ndarray] = None,
-                      z_theory: Optional[np.ndarray] = None,
-                      mu_theory: Optional[np.ndarray] = None,
-                      model_name: str = 'Model',
-                      title: str = 'Hubble Diagram',
-                      save_path: Optional[Union[str, Path]] = None) -> plt.Figure:
-        """
-        Create Hubble diagram plot for Type Ia supernovae.
-        
-        Args:
-            z_obs: Observed redshifts
-            mu_obs: Observed distance moduli
-            mu_err: Distance modulus errors (optional)
-            z_theory: Theory redshift grid (optional)
-            mu_theory: Theory distance moduli (optional)
-            model_name: Model name for legend
-            title: Plot title
-            save_path: Path to save figure
-            
-        Returns:
-            matplotlib Figure object
-        """
-        fig, ax = plt.subplots(figsize=(10, 6))
-        
-        # Plot observations
-        if mu_err is not None:
-            ax.errorbar(z_obs, mu_obs, yerr=mu_err,
-                       fmt='o', color=HICOSMO_COLORS['dark'],
-                       alpha=0.6, markersize=3, capsize=0,
-                       label='Observations')
-        else:
-            ax.scatter(z_obs, mu_obs, 
-                      c=HICOSMO_COLORS['dark'], 
-                      alpha=0.6, s=8, label='Observations')
-        
-        # Plot theory
-        if z_theory is not None and mu_theory is not None:
-            ax.plot(z_theory, mu_theory,
-                   color=HICOSMO_COLORS['primary'],
-                   linewidth=2, label=model_name)
-        
-        ax.set_xlabel('Redshift $z$', fontsize=12)
-        ax.set_ylabel('Distance Modulus $\\mu$', fontsize=12)
-        ax.set_title(title, fontsize=14)
-        
-        ax.legend(frameon=True, framealpha=0.9)
-        ax.grid(True, alpha=0.3)
-        
-        # Use log scale for x-axis if data spans large range
-        if np.max(z_obs) / np.min(z_obs) > 100:
-            ax.set_xscale('log')
-        
-        plt.tight_layout()
-        
-        if save_path:
-            fig.savefig(save_path)
-            
-        return fig
 
+        if i == n_params - 1:
+            ax.set_xlabel('Sample')
 
-def quick_corner(samples: Union[np.ndarray, Dict[str, np.ndarray]], 
-                labels: Optional[List[str]] = None,
-                save_path: Optional[Union[str, Path]] = None) -> plt.Figure:
-    """Quick corner plot with default settings."""
-    plotter = HiCosmoPlotter()
-    return plotter.corner_plot(samples, labels=labels, save_path=save_path)
+    plt.tight_layout()
 
+    # 自动保存
+    if filename:
+        save_path = RESULTS_DIR / filename
+        if not save_path.suffix:
+            save_path = save_path.with_suffix('.pdf')
 
-def quick_trace(samples: Union[np.ndarray, Dict[str, np.ndarray]],
-               labels: Optional[List[str]] = None,
-               save_path: Optional[Union[str, Path]] = None) -> plt.Figure:
-    """Quick trace plot with default settings."""
-    plotter = HiCosmoPlotter()
-    return plotter.trace_plot(samples, labels=labels, save_path=save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(save_path, dpi=300, bbox_inches='tight',
+                   facecolor='white', edgecolor='none')
+        print(f"Chain traces saved to: {save_path}")
 
+    return fig
 
-def quick_hubble_diagram(z_obs: np.ndarray, mu_obs: np.ndarray,
-                        mu_err: Optional[np.ndarray] = None,
-                        save_path: Optional[Union[str, Path]] = None) -> plt.Figure:
-    """Quick Hubble diagram plot."""
-    plotter = HiCosmoPlotter()
-    return plotter.hubble_diagram(z_obs, mu_obs, mu_err=mu_err, save_path=save_path)
+def plot_1d(data, params=None, style='modern', filename=None, **kwargs) -> plt.Figure:
+    """
+    创建1D边际分布图
+
+    Parameters
+    ----------
+    data : various
+        链数据
+    params : list, optional
+        要绘制的参数
+    style : str
+        配色方案
+    filename : str, optional
+        保存文件名
+    **kwargs
+        传递给GetDist的参数
+
+    Returns
+    -------
+    fig : plt.Figure
+        1D分布图
+    """
+    _apply_qijing_style()
+
+    colors = MODERN_COLORS if style == 'modern' else CLASSIC_COLORS
+    samples = _prepare_getdist_samples(data, params)
+
+    # 创建GetDist绘图器
+    plotter = plots.getSubplotPlotter()
+    plotter.settings.figure_legend_frame = False
+
+    # 绘制1D分布
+    plotter.plots_1d([samples], **kwargs)
+
+    # 自动保存
+    if filename:
+        save_path = RESULTS_DIR / filename
+        if not save_path.suffix:
+            save_path = save_path.with_suffix('.pdf')
+
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plotter.fig.savefig(save_path, dpi=300, bbox_inches='tight',
+                           facecolor='white', edgecolor='none')
+        print(f"1D plots saved to: {save_path}")
+
+    return plotter.fig
+
+# 向后兼容的别名
+corner = plot_corner
+traces = plot_chains
+marginals = plot_1d
