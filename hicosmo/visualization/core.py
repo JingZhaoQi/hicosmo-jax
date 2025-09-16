@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
 """
-HIcosmo Visualization System - Unified Interface
-
-Minimalist refactor:
-- Removed all Manager classes
-- Unified simple function interface
-- Direct GetDist wrapper, no intermediate layers
-
-Author: Jingzhao Qi
-Total Lines: ~150 (vs original 636 lines)
+HIcosmo Visualization System - User's Preferred Architecture
 """
 
 from pathlib import Path
 from typing import Union, List, Optional, Any
 
 from .plotting import plot_corner, plot_chains, plot_1d, RESULTS_DIR
+from .mcplot_redesign import MCplot as MCplotNew
 
 class HIcosmoViz:
     """
@@ -60,8 +53,8 @@ class HIcosmoViz:
     plot_chains = traces
     plot_traces = traces
 
-# Backward compatibility alias
-MCplot = HIcosmoViz
+# User's preferred architecture - new MCplot class
+MCplot = MCplotNew
 
 def load_chain_simple(filename: str):
     """

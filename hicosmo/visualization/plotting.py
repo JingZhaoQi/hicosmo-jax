@@ -83,21 +83,61 @@ def _apply_qijing_style():
 
 
 def _optimize_ticks(fig):
-    """Smart tick optimization - based on analysis/core.py"""
+    """Smart tick optimization - prevents label overlap"""
+    import matplotlib.font_manager as fm
+
     for ax in fig.get_axes():
-        # Adaptive tick count based on subplot dimensions
+        # Get axis dimensions in pixels
         bbox = ax.get_window_extent()
         width, height = bbox.width, bbox.height
 
-        if width < 200:
-            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=4, prune='both'))
-        if height < 150:
-            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=4, prune='both'))
+        # Skip empty axes
+        if width <= 0 or height <= 0:
+            continue
 
-        # Rotate labels for small subplots
-        if width < 150:
+        # Get current font size for tick labels
+        try:
+            font_size = plt.rcParams['xtick.labelsize']
+            if isinstance(font_size, str) or font_size is None:
+                font_size = 11  # default fallback
+        except:
+            font_size = 11  # safe fallback
+
+        # Estimate average character width in pixels
+        char_width = font_size * 0.6  # rough estimate
+
+        # X-axis optimization
+        if ax.get_xlabel() or len(ax.get_xticklabels()) > 0:
+            # Estimate label width more conservatively (scientific notation + margins)
+            estimated_label_width = char_width * 6.5  # longer for scientific notation
+            # Use more generous spacing to prevent overlap (1.8x instead of 1.2x)
+            max_x_ticks = max(3, int(width / (estimated_label_width * 1.8)))
+            # Cap at more conservative limits
+            optimal_x_ticks = min(max_x_ticks, 6)
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=optimal_x_ticks, prune='both'))
+
+        # Y-axis optimization
+        if ax.get_ylabel() or len(ax.get_yticklabels()) > 0:
+            # Y-axis labels need more vertical space too
+            line_height = font_size * 1.8  # more generous line spacing
+            max_y_ticks = max(3, int(height / (line_height * 2.2)))
+            optimal_y_ticks = min(max_y_ticks, 6)
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=optimal_y_ticks, prune='both'))
+
+        # Handle very small subplots
+        if width < 120:
+            # Very narrow - reduce ticks and rotate
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=3, prune='both'))
             for label in ax.get_xticklabels():
                 label.set_rotation(45)
+                label.set_ha('right')
+        elif width < 180:
+            # Narrow - just reduce ticks
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=4, prune='both'))
+
+        if height < 100:
+            # Very short - minimal y-ticks
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=3, prune='both'))
 
 
 def _load_chain_simple(filename: str):
