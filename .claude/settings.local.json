@@ -10,7 +10,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "WebFetch(domain:num.pyro.ai)"
+      "WebFetch(domain:num.pyro.ai)",
+      "WebFetch(domain:getdist.readthedocs.io)",
+      "WebFetch(domain:seaborn.pydata.org)"
     ],
     "deny": [],
     "ask": []

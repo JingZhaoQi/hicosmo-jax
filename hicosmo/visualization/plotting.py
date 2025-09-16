@@ -1,15 +1,6 @@
 #!/usr/bin/env python3
 """
-HIcosmo极简可视化系统 - 核心绘图功能
-
-基于奥卡姆剃刀原则的激进简化：
-- 删除所有Manager类和过度抽象
-- 直接封装GetDist，无中间层
-- 统一简洁的函数接口
-- 专业样式内置，无复杂配置
-
-Author: Jingzhao Qi
-Total Lines: ~400 (vs 原来3818行)
+HIcosmo Visualization System - Core Plotting Functions
 """
 
 import numpy as np
@@ -25,11 +16,11 @@ except ImportError:
     HAS_GETDIST = False
     raise ImportError("GetDist is required. Install with: pip install getdist")
 
-# 专业配色方案 - 基于analysis/core.py
+# Color schemes
 MODERN_COLORS = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#592E83', '#0F7173', '#7B2D26']
 CLASSIC_COLORS = ['#348ABD', '#7A68A6', '#E24A33', '#467821', '#ffb3a6', '#188487', '#A60628']
 
-# LaTeX标签映射 - 只保留常用的
+# LaTeX label mappings
 LATEX_LABELS = {
     'H0': r'H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]',
     'Omega_m': r'\Omega_m',
@@ -40,15 +31,32 @@ LATEX_LABELS = {
     'wa': r'w_a',
 }
 
-# 默认保存目录
-RESULTS_DIR = Path('results')
+# Results directory
+def _get_results_dir():
+    """Get results directory relative to calling script"""
+    import inspect
+    frame = inspect.currentframe()
+    try:
+        # Get first non-visualization module frame in call stack
+        caller_frame = frame.f_back.f_back if frame.f_back else frame.f_back
+        if caller_frame and 'visualization' not in caller_frame.f_code.co_filename:
+            caller_dir = Path(caller_frame.f_code.co_filename).parent
+        else:
+            caller_dir = Path.cwd()
+        results_dir = caller_dir / 'results'
+        results_dir.mkdir(exist_ok=True)
+        return results_dir
+    finally:
+        del frame
+
+RESULTS_DIR = Path('results')  # fallback
 RESULTS_DIR.mkdir(exist_ok=True)
 
 def _apply_qijing_style():
-    """应用你的专业绘图风格 - 基于FigStyle.py"""
+    """Apply professional plotting style - based on FigStyle.py"""
     import seaborn as sns
 
-    # 基础样式配置 (合并自原来5套样式的最佳部分)
+    # Basic style configuration (merged best parts from original 5 styles)
     style_config = {
         'axes.linewidth': 1.2,
         'axes.labelsize': 16,
@@ -56,7 +64,7 @@ def _apply_qijing_style():
         'xtick.labelsize': 11,
         'ytick.labelsize': 11,
         'legend.fontsize': 14,
-        'legend.frameon': False,  # 关键：无边框图例
+        'legend.frameon': False,  # Key: frameless legend
         'figure.facecolor': 'white',
         'axes.facecolor': 'white',
         'savefig.facecolor': 'white',
@@ -70,170 +78,204 @@ def _apply_qijing_style():
 
     plt.rcParams.update(style_config)
 
-    # 设置颜色循环
-    plt.rcParams['axes.prop_cycle'] = plt.cycler(color=MODERN_COLORS)
+    # Set color cycle
+    plt.gca().set_prop_cycle('color', MODERN_COLORS)
+
 
 def _optimize_ticks(fig):
-    """智能刻度优化 - 基于analysis/core.py"""
-    for ax in fig.axes:
-        if hasattr(ax, 'xaxis') and hasattr(ax, 'yaxis'):
-            # 根据子图尺寸自适应刻度数量
-            bbox = ax.get_position()
-            width_inch = bbox.width * fig.get_figwidth()
-            height_inch = bbox.height * fig.get_figheight()
+    """Smart tick optimization - based on analysis/core.py"""
+    for ax in fig.get_axes():
+        # Adaptive tick count based on subplot dimensions
+        bbox = ax.get_window_extent()
+        width, height = bbox.width, bbox.height
 
-            x_nbins = 3 if width_inch < 1.5 else (4 if width_inch < 2.5 else 5)
-            y_nbins = 3 if height_inch < 1.5 else (4 if height_inch < 2.5 else 5)
+        if width < 200:
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=4, prune='both'))
+        if height < 150:
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=4, prune='both'))
 
-            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=x_nbins, prune='both', min_n_ticks=2))
-            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=y_nbins, prune='both', min_n_ticks=2))
+        # Rotate labels for small subplots
+        if width < 150:
+            for label in ax.get_xticklabels():
+                label.set_rotation(45)
 
-            # 小子图旋转标签
-            if width_inch < 1.8:
-                plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
 
-def _load_chain_data(data) -> Tuple[np.ndarray, List[str]]:
-    """
-    简单数据加载 - 替代复杂的ChainManager
+def _load_chain_simple(filename: str):
+    """Simple data loading - replaces complex ChainManager"""
+    import numpy as np
 
-    Parameters
-    ----------
-    data : various
-        链数据，支持多种格式
+    file_path = Path(filename)
 
-    Returns
-    -------
-    samples : np.ndarray
-        样本数组 (n_samples, n_params)
-    param_names : list
-        参数名列表
-    """
-    if isinstance(data, str):
-        # 文件路径
-        file_path = Path(data)
-        if file_path.suffix == '.npy':
-            samples = np.load(file_path)
-            param_names = [f'param_{i}' for i in range(samples.shape[1])]
-        else:
-            raise ValueError(f"Unsupported file format: {file_path.suffix}")
-
-    elif isinstance(data, dict):
-        # 字典格式 {'H0': array, 'Omega_m': array}
-        param_names = list(data.keys())
-        samples = np.column_stack([data[p] for p in param_names])
-
-    elif hasattr(data, 'samples') and hasattr(data, 'params'):
-        # ChainData对象
-        samples = data.samples
-        param_names = data.params
-
-    elif isinstance(data, np.ndarray):
-        # 直接数组
-        samples = data
-        param_names = [f'param_{i}' for i in range(data.shape[1])]
-
+    if file_path.suffix == '.npy':
+        return np.load(file_path)
+    elif file_path.suffix == '.npz':
+        npz_file = np.load(file_path)
+        if len(npz_file.files) == 1:
+            return npz_file[npz_file.files[0]]
+        return dict(npz_file)
+    elif file_path.suffix in ['.txt', '.dat']:
+        return np.loadtxt(file_path)
+    elif file_path.suffix in ['.h5', '.hdf5']:
+        try:
+            import h5py
+            data = {}
+            with h5py.File(file_path, 'r') as f:
+                for key in f.keys():
+                    data[key] = f[key][:]
+            return data
+        except ImportError:
+            raise ImportError("h5py required for HDF5 files")
     else:
-        raise ValueError(f"Unsupported data format: {type(data)}")
+        try:
+            return np.loadtxt(file_path)
+        except:
+            raise ValueError(f"Cannot load file format: {file_path.suffix}")
 
-    return samples, param_names
 
-def _prepare_getdist_samples(data, params=None, label="Chain") -> MCSamples:
-    """
-    转换为GetDist格式 - 替代复杂的适配器
-    """
-    samples, param_names = _load_chain_data(data)
-
-    # 选择参数
-    if params is not None:
-        if isinstance(params, (int, str)):
-            params = [params]
-
-        # 处理索引或名称
-        selected_indices = []
-        selected_names = []
-
-        for p in params:
-            if isinstance(p, int):
-                # 基于1的索引转为基于0的索引
-                idx = p - 1 if p > 0 else p
-                selected_indices.append(idx)
-                selected_names.append(param_names[idx])
-            else:
-                # 参数名
-                if p in param_names:
-                    idx = param_names.index(p)
-                    selected_indices.append(idx)
-                    selected_names.append(p)
-
-        samples = samples[:, selected_indices]
-        param_names = selected_names
-
-    # 准备LaTeX标签
+def _prepare_latex_labels(param_names: List[str]) -> List[str]:
+    """Prepare LaTeX labels with auto-formatting"""
     labels = []
     for param in param_names:
-        latex_label = LATEX_LABELS.get(param, param)
-        # 清理多余的$符号
-        if latex_label.startswith('$') and latex_label.endswith('$'):
-            latex_label = latex_label[1:-1]
+        if param in LATEX_LABELS:
+            latex_label = LATEX_LABELS[param]
+        else:
+            # Clean redundant $ symbols
+            latex_label = param.replace('$', '')
+            if '_' in latex_label:
+                latex_label = latex_label.replace('_', '_{') + '}'
         labels.append(latex_label)
+    return labels
 
-    return MCSamples(samples=samples, names=param_names, labels=labels, label=label)
 
-def plot_corner(data, params=None, style='modern', filename=None, **kwargs) -> plt.Figure:
+def _prepare_getdist_samples(data, params=None) -> MCSamples:
+    """Convert to GetDist format - replaces complex adapters"""
+    if isinstance(data, MCSamples):
+        return data
+
+    # Select parameters
+    if isinstance(data, str):
+        data = _load_chain_simple(data)
+
+    if params is not None:
+        # Handle indices or names
+        if isinstance(data, dict):
+            if isinstance(params[0], int):
+                # Convert 1-based index to 0-based index
+                param_names = list(data.keys())
+                selected_params = [param_names[i] for i in params]
+            else:
+                # Parameter name
+                selected_params = params
+            samples = np.column_stack([data[p] for p in selected_params])
+            param_names = selected_params
+        else:
+            samples = data[:, params]
+            param_names = [f'param_{i}' for i in params]
+    else:
+        if isinstance(data, dict):
+            param_names = list(data.keys())
+            samples = np.column_stack([data[k] for k in param_names])
+        else:
+            samples = data
+            param_names = [f'param_{i}' for i in range(samples.shape[1])]
+
+    # Prepare LaTeX labels
+    labels = _prepare_latex_labels(param_names)
+
+    return MCSamples(samples=samples, names=param_names, labels=labels)
+
+
+def plot_corner(data, params=None, style='modern', filename=None, labels=None, **kwargs) -> plt.Figure:
     """
-    创建Corner图 - 统一简洁接口
+    Create corner plot - unified simple interface with multi-chain comparison support
 
     Parameters
     ----------
-    data : various
-        链数据 (文件路径、数组、字典、ChainData对象)
+    data : various or list of various
+        Single chain: chain data (file path, array, dict, ChainData object)
+        Multi-chain: [data1, data2, ...] multi-chain data list
     params : list, optional
-        要绘制的参数 (索引或名称)
+        Parameters to plot (indices or names)
     style : str
-        配色方案 ('modern' 或 'classic')
+        Color scheme ('modern' or 'classic')
     filename : str, optional
-        保存文件名 (自动保存到results/)
+        Save filename (auto-saves to caller's results/ directory)
+    labels : list of str, optional
+        Label list for multi-chain case ['Chain1', 'Chain2', ...]
     **kwargs
-        传递给GetDist的参数
+        Parameters passed to GetDist
 
     Returns
     -------
     fig : plt.Figure
-        Corner图
+        Corner plot with multi-chain comparison and legend support
     """
-    # 应用样式
+    # Apply style
     _apply_qijing_style()
 
-    # 选择配色
+    # Select colors
     colors = MODERN_COLORS if style == 'modern' else CLASSIC_COLORS
 
-    # 转换数据
-    samples = _prepare_getdist_samples(data, params)
+    # Detect multi-chain data
+    is_multi_chain = isinstance(data, (list, tuple)) and len(data) > 1
 
-    # 创建GetDist绘图器
+    if is_multi_chain:
+        # Multi-chain mode
+        samples_list = []
+        for i, chain_data in enumerate(data):
+            samples = _prepare_getdist_samples(chain_data, params)
+            # Set labels
+            if labels and i < len(labels):
+                samples.label = labels[i]
+            else:
+                samples.label = f'Chain {i+1}'
+            samples_list.append(samples)
+
+        # Assign different colors to each chain
+        contour_colors = colors[:len(samples_list)]
+        line_colors = colors[:len(samples_list)]
+    else:
+        # Single chain mode - backward compatible
+        samples = _prepare_getdist_samples(data, params)
+        samples_list = [samples]
+        contour_colors = [colors[0]]
+        line_colors = [colors[0]]
+
+    # Create GetDist plotter
     plotter = plots.get_subplot_plotter(width_inch=8)
 
-    # GetDist专业设置
+    # GetDist professional settings
     plotter.settings.axes_fontsize = 12
     plotter.settings.lab_fontsize = 14
     plotter.settings.legend_fontsize = 12
     plotter.settings.figure_legend_frame = False
 
-    # 绘制 - 使用单色专业风格
-    contour_colors = [colors[0]]
-    line_args = {'color': colors[0], 'lw': 2}
+    # Draw corner plot
+    if is_multi_chain:
+        # Multi-chain plotting - use different colors and legend
+        plotter.triangle_plot(samples_list, filled=True,
+                             contour_colors=contour_colors,
+                             line_args=[{'color': c, 'lw': 2} for c in line_colors],
+                             **kwargs)
+        # Add legend
+        if any(s.label for s in samples_list):
+            plotter.add_legend(legend_labels=[s.label for s in samples_list],
+                              legend_loc='upper right')
+    else:
+        # Single chain plotting
+        plotter.triangle_plot(samples_list, filled=True,
+                             contour_colors=contour_colors,
+                             line_args={'color': line_colors[0], 'lw': 2},
+                             **kwargs)
 
-    plotter.triangle_plot([samples], filled=True,
-                         contour_colors=contour_colors,
-                         line_args=line_args, **kwargs)
-
-    # 优化刻度
+    # Optimize ticks
     _optimize_ticks(plotter.fig)
     plt.tight_layout()
 
-    # 自动保存
+    # Auto-save to caller's results/ directory
     if filename:
-        save_path = RESULTS_DIR / filename
+        results_dir = _get_results_dir()
+        save_path = results_dir / filename
         if not save_path.suffix:
             save_path = save_path.with_suffix('.pdf')
 
@@ -244,87 +286,58 @@ def plot_corner(data, params=None, style='modern', filename=None, **kwargs) -> p
 
     return plotter.fig
 
+
 def plot_chains(data, params=None, style='modern', filename=None, **kwargs) -> plt.Figure:
     """
-    创建链迹线图 - 收敛诊断
+    Create chain trace plots for convergence diagnostics
 
     Parameters
     ----------
     data : various
-        链数据
+        Chain data
     params : list, optional
-        要绘制的参数
+        Parameters to plot
     style : str
-        配色方案
+        Color scheme
     filename : str, optional
-        保存文件名
+        Save filename
     **kwargs
-        额外参数
+        Additional parameters
 
     Returns
     -------
     fig : plt.Figure
-        迹线图
+        Chain trace plots
     """
     _apply_qijing_style()
-
-    # 加载数据
-    samples, param_names = _load_chain_data(data)
-
-    # 选择参数
-    if params is not None:
-        if isinstance(params, (int, str)):
-            params = [params]
-
-        selected_indices = []
-        selected_names = []
-
-        for p in params:
-            if isinstance(p, int):
-                idx = p - 1 if p > 0 else p
-                selected_indices.append(idx)
-                selected_names.append(param_names[idx])
-            else:
-                if p in param_names:
-                    idx = param_names.index(p)
-                    selected_indices.append(idx)
-                    selected_names.append(p)
-
-        samples = samples[:, selected_indices]
-        param_names = selected_names
-
-    # 选择配色
     colors = MODERN_COLORS if style == 'modern' else CLASSIC_COLORS
 
-    # 创建图像
-    n_params = len(param_names)
-    fig, axes = plt.subplots(n_params, 1, figsize=(10, max(4, n_params * 2)), squeeze=False)
+    samples = _prepare_getdist_samples(data, params)
 
-    for i, param in enumerate(param_names):
-        ax = axes[i, 0]
+    if params is None:
+        n_params = min(6, samples.samples.shape[1])  # Max 6 parameters
+        selected_params = list(range(n_params))
+    else:
+        selected_params = params
 
-        # 绘制迹线
-        ax.plot(samples[:, i], color=colors[0], alpha=0.8, lw=1.0)
+    fig, axes = plt.subplots(len(selected_params), 1, figsize=(10, 2*len(selected_params)))
+    if len(selected_params) == 1:
+        axes = [axes]
 
-        # 设置标签
-        latex_label = LATEX_LABELS.get(param, param)
-        if latex_label.startswith('$') and latex_label.endswith('$'):
-            latex_label = latex_label[1:-1]
+    for i, param_idx in enumerate(selected_params):
+        chain_data = samples.samples[:, param_idx]
+        axes[i].plot(chain_data, color=colors[0], alpha=0.8, lw=1.5)
+        axes[i].set_ylabel(samples.getParamNames().list()[param_idx])
+        axes[i].grid(True, alpha=0.3)
 
-        ax.set_ylabel(f'${latex_label}$' if '\\' in latex_label else latex_label)
-        ax.grid(True, alpha=0.3)
-
-        if i == n_params - 1:
-            ax.set_xlabel('Sample')
-
+    axes[-1].set_xlabel('Sample Index')
     plt.tight_layout()
 
-    # 自动保存
     if filename:
-        save_path = RESULTS_DIR / filename
+        results_dir = _get_results_dir()
+        save_path = results_dir / filename
         if not save_path.suffix:
             save_path = save_path.with_suffix('.pdf')
-
         save_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(save_path, dpi=300, bbox_inches='tight',
                    facecolor='white', edgecolor='none')
@@ -332,46 +345,49 @@ def plot_chains(data, params=None, style='modern', filename=None, **kwargs) -> p
 
     return fig
 
+
 def plot_1d(data, params=None, style='modern', filename=None, **kwargs) -> plt.Figure:
     """
-    创建1D边际分布图
+    Create 1D marginal distribution plots
 
     Parameters
     ----------
     data : various
-        链数据
+        Chain data
     params : list, optional
-        要绘制的参数
+        Parameters to plot
     style : str
-        配色方案
+        Color scheme
     filename : str, optional
-        保存文件名
+        Save filename
     **kwargs
-        传递给GetDist的参数
+        Additional parameters
 
     Returns
     -------
     fig : plt.Figure
-        1D分布图
+        1D marginal plots
     """
     _apply_qijing_style()
-
     colors = MODERN_COLORS if style == 'modern' else CLASSIC_COLORS
-    samples = _prepare_getdist_samples(data, params)
 
-    # 创建GetDist绘图器
-    plotter = plots.getSubplotPlotter()
+    samples = _prepare_getdist_samples(data, params)
+    plotter = plots.get_single_plotter(width_inch=8)
+
+    plotter.settings.axes_fontsize = 12
+    plotter.settings.lab_fontsize = 14
+    plotter.settings.legend_fontsize = 12
     plotter.settings.figure_legend_frame = False
 
-    # 绘制1D分布
-    plotter.plots_1d([samples], **kwargs)
+    plotter.plots_1d(samples, **kwargs)
+    _optimize_ticks(plotter.fig)
+    plt.tight_layout()
 
-    # 自动保存
     if filename:
-        save_path = RESULTS_DIR / filename
+        results_dir = _get_results_dir()
+        save_path = results_dir / filename
         if not save_path.suffix:
             save_path = save_path.with_suffix('.pdf')
-
         save_path.parent.mkdir(parents=True, exist_ok=True)
         plotter.fig.savefig(save_path, dpi=300, bbox_inches='tight',
                            facecolor='white', edgecolor='none')
@@ -379,7 +395,8 @@ def plot_1d(data, params=None, style='modern', filename=None, **kwargs) -> plt.F
 
     return plotter.fig
 
-# 向后兼容的别名
+
+# Backward compatible aliases
 corner = plot_corner
 traces = plot_chains
 marginals = plot_1d

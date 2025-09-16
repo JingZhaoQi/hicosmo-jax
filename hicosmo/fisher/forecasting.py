@@ -1,5 +1,5 @@
 """
-HiCosmo Parameter Forecasting
+HIcosmo Parameter Forecasting
 =============================
 
 Professional cosmological parameter forecasting for future surveys and experiments.

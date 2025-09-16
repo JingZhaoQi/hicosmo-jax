@@ -1,8 +1,8 @@
 """
-HiCosmo Core - Clean and Unified Architecture
+HIcosmo Core - Clean and Unified Architecture
 =============================================
 
-This module provides the clean, unified foundation for all HiCosmo functionality.
+This module provides the clean, unified foundation for all HIcosmo functionality.
 
 Key components:
 - base: Abstract base classes with minimal interfaces

@@ -82,8 +82,8 @@ class MCMC:
         likelihood_func: Callable,
         strict_mode: bool = False,
         chain_name: Optional[str] = None,
-        # Optimization options
-        optimize_init: bool = False,  # 默认关闭JAX优化，使用标准warmup
+        # Optimization options  
+        optimize_init: bool = False,  # Default: OFF. Standard warmup recommended for most cases
         max_opt_iterations: int = DEFAULT_MAX_OPTIMIZATION_ITERATIONS,
         opt_learning_rate: float = 0.01,
         # Checkpoint and resume options
@@ -333,34 +333,55 @@ class MCMC:
     
     def _apply_intelligent_defaults(self, mcmc_kwargs: dict) -> dict:
         """
-        Apply intelligent MCMC defaults based on optimization settings.
+        Apply intelligent MCMC defaults based on system configuration.
         
-        Strategy:
-        - JAX optimization ON  → warmup=300  (minimal for HMC tuning)
-        - JAX optimization OFF → warmup=2000 (standard warmup)
-        - User can override any defaults explicitly
+        Smart Defaults Strategy:
+        1. num_chains: Auto-detect based on available CPU cores
+        2. num_warmup: 20% of num_samples if not specified  
+        3. optimize_init: False by default (standard warmup preferred)
+        4. checkpointing: Enabled by default
+        
+        User can override any defaults explicitly.
         """
-        # Don't override user-specified values
+        verbose = mcmc_kwargs.get('verbose', True)
+        
+        # 1. Smart default for num_samples
+        mcmc_kwargs.setdefault('num_samples', DEFAULT_NUM_SAMPLES)
+        total_samples = mcmc_kwargs['num_samples']
+        
+        # 2. Smart default for num_chains: match CPU cores (but reasonable limits)
+        if 'num_chains' not in mcmc_kwargs:
+            try:
+                import jax
+                available_devices = len(jax.devices())
+                # Use available devices, but cap between 1-8 chains for efficiency
+                optimal_chains = max(1, min(available_devices, 8))
+                mcmc_kwargs['num_chains'] = optimal_chains
+                if verbose:
+                    print(f"📝 Auto-detected num_chains: {optimal_chains} (based on {available_devices} CPU cores)")
+            except Exception:
+                # Fallback to default
+                mcmc_kwargs['num_chains'] = DEFAULT_NUM_CHAINS
+                if verbose:
+                    print(f"📝 Using default num_chains: {DEFAULT_NUM_CHAINS}")
+        else:
+            if verbose:
+                print(f"📝 Using user-specified num_chains: {mcmc_kwargs['num_chains']}")
+        
+        num_chains = mcmc_kwargs['num_chains']
+        
+        # 3. Smart default for num_warmup: 20% of total samples
         if 'num_warmup' not in mcmc_kwargs:
-            if self.optimize_init:
-                # JAX optimization enabled: minimal warmup needed
-                mcmc_kwargs['num_warmup'] = DEFAULT_WARMUP_OPTIMIZED
-                if mcmc_kwargs.get('verbose', True):
-                    print(f"📝 Using minimal warmup ({DEFAULT_WARMUP_OPTIMIZED}) with JAX optimization")
-            else:
-                # No optimization: use standard warmup
-                mcmc_kwargs['num_warmup'] = DEFAULT_WARMUP_STANDARD
-                if mcmc_kwargs.get('verbose', True):
-                    print(f"📝 Using standard warmup ({DEFAULT_WARMUP_STANDARD}) without optimization")
+            # Calculate 20% of total samples, with reasonable bounds
+            warmup_samples = max(100, int(total_samples * 0.2))  # At least 100, 20% of total
+            mcmc_kwargs['num_warmup'] = warmup_samples
+            if verbose:
+                print(f"📝 Auto-calculated num_warmup: {warmup_samples} (20% of {total_samples} total samples)")
         else:
             # User specified warmup value
             user_warmup = mcmc_kwargs['num_warmup']
-            if mcmc_kwargs.get('verbose', True):
+            if verbose:
                 print(f"📝 Using user-specified warmup ({user_warmup})")
-        
-        # Set other reasonable defaults
-        mcmc_kwargs.setdefault('num_samples', DEFAULT_NUM_SAMPLES)
-        mcmc_kwargs.setdefault('num_chains', DEFAULT_NUM_CHAINS)
         
         # 🔧 Convert total samples to per-chain samples
         # User input should be interpreted as TOTAL samples, not per-chain samples

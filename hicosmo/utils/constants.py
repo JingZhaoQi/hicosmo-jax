@@ -1,5 +1,5 @@
 """
-Physical and astronomical constants used in HiCosmo.
+Physical and astronomical constants used in HIcosmo.
 
 All constants are in SI units unless otherwise specified.
 """

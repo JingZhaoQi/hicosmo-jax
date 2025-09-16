@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Multi-core Optimization Utilities for HiCosmo
+Multi-core Optimization Utilities for HIcosmo
 
 Provides utilities for configuring and optimizing multi-core parallel execution.
 """

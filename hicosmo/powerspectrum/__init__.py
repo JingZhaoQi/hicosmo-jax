@@ -1,5 +1,5 @@
 """
-HiCosmo Power Spectrum Module
+HIcosmo Power Spectrum Module
 ============================
 
 Professional power spectrum calculations including:

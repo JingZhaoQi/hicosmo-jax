@@ -1,112 +1,36 @@
-# Agents
+# Repository Guidelines
 
-Specialized agents that do heavy work and return concise summaries to preserve context.
+Use this guide to orient new contributions and keep the HIcosmo toolchain predictable across CPU and GPU environments.
 
-## Core Philosophy
+## Project Structure & Module Organization
+- `hicosmo/` holds production JAX code (models, samplers, likelihoods, visualization). Mirror new components in this tree.
+- `qcosmc/` is the legacy scipy baseline; touch only when syncing behaviour for regression comparisons.
+- `tests/` and top-level `test_*.py` contain regression, benchmarking, and diagnostics; group additions by domain (e.g., `tests/analysis/`).
+- `examples/`, `docs/`, and published `results/` artefacts document and showcase functionality; keep notebooks and figures consistent with API changes.
 
-> “Don't anthropomorphize subagents. Use them to organize your prompts and elide context. Subagents are best when they can do lots of work but then provide small amounts of information back to the main conversation thread.”
->
-> – Adam Wolff, Anthropic
+## Build, Test, and Development Commands
+- `pip install -e ".[dev]"` — install editable sources with linting, typing, and test extras.
+- `pytest` or `pytest -m "not slow"` — run the default suite; reserve `-m slow` and `-m gpu` for dedicated hardware checks.
+- `pytest --cov=hicosmo --cov-report=term-missing` — confirm coverage before merging feature branches.
+- `black . && isort .`, then `mypy hicosmo` and `flake8 hicosmo tests` — match repo formatting and static checks; use `pre-commit run --all-files` for a single pass.
 
-## Available Agents
+## Coding Style & Naming Conventions
+- Enforce Black’s 88-character layout and isort’s Black profile for imports.
+- Prefer pure, type-annotated functions; decorate with `@jax.jit` or `@jax.vmap` only after profiling benefits.
+- Use `snake_case` for modules/functions, `CamelCase` for classes, and upper-case constants for cosmological parameters.
+- Place reusable YAML configs under `hicosmo/configs/` with dataset-based filenames (e.g., `pantheon_plus.yaml`).
 
-### 🔍 `code-analyzer`
-- **Purpose**: Hunt bugs across multiple files without polluting main context
-- **Pattern**: Search many files → Analyze code → Return bug report
-- **Usage**: When you need to trace logic flows, find bugs, or validate changes
-- **Returns**: Concise bug report with critical findings only
+## Testing Guidelines
+- Honour pytest markers: gate heavy runs behind `slow`, GPU-specific checks behind `gpu`, and scenario tests behind `integration`.
+- Provide deterministic fixtures for new samplers or likelihoods; update comparison plots in `tests/chains/` when distributions change.
+- Preserve coverage trends; document any intentional drop-off in the PR and create a follow-up issue if needed.
 
-### 📄 `file-analyzer`
-- **Purpose**: Read and summarize verbose files (logs, outputs, configs)
-- **Pattern**: Read files → Extract insights → Return summary
-- **Usage**: When you need to understand log files or analyze verbose output
-- **Returns**: Key findings and actionable insights (80-90% size reduction)
+## Commit & Pull Request Guidelines
+- Follow existing history: short imperative subjects (emoji optional), with bodies for context, metrics, or bilingual notes.
+- Reference issues using `Refs #123` or `Fixes #123`; highlight breaking API changes explicitly.
+- PRs must list validation commands, attach figures for visualization tweaks, and mention GPU vs CPU behaviour when relevant.
+- Keep PR scope tight; split sweeping refactors into preparatory commits linked through the description.
 
-### 🧪 `test-runner`
-- **Purpose**: Execute tests without dumping output to main thread
-- **Pattern**: Run tests → Capture to log → Analyze results → Return summary
-- **Usage**: When you need to run tests and understand failures
-- **Returns**: Test results summary with failure analysis
-
-### 🔀 `parallel-worker`
-- **Purpose**: Coordinate multiple parallel work streams for an issue
-- **Pattern**: Read analysis → Spawn sub-agents → Consolidate results → Return summary
-- **Usage**: When executing parallel work streams in a worktree
-- **Returns**: Consolidated status of all parallel work
-
-## Why Agents?
-
-Agents are **context firewalls** that protect the main conversation from information overload:
-
-```
-Without Agent:
-Main thread reads 10 files → Context explodes → Loses coherence
-
-With Agent:
-Agent reads 10 files → Main thread gets 1 summary → Context preserved
-```
-
-## How Agents Preserve Context
-
-1. **Heavy Lifting** - Agents do the messy work (reading files, running tests, implementing features)
-2. **Context Isolation** - Implementation details stay in the agent, not the main thread
-3. **Concise Returns** - Only essential information returns to main conversation
-4. **Parallel Execution** - Multiple agents can work simultaneously without context collision
-
-## Example Usage
-
-```bash
-# Analyzing code for bugs
-Task: "Search for memory leaks in the codebase"
-Agent: code-analyzer
-Returns: "Found 3 potential leaks: [concise list]"
-Main thread never sees: The hundreds of files examined
-
-# Running tests
-Task: "Run authentication tests"
-Agent: test-runner
-Returns: "2/10 tests failed: [failure summary]"
-Main thread never sees: Verbose test output and logs
-
-# Parallel implementation
-Task: "Implement issue #1234 with parallel streams"
-Agent: parallel-worker
-Returns: "Completed 4/4 streams, 15 files modified"
-Main thread never sees: Individual implementation details
-```
-
-## Creating New Agents
-
-New agents should follow these principles:
-
-1. **Single Purpose** - Each agent has one clear job
-2. **Context Reduction** - Return 10-20% of what you process
-3. **No Roleplay** - Agents aren't "experts", they're task executors
-4. **Clear Pattern** - Define input → processing → output pattern
-5. **Error Handling** - Gracefully handle failures and report clearly
-
-## Anti-Patterns to Avoid
-
-❌ **Creating "specialist" agents** (database-expert, api-expert)
-   Agents don't have different knowledge - they're all the same model
-
-❌ **Returning verbose output**
-   Defeats the purpose of context preservation
-
-❌ **Making agents communicate with each other**
-   Use a coordinator agent instead (like parallel-worker)
-
-❌ **Using agents for simple tasks**
-   Only use agents when context reduction is valuable
-
-## Integration with PM System
-
-Agents integrate seamlessly with the PM command system:
-
-- `/pm:issue-analyze` → Identifies work streams
-- `/pm:issue-start` → Spawns parallel-worker agent
-- parallel-worker → Spawns multiple sub-agents
-- Sub-agents → Work in parallel in the worktree
-- Results → Consolidated back to main thread
-
-This creates a hierarchy that maximizes parallelism while preserving context at every level.
+## Environment & Configuration Tips
+- Support Python 3.9–3.11; install GPU extras via `pip install "hicosmo-jax[gpu]"` when CUDA is available.
+- Set `JAX_PLATFORM_NAME=cpu` for deterministic CI runs and describe any required `XLA_FLAGS` or dataset locations in the PR notes.

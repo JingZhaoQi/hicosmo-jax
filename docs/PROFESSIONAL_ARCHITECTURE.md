@@ -1,8 +1,8 @@
-# HiCosmo 专业宇宙学架构设计
+# HIcosmo 专业宇宙学架构设计
 
 ## 设计理念
 
-HiCosmo 旨在成为一个全面的专业宇宙学计算库，支持从背景演化到结构形成的完整物理过程。
+HIcosmo 旨在成为一个全面的专业宇宙学计算库，支持从背景演化到结构形成的完整物理过程。
 
 ### 核心原则
 1. **模块化设计**：不同物理过程分离为独立模块
@@ -13,7 +13,7 @@ HiCosmo 旨在成为一个全面的专业宇宙学计算库，支持从背景演
 ## 架构概览
 
 ```
-HiCosmo Architecture
+HIcosmo Architecture
 ├── Background (背景演化)
 │   ├── Friedmann equations
 │   ├── Distance calculations  
@@ -286,4 +286,4 @@ class WeakLensing(Cosmology):
         \"\"\"剪切关联函数\"\"\"
 ```
 
-这个架构设计既保持了简单易用性，又提供了专业级的功能。它将成为 HiCosmo 的核心框架。
+这个架构设计既保持了简单易用性，又提供了专业级的功能。它将成为 HIcosmo 的核心框架。

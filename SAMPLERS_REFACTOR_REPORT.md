@@ -1,4 +1,4 @@
-# HiCosmo Samplers模块重构完成报告
+# HIcosmo Samplers模块重构完成报告
 
 **重构时间**: 2025-01-09  
 **重构版本**: AutoMCMC → MCMC  

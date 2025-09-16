@@ -6,13 +6,13 @@ Professional interface with CAMB (Code for Anisotropies in the Microwave Backgro
 Provides parameter conversion, result comparison, and validation tools.
 
 Key features:
-- Parameter format conversion between HiCosmo and CAMB
+- Parameter format conversion between HIcosmo and CAMB
 - Result comparison and validation
 - Performance benchmarking
 - Error analysis and diagnostics
 
 CAMB is the gold standard for CMB power spectrum calculations.
-This interface ensures HiCosmo results are validated against CAMB.
+This interface ensures HIcosmo results are validated against CAMB.
 """
 
 import jax.numpy as jnp
@@ -32,11 +32,11 @@ from ..powerspectrum.linear_power import LinearPowerSpectrum
 
 class CAMBInterface:
     """
-    Interface between HiCosmo and CAMB.
+    Interface between HIcosmo and CAMB.
     
     Provides seamless conversion between parameter formats,
     comparison of results, and validation tools for ensuring
-    HiCosmo calculations match CAMB standards.
+    HIcosmo calculations match CAMB standards.
     """
     
     def __init__(self, hicosmo_components: Dict[str, Any]):
@@ -46,7 +46,7 @@ class CAMBInterface:
         Parameters
         ----------
         hicosmo_components : dict
-            Dictionary containing HiCosmo calculation components:
+            Dictionary containing HIcosmo calculation components:
             - 'background': BackgroundEvolution
             - 'linear_power': LinearPowerSpectrum  
             - 'temperature_cl': TemperaturePowerSpectrum
@@ -89,14 +89,14 @@ class CAMBInterface:
     
     def hicosmo_to_camb_params(self) -> Dict[str, Any]:
         """
-        Convert HiCosmo parameters to CAMB format.
+        Convert HIcosmo parameters to CAMB format.
         
         Returns
         -------
         dict
             CAMB-formatted parameters
         """
-        # Get HiCosmo parameter values
+        # Get HIcosmo parameter values
         H0 = self.params.get_value('H0')
         h = self.params.get_value('h')
         Omega_m = self.params.get_value('Omega_m')
@@ -138,7 +138,7 @@ class CAMBInterface:
     
     def camb_to_hicosmo_params(self, camb_params: Dict[str, Any]) -> Dict[str, float]:
         """
-        Convert CAMB parameters to HiCosmo format.
+        Convert CAMB parameters to HIcosmo format.
         
         Parameters
         ----------
@@ -148,7 +148,7 @@ class CAMBInterface:
         Returns
         -------
         dict
-            HiCosmo parameter dictionary
+            HIcosmo parameter dictionary
         """
         # Extract CAMB parameters
         H0 = camb_params.get('H0', 67.4)
@@ -161,7 +161,7 @@ class CAMBInterface:
         TCMB = camb_params.get('TCMB', 2.7255)
         nnu = camb_params.get('nnu', 3.046)
         
-        # Convert to HiCosmo format
+        # Convert to HIcosmo format
         h = H0 / 100.0
         Omega_b = ombh2 / h**2
         Omega_cdm = omch2 / h**2
@@ -190,7 +190,7 @@ class CAMBInterface:
                            kmax: float = 10.0,
                            z_max: float = 10.0) -> Dict[str, Any]:
         """
-        Run CAMB calculation with HiCosmo parameters.
+        Run CAMB calculation with HIcosmo parameters.
         
         Parameters
         ----------
@@ -297,7 +297,7 @@ class CAMBInterface:
     
     def compare_background_evolution(self, z_array: jnp.ndarray = None) -> Dict[str, Any]:
         """
-        Compare HiCosmo and CAMB background evolution.
+        Compare HIcosmo and CAMB background evolution.
         
         Parameters
         ----------
@@ -312,7 +312,7 @@ class CAMBInterface:
         if z_array is None:
             z_array = jnp.linspace(0, 5, 50)
         
-        # HiCosmo calculations
+        # HIcosmo calculations
         hicosmo_H = self.background.H_z(z_array)
         hicosmo_DA = self.background.distances.angular_diameter_distance(z_array)
         
@@ -327,7 +327,7 @@ class CAMBInterface:
             # CAMB calculation
             camb_results = self.run_camb_calculation(z_max=float(z_array.max()))
             
-            # Interpolate CAMB results to HiCosmo redshift grid
+            # Interpolate CAMB results to HIcosmo redshift grid
             camb_H_interp = jnp.interp(z_array, camb_results['background']['z'], 
                                       camb_results['background']['H'])
             camb_DA_interp = jnp.interp(z_array, camb_results['background']['z'],
@@ -355,7 +355,7 @@ class CAMBInterface:
                                     k_array: jnp.ndarray = None,
                                     z_array: jnp.ndarray = None) -> Dict[str, Any]:
         """
-        Compare HiCosmo and CAMB matter power spectra.
+        Compare HIcosmo and CAMB matter power spectra.
         
         Parameters
         ----------
@@ -374,7 +374,7 @@ class CAMBInterface:
         if z_array is None:
             z_array = jnp.array([0.0, 0.5, 1.0])
         
-        # HiCosmo calculations
+        # HIcosmo calculations
         hicosmo_pk = {}
         for z in z_array:
             hicosmo_pk[f'z_{z:.1f}'] = self.linear_power.linear_power_spectrum(k_array, z)
@@ -394,7 +394,7 @@ class CAMBInterface:
             camb_pk = {}
             for i, z in enumerate(z_array):
                 if i < len(camb_results['matter_power']['z']):
-                    # Interpolate to HiCosmo k grid
+                    # Interpolate to HIcosmo k grid
                     pk_interp = jnp.interp(k_array, camb_results['matter_power']['k_h'],
                                           camb_results['matter_power']['P_k'][i, :])
                     camb_pk[f'z_{z:.1f}'] = pk_interp
@@ -419,7 +419,7 @@ class CAMBInterface:
     
     def compare_cmb_spectra(self, l_max: int = 2500) -> Dict[str, Any]:
         """
-        Compare HiCosmo and CAMB CMB power spectra.
+        Compare HIcosmo and CAMB CMB power spectra.
         
         Parameters
         ----------
@@ -437,7 +437,7 @@ class CAMBInterface:
         # Multipole array
         l_array = jnp.arange(2, min(l_max + 1, 2501))
         
-        # HiCosmo calculations
+        # HIcosmo calculations
         hicosmo_TT = self.temperature_cl.temperature_power_spectrum(l_array)
         
         comparison = {
@@ -457,7 +457,7 @@ class CAMBInterface:
             # CAMB calculation
             camb_results = self.run_camb_calculation(lmax=l_max)
             
-            # Interpolate to HiCosmo l grid
+            # Interpolate to HIcosmo l grid
             camb_TT = jnp.interp(l_array, camb_results['cmb_spectra']['ell'],
                                 camb_results['cmb_spectra']['TT'])
             comparison['camb_TT'] = camb_TT
@@ -503,7 +503,7 @@ class CAMBInterface:
             Formatted validation report
         """
         lines = [
-            "HiCosmo-CAMB Validation Report",
+            "HIcosmo-CAMB Validation Report",
             "=" * 35,
             f"CAMB Available: {self.camb_available}",
             ""
@@ -570,10 +570,10 @@ class CAMBInterface:
         # Summary
         lines.extend([
             "Validation Summary:",
-            "  HiCosmo calculations are compared against CAMB",
+            "  HIcosmo calculations are compared against CAMB",
             "  using identical cosmological parameters.",
             "  Differences within expected tolerances indicate",
-            "  successful validation of HiCosmo implementation.",
+            "  successful validation of HIcosmo implementation.",
         ])
         
         return "\n".join(lines)
@@ -607,7 +607,7 @@ class CAMBInterface:
         camb_params = self.hicosmo_to_camb_params()
         
         ini_content = [
-            "# CAMB parameters exported from HiCosmo",
+            "# CAMB parameters exported from HIcosmo",
             f"# Generated automatically",
             "",
             "# Cosmological parameters",

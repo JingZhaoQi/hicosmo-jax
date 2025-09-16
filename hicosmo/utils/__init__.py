@@ -1,5 +1,5 @@
 """
-HiCosmo Utilities Package
+HIcosmo Utilities Package
 ========================
 
 Utility modules and constants for cosmological calculations.

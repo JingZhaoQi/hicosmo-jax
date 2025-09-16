@@ -1,4 +1,4 @@
-# CLAUDE.md - HiCosmo Development Rules
+# CLAUDE.md - HIcosmo Development Rules
 
 > Think carefully and implement the most concise solution that changes as little code as possible.
 
@@ -55,7 +55,7 @@ python tests/test_[module]_benchmark.py
 ### 2. Always use the code-analyzer sub-agent for code analysis, bug research, logic tracing.
 ### 3. Always use the test-runner sub-agent to run tests and analyze results.
 
-## 🚨 ABSOLUTE RULES (Updated with HiCosmo Experience)
+## 🚨 ABSOLUTE RULES (Updated with HIcosmo Experience)
 
 ### 性能相关
 - **NO SLOW CODE**: 任何计算 > 1ms 必须优化或重写

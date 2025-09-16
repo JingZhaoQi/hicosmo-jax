@@ -1,5 +1,5 @@
 """
-HiCosmo Perturbation Theory Module
+HIcosmo Perturbation Theory Module
 =================================
 
 Professional linear perturbation theory calculations including:

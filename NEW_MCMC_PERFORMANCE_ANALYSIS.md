@@ -69,7 +69,7 @@ def _apply_intelligent_defaults(self, mcmc_kwargs):
 
 ## 📈 与竞争对手对比
 
-### HiCosmo新MCMC vs qcosmc
+### HIcosmo新MCMC vs qcosmc
 
 基于测试结果估算，新MCMC模块相比qcosmc有巨大优势：
 
@@ -190,7 +190,7 @@ config = {
 - **用户体验**: 智能配置大幅降低使用门槛
 - **技术先进性**: 基于JAX+NumPyro的现代技术栈
 
-这次重构不仅解决了所有预期问题，更带来了超出预期的性能收益，为HiCosmo项目奠定了坚实的高性能基础。
+这次重构不仅解决了所有预期问题，更带来了超出预期的性能收益，为HIcosmo项目奠定了坚实的高性能基础。
 
 ---
 **分析负责人**: Claude Code  

@@ -1,5 +1,5 @@
 """
-Unified Parameter Management for HiCosmo
+Unified Parameter Management for HIcosmo
 ========================================
 
 Single source of truth for all cosmological parameter handling.

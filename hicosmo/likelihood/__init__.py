@@ -1,5 +1,5 @@
 """
-HiCosmo Likelihood System
+HIcosmo Likelihood System
 ========================
 
 Production-grade likelihood calculations for cosmological parameter estimation.

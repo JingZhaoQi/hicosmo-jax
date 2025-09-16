@@ -1,4 +1,4 @@
-# HiCosmo Development Guide
+# HIcosmo Development Guide
 
 ## Development Principles
 

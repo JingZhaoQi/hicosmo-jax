@@ -1,5 +1,5 @@
 """
-HiCosmo Interfaces Module
+HIcosmo Interfaces Module
 ========================
 
 Professional interfaces with external cosmology codes including:

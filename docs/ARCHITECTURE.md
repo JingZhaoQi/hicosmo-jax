@@ -1,8 +1,8 @@
-# HiCosmo Architecture
+# HIcosmo Architecture
 
 ## Overview
 
-HiCosmo is a high-performance cosmological parameter estimation framework built on JAX and NumPyro. The architecture follows functional programming principles with pure functions for all cosmological calculations, enabling automatic differentiation and JIT compilation.
+HIcosmo is a high-performance cosmological parameter estimation framework built on JAX and NumPyro. The architecture follows functional programming principles with pure functions for all cosmological calculations, enabling automatic differentiation and JIT compilation.
 
 ## Core Design Principles
 

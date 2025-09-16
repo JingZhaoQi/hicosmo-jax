@@ -1,5 +1,5 @@
 """
-HiCosmo Dark Energy Figures of Merit
+HIcosmo Dark Energy Figures of Merit
 ====================================
 
 Professional dark energy figure-of-merit calculations for cosmological surveys.

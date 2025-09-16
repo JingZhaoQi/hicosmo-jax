@@ -66,10 +66,10 @@ class MCMCSampler:
     def __init__(self,
                  model_fn: Callable,
                  kernel: Optional[object] = None,
-                 num_warmup: int = DEFAULT_WARMUP_STANDARD,  # 默认值，由MCMC智能调整
+                 num_warmup: int = DEFAULT_WARMUP_STANDARD,  # Default value, intelligently adjusted by MCMC
                  num_samples: int = DEFAULT_NUM_SAMPLES,
                  num_chains: int = 4,
-                 chain_method: Optional[str] = None,  # None表示自动检测
+                 chain_method: Optional[str] = None,  # None means auto-detect
                  progress_bar: bool = True,
                  verbose: bool = True,
                  **mcmc_kwargs):
@@ -107,7 +107,7 @@ class MCMCSampler:
         self.progress_bar = progress_bar
         self.verbose = verbose
         
-        # 智能检测链方法
+        # Intelligently detect chain method
         self.chain_method = self._detect_chain_method(chain_method)
         
         # Initialize console for pretty output
@@ -123,7 +123,7 @@ class MCMCSampler:
             num_warmup=num_warmup,
             num_samples=num_samples,
             num_chains=num_chains,
-            chain_method=self.chain_method,  # 使用检测到的方法
+            chain_method=self.chain_method,  # Use detected method
             progress_bar=False,  # We'll use our own progress display
             **mcmc_kwargs
         )
@@ -134,19 +134,19 @@ class MCMCSampler:
         
     def _detect_chain_method(self, chain_method: Optional[str]) -> str:
         """
-        智能检测链运行方法
+        Intelligently detect chain execution method
         
         Parameters
         ----------
         chain_method : str, optional
-            用户指定的链方法，如果为None则自动检测
+            User-specified chain method, auto-detect if None
             
         Returns
         -------
         str
-            实际使用的链方法
+            Actual chain method to use
         """
-        # 如果用户明确指定了方法，使用用户的选择
+        # If user explicitly specified a method, use it
         if chain_method is not None:
             return chain_method
         
@@ -154,16 +154,16 @@ class MCMCSampler:
             import jax
             device_count = jax.local_device_count()
             
-            # 根据设备数量和链数决定方法
+            # Determine method based on device count and chain count
             if device_count >= self.num_chains and self.num_chains > 1:
                 return 'parallel'
             elif self.num_chains > 1:
-                return 'sequential'  # 多链但设备不足，使用顺序执行
+                return 'sequential'  # Multiple chains but insufficient devices, use sequential
             else:
-                return 'sequential'  # 单链情况
+                return 'sequential'  # Single chain case
                 
         except ImportError:
-            # JAX不可用，默认使用sequential
+            # JAX not available, default to sequential
             return 'sequential'
         
     def run(self, rng_key: Optional[jax.random.PRNGKey] = None, 

@@ -1,5 +1,5 @@
 """
-HiCosmo Cosmological Models - Clean and Unified
+HIcosmo Cosmological Models - Clean and Unified
 ===============================================
 
 This package provides production-ready implementations of cosmological models

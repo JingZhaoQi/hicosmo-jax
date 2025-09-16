@@ -1,5 +1,5 @@
 """
-HiCosmo Fisher Matrix Analysis
+HIcosmo Fisher Matrix Analysis
 =============================
 
 Professional Fisher matrix analysis tools for cosmological parameter estimation.

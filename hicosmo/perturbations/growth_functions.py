@@ -51,12 +51,12 @@ class GrowthCalculator:
         # Physical parameters
         self.H0 = background.H0_value if hasattr(background, 'H0_value') else background.H0
         
-        # 处理参数获取 - 兼容字典和参数管理器
+        # Handle parameter extraction - compatible with dict and parameter manager
         if hasattr(self.params, 'get_value'):
             self.Omega_m_0 = self.params.get_value('Omega_m')
             self.Omega_Lambda_0 = self.params.get_value('Omega_Lambda')
         else:
-            # 参数是字典格式
+            # Parameters in dictionary format
             self.Omega_m_0 = self.params.get('Omega_m', 0.3)
             self.Omega_Lambda_0 = self.params.get('Omega_Lambda', 0.7)
         

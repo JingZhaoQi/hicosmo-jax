@@ -1,11 +1,11 @@
-# HiCosmo 🌌
+# HIcosmo 🌌
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![JAX](https://img.shields.io/badge/JAX-0.4.20+-green.svg)](https://github.com/google/jax)
 [![NumPyro](https://img.shields.io/badge/NumPyro-0.13.0+-orange.svg)](https://num.pyro.ai/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-HiCosmo是一个基于JAX和NumPyro的高性能宇宙学参数估计框架，专为现代宇宙学数据分析设计。
+HIcosmo是一个基于JAX和NumPyro的高性能宇宙学参数估计框架，专为现代宇宙学数据分析设计。
 
 ## ✨ 主要特性
 
@@ -123,7 +123,7 @@ hicosmo/
 
 ## 📊 性能基准
 
-| 任务 | HiCosmo | 传统方法 | 加速比 |
+| 任务 | HIcosmo | 传统方法 | 加速比 |
 |------|---------|----------|--------|
 | 距离计算 (1000点) | 0.02s | 0.15s | 7.5x |
 | MCMC采样 (10k样本) | 45s | 180s | 4.0x |
@@ -150,12 +150,12 @@ hicosmo/
 
 ## 📝 引用
 
-如果您在研究中使用了HiCosmo，请引用：
+如果您在研究中使用了HIcosmo，请引用：
 
 ```bibtex
 @software{hicosmo2024,
-  author = {HiCosmo Team},
-  title = {HiCosmo: High-performance cosmological parameter estimation},
+  author = {HIcosmo Team},
+  title = {HIcosmo: High-performance cosmological parameter estimation},
   year = {2024},
   url = {https://github.com/hicosmo/hicosmo}
 }
@@ -167,7 +167,7 @@ hicosmo/
 
 ## 🙏 致谢
 
-HiCosmo的开发受益于以下优秀项目：
+HIcosmo的开发受益于以下优秀项目：
 - [JAX](https://github.com/google/jax) - 自动微分和JIT编译
 - [NumPyro](https://num.pyro.ai/) - 概率编程和MCMC
 - [Cobaya](https://cobaya.readthedocs.io/) - 宇宙学参数采样
@@ -181,4 +181,4 @@ HiCosmo的开发受益于以下优秀项目：
 
 ---
 
-**HiCosmo** - 让宇宙学参数估计更快、更准、更简单！ 🚀
+**HIcosmo** - 让宇宙学参数估计更快、更准、更简单！ 🚀

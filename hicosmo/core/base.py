@@ -1,8 +1,8 @@
 """
-HiCosmo Base Classes - Simplified and Clean
+HIcosmo Base Classes - Simplified and Clean
 ===========================================
 
-Minimal base classes for all cosmological models in HiCosmo.
+Minimal base classes for all cosmological models in HIcosmo.
 This replaces the bloated cosmology.py with a clean, focused interface.
 
 Key principles:

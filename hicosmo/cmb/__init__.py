@@ -1,5 +1,5 @@
 """
-HiCosmo CMB Calculations Module
+HIcosmo CMB Calculations Module
 ==============================
 
 Professional CMB power spectrum calculations including:

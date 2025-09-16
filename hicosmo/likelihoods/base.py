@@ -14,7 +14,7 @@ from pathlib import Path
 
 class Likelihood(ABC):
     """
-    Abstract base class for all likelihoods in HiCosmo.
+    Abstract base class for all likelihoods in HIcosmo.
     
     This class is designed to be compatible with Cobaya's likelihood interface
     while leveraging JAX for automatic differentiation and GPU acceleration.

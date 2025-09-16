@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
-HiCosmo 优雅的多核初始化模块
+HIcosmo Elegant Multi-core Initialization Module
 
-提供简洁、优美的多核环境配置方案
+Provides clean and elegant multi-core environment configuration
+for neutral hydrogen cosmology and 21cm surveys.
+
+Author: Jingzhao Qi
 """
 
 import os
@@ -12,9 +15,10 @@ from typing import Optional, Union
 
 class Config:
     """
-    HiCosmo 全局配置管理器
+    HIcosmo Global Configuration Manager
     
-    提供优雅的一行初始化方案，自动处理多核、环境变量等配置
+    Provides elegant one-line initialization with automatic multi-core and environment setup
+    for neutral hydrogen cosmology and 21cm surveys
     """
     
     _initialized = False
@@ -25,17 +29,17 @@ class Config:
              cpu_cores: Union[int, str, None] = 'auto',
              verbose: bool = True) -> bool:
         """
-        优雅的一行初始化方案
+        Elegant one-line initialization
         
         Parameters
         ----------
         cpu_cores : int, 'auto', or None
-            CPU核心数配置:
-            - int: 指定核心数 (如 4)
-            - 'auto': 自动检测并使用最优配置
-            - None: 不设置多核，使用默认配置
+            CPU cores configuration:
+            - int: Specify number of cores (e.g., 4)
+            - 'auto': Auto-detect and use optimal configuration
+            - None: Don't set multi-core, use default
         verbose : bool
-            是否显示初始化信息
+            Whether to show initialization messages
             
         Returns
         -------
@@ -44,28 +48,28 @@ class Config:
             
         Examples
         --------
-        >>> # 最简单的用法：自动配置
+        >>> # Simplest usage: auto configuration
         >>> Config.init()
         
-        >>> # 指定核心数
+        >>> # Specify core count
         >>> Config.init(cpu_cores=4)
         
-        >>> # 静默初始化
+        >>> # Silent initialization
         >>> Config.init(cpu_cores='auto', verbose=False)
         """
         if cls._initialized:
             if verbose:
-                print("✅ HiCosmo already initialized")
+                print("✅ HIcosmo already initialized")
             return True
             
         try:
-            # 设置CPU核心数
+            # Set CPU cores
             if cpu_cores is not None:
                 success = cls._setup_multicore(cpu_cores, verbose)
                 if not success and verbose:
                     print("⚠️  Multi-core setup had issues, continuing with single-core")
             
-            # 标记为已初始化
+            # Mark as initialized
             cls._initialized = True
             cls._config['cpu_cores'] = cpu_cores
             cls._config['verbose'] = verbose
@@ -77,34 +81,34 @@ class Config:
             
         except Exception as e:
             if verbose:
-                print(f"❌ HiCosmo initialization failed: {e}")
+                print(f"❌ HIcosmo initialization failed: {e}")
             return False
     
     @classmethod
     def _setup_multicore(cls, cpu_cores: Union[int, str], verbose: bool) -> bool:
-        """内部方法：设置多核配置"""
+        """Internal method: setup multi-core configuration"""
         try:
-            # 确定核心数
+            # Determine core count
             if cpu_cores == 'auto':
                 system_cores = os.cpu_count() or 4
-                # 使用系统核心数，但最多不超过8核（避免过度并行）
+                # Use system cores, but cap at 8 (avoid excessive parallelization)
                 num_cores = min(system_cores, 8)
-                # 至少使用4核（如果系统支持）
+                # Use at least 4 cores (if system supports)
                 num_cores = max(min(num_cores, system_cores), 4) if system_cores >= 4 else system_cores
             else:
                 num_cores = int(cpu_cores)
             
-            # 验证核心数
+            # Validate core count
             if num_cores < 1:
                 if verbose:
                     print("⚠️  Invalid core count, using 1")
                 num_cores = 1
             
-            # 设置环境变量（必须在NumPyro导入之前）
+            # Set environment variables (must be before NumPyro import)
             if num_cores > 1:
                 os.environ['XLA_FLAGS'] = f'--xla_force_host_platform_device_count={num_cores}'
             
-            # 导入并配置NumPyro
+            # Import and configure NumPyro
             import numpyro
             numpyro.set_host_device_count(num_cores)
             
@@ -122,19 +126,19 @@ class Config:
     
     @classmethod
     def _print_initialization_summary(cls):
-        """打印初始化摘要"""
+        """Print initialization summary"""
         print("\n" + "="*50)
-        print("🎉 HiCosmo Initialization Complete")
+        print("🎉 HIcosmo Initialization Complete")
         print("="*50)
         
-        # 显示配置信息
+        # Display configuration info
         cpu_config = cls._config.get('cpu_cores', 'default')
         actual_cores = cls._config.get('actual_cores', 1)
         
         print(f"CPU Configuration: {cpu_config}")
         print(f"Active CPU Cores: {actual_cores}")
         
-        # 验证JAX设备
+        # Verify JAX devices
         try:
             import jax
             devices = jax.devices()
@@ -155,12 +159,12 @@ class Config:
     @classmethod
     def status(cls) -> dict:
         """
-        获取当前配置状态
+        Get current configuration status
         
         Returns
         -------
         dict
-            配置状态信息
+            Configuration status information
         """
         status_info = {
             'initialized': cls._initialized,
@@ -168,7 +172,7 @@ class Config:
             'system_cores': os.cpu_count(),
         }
         
-        # JAX信息
+        # JAX information
         try:
             import jax
             status_info['jax_devices'] = len(jax.devices())
@@ -181,31 +185,31 @@ class Config:
     
     @classmethod
     def reset(cls):
-        """重置配置（主要用于测试）"""
+        """Reset configuration (mainly for testing)"""
         cls._initialized = False
         cls._config = {}
 
 
-# 提供便捷的导入接口
+# Provide convenient import interface
 def init_hicosmo(cpu_cores: Union[int, str, None] = 'auto', verbose: bool = True) -> bool:
     """
-    HiCosmo 一行初始化函数
+    HIcosmo one-line initialization function
     
-    这是最简洁的使用方式：
+    This is the most concise usage for neutral hydrogen cosmology:
     
     Examples
     --------
     >>> from hicosmo.samplers import init_hicosmo
-    >>> init_hicosmo()  # 自动配置，就这么简单！
+    >>> init_hicosmo()  # Auto configuration for 21cm surveys!
     """
     return Config.init(cpu_cores=cpu_cores, verbose=verbose)
 
 
-# 向后兼容的多核设置函数（基于新的优雅方案）
+# Backward compatible multi-core setup function (based on new elegant solution)
 def setup_multicore_execution(num_devices: Optional[int] = None, 
                              auto_detect: bool = True,
                              force_override: bool = False) -> bool:
-    """向后兼容的多核设置函数"""
+    """Backward compatible multi-core setup function"""
     if num_devices is None:
         cpu_cores = 'auto' if auto_detect else None
     else:

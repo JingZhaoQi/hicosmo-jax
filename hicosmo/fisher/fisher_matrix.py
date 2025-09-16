@@ -1,5 +1,5 @@
 """
-HiCosmo Fisher Matrix Calculator
+HIcosmo Fisher Matrix Calculator
 ===============================
 
 Professional Fisher matrix calculations for cosmological parameter estimation.

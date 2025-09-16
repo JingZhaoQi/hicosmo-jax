@@ -6,7 +6,7 @@ Professional interface with CLASS (Cosmic Linear Anisotropy Solving System).
 Provides parameter conversion, result comparison, and validation tools.
 
 Key features:
-- Parameter format conversion between HiCosmo and CLASS
+- Parameter format conversion between HIcosmo and CLASS
 - Result comparison and validation  
 - Performance benchmarking
 - Cross-validation with CAMB
@@ -30,11 +30,11 @@ from ..powerspectrum.linear_power import LinearPowerSpectrum
 
 class CLASSInterface:
     """
-    Interface between HiCosmo and CLASS.
+    Interface between HIcosmo and CLASS.
     
     Provides seamless conversion between parameter formats,
     comparison of results, and validation tools for ensuring
-    HiCosmo calculations match CLASS standards.
+    HIcosmo calculations match CLASS standards.
     """
     
     def __init__(self, hicosmo_components: Dict[str, Any]):
@@ -44,7 +44,7 @@ class CLASSInterface:
         Parameters
         ----------
         hicosmo_components : dict
-            Dictionary containing HiCosmo calculation components
+            Dictionary containing HIcosmo calculation components
         """
         self.background = hicosmo_components.get('background')
         self.linear_power = hicosmo_components.get('linear_power')
@@ -78,14 +78,14 @@ class CLASSInterface:
     
     def hicosmo_to_class_params(self) -> Dict[str, Any]:
         """
-        Convert HiCosmo parameters to CLASS format.
+        Convert HIcosmo parameters to CLASS format.
         
         Returns
         -------
         dict
             CLASS-formatted parameters
         """
-        # Get HiCosmo parameters
+        # Get HIcosmo parameters
         H0 = self.params.get_value('H0')
         h = self.params.get_value('h')
         Omega_m = self.params.get_value('Omega_m')
@@ -143,7 +143,7 @@ class CLASSInterface:
     
     def class_to_hicosmo_params(self, class_params: Dict[str, Any]) -> Dict[str, float]:
         """
-        Convert CLASS parameters to HiCosmo format.
+        Convert CLASS parameters to HIcosmo format.
         
         Parameters
         ----------
@@ -153,7 +153,7 @@ class CLASSInterface:
         Returns
         -------
         dict
-            HiCosmo parameter dictionary
+            HIcosmo parameter dictionary
         """
         # Extract CLASS parameters
         h = class_params.get('h', 0.674)
@@ -166,7 +166,7 @@ class CLASSInterface:
         T_cmb = class_params.get('T_cmb', 2.7255)
         N_eff = class_params.get('N_ur', 3.046)
         
-        # Convert to HiCosmo format
+        # Convert to HIcosmo format
         H0 = h * 100.0
         Omega_m = Omega_b + Omega_cdm
         
@@ -189,7 +189,7 @@ class CLASSInterface:
     
     def run_class_calculation(self) -> Dict[str, Any]:
         """
-        Run CLASS calculation with HiCosmo parameters.
+        Run CLASS calculation with HIcosmo parameters.
         
         Returns
         -------
@@ -272,7 +272,7 @@ class CLASSInterface:
     
     def compare_background_evolution(self, z_array: jnp.ndarray = None) -> Dict[str, Any]:
         """
-        Compare HiCosmo and CLASS background evolution.
+        Compare HIcosmo and CLASS background evolution.
         
         Parameters
         ----------
@@ -287,7 +287,7 @@ class CLASSInterface:
         if z_array is None:
             z_array = jnp.linspace(0, 5, 50)
         
-        # HiCosmo calculations
+        # HIcosmo calculations
         hicosmo_H = self.background.H_z(z_array)
         hicosmo_DA = self.background.distances.angular_diameter_distance(z_array)
         
@@ -302,7 +302,7 @@ class CLASSInterface:
             # CLASS calculation
             class_results = self.run_class_calculation()
             
-            # Interpolate CLASS results to HiCosmo grid
+            # Interpolate CLASS results to HIcosmo grid
             class_H_interp = jnp.interp(z_array, class_results['background']['z'],
                                        class_results['background']['H'])
             class_DA_interp = jnp.interp(z_array, class_results['background']['z'],
@@ -329,7 +329,7 @@ class CLASSInterface:
                                     k_array: jnp.ndarray = None,
                                     z_array: jnp.ndarray = None) -> Dict[str, Any]:
         """
-        Compare HiCosmo and CLASS matter power spectra.
+        Compare HIcosmo and CLASS matter power spectra.
         
         Parameters
         ----------
@@ -348,7 +348,7 @@ class CLASSInterface:
         if z_array is None:
             z_array = jnp.array([0.0, 0.5, 1.0])
         
-        # HiCosmo calculations
+        # HIcosmo calculations
         hicosmo_pk = {}
         for z in z_array:
             hicosmo_pk[f'z_{z:.1f}'] = self.linear_power.linear_power_spectrum(k_array, z)
@@ -391,7 +391,7 @@ class CLASSInterface:
     
     def compare_cmb_spectra(self, l_max: int = 2500) -> Dict[str, Any]:
         """
-        Compare HiCosmo and CLASS CMB power spectra.
+        Compare HIcosmo and CLASS CMB power spectra.
         
         Parameters
         ----------
@@ -409,7 +409,7 @@ class CLASSInterface:
         # Multipole array
         l_array = jnp.arange(2, min(l_max + 1, 2501))
         
-        # HiCosmo calculation
+        # HIcosmo calculation
         hicosmo_TT = self.temperature_cl.temperature_power_spectrum(l_array)
         
         comparison = {
@@ -422,7 +422,7 @@ class CLASSInterface:
             # CLASS calculation
             class_results = self.run_class_calculation()
             
-            # Interpolate to HiCosmo l grid
+            # Interpolate to HIcosmo l grid
             class_TT = jnp.interp(l_array, class_results['cmb_spectra']['ell'],
                                  class_results['cmb_spectra']['TT'])
             comparison['class_TT'] = class_TT
@@ -447,7 +447,7 @@ class CLASSInterface:
             Formatted validation report
         """
         lines = [
-            "HiCosmo-CLASS Validation Report",
+            "HIcosmo-CLASS Validation Report",
             "=" * 35,
             f"CLASS Available: {self.class_available}",
             ""
@@ -508,10 +508,10 @@ class CLASSInterface:
         # Summary
         lines.extend([
             "Validation Summary:",
-            "  HiCosmo calculations are compared against CLASS",
+            "  HIcosmo calculations are compared against CLASS",
             "  using identical cosmological parameters.",
             "  Agreement within tolerances validates the",
-            "  accuracy of HiCosmo implementations.",
+            "  accuracy of HIcosmo implementations.",
         ])
         
         return "\n".join(lines)
@@ -530,7 +530,7 @@ class CLASSInterface:
         class_params = self.hicosmo_to_class_params()
         
         ini_content = [
-            "# CLASS parameters exported from HiCosmo",
+            "# CLASS parameters exported from HIcosmo",
             "# Generated automatically",
             "",
             "# Cosmological parameters",

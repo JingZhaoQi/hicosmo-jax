@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Configuration Constants for HiCosmo Samplers
+Configuration Constants for HIcosmo Samplers
 
 Centralizes all configuration constants to eliminate hardcoding.
 """

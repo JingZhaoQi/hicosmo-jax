@@ -1,4 +1,4 @@
-# HiCosmo 🌌
+# HIcosmo 🌌 📡
 
 [![CI/CD](https://github.com/JingZhaoQi/hicosmo-jax/actions/workflows/ci.yml/badge.svg)](https://github.com/JingZhaoQi/hicosmo-jax/actions/workflows/ci.yml)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
@@ -6,9 +6,11 @@
 [![NumPyro](https://img.shields.io/badge/NumPyro-0.13.0+-orange.svg)](https://num.pyro.ai/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**High-performance JAX-based cosmological parameter estimation framework**
+**High-performance universal cosmology framework with enhanced neutral hydrogen capabilities**
 
-HiCosmo is the next-generation successor to qcosmc, built from the ground up with modern high-performance computing principles. It leverages JAX for automatic differentiation, JIT compilation, and GPU acceleration to deliver 5-10x performance improvements while maintaining scientific accuracy and expanding functionality.
+**HIcosmo** (HI = neutral hydrogen, I = Roman numeral 1) is a universal cosmological parameter estimation framework with enhanced functionality and optimizations for neutral hydrogen cosmology and 21cm surveys. Built from the ground up with modern high-performance computing principles, it leverages JAX for automatic differentiation, JIT compilation, and GPU acceleration to deliver 5-10x performance improvements while maintaining scientific accuracy.
+
+**Author**: Jingzhao Qi
 
 ## 🚀 Key Features
 
@@ -65,7 +67,7 @@ fisher_matrix = jax.hessian(log_likelihood)(params)
 
 ## 📈 Performance Comparison
 
-| Operation | qcosmc (scipy) | HiCosmo (JAX) | Speedup |
+| Operation | qcosmc (scipy) | HIcosmo (JAX) | Speedup |
 |-----------|----------------|---------------|---------|
 | Distance calculation (1000 points) | 0.15s | 0.02s | **7.5x** |
 | MCMC sampling (10k samples) | 180s | 45s | **4.0x** |
@@ -118,6 +120,8 @@ corner_plot = sampler.plot_corner()
 ```
 
 ## 📚 Comprehensive Model Library
+
+[Contributor Guide](AGENTS.md)
 
 ### Dark Energy Models
 - **ΛCDM**: Standard cosmological constant
@@ -188,7 +192,7 @@ print(f"Best model: {evidence.best_model}")
 print(f"Bayes factor: {evidence.bayes_factor:.2f}")
 ```
 
-## 🏆 Why HiCosmo?
+## 🏆 Why HIcosmo?
 
 ### Scientific Rigor
 - **Numerical precision**: High-accuracy integrations
@@ -235,12 +239,12 @@ pytest tests/ -v --cov=hicosmo
 
 ## 📝 Citation
 
-If you use HiCosmo in your research, please cite:
+If you use HIcosmo in your research, please cite:
 
 ```bibtex
 @software{hicosmo2024,
-  author = {Jingzhao Qi and HiCosmo Team},
-  title = {HiCosmo: High-performance JAX-based cosmological parameter estimation},
+  author = {Jingzhao Qi and HIcosmo Team},
+  title = {HIcosmo: High-performance JAX-based cosmological parameter estimation},
   year = {2024},
   url = {https://github.com/JingZhaoQi/hicosmo-jax},
   version = {0.1.0}
@@ -253,7 +257,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-HiCosmo builds upon the excellent foundation of:
+HIcosmo builds upon the excellent foundation of:
 - **qcosmc** - Original cosmological analysis package
 - **JAX** - Numerical computing and automatic differentiation  
 - **NumPyro** - Probabilistic programming and MCMC
@@ -266,4 +270,4 @@ HiCosmo builds upon the excellent foundation of:
 
 ---
 
-**HiCosmo** - Empowering the next generation of precision cosmology 🚀
+**HIcosmo** - Empowering the next generation of precision cosmology 🚀

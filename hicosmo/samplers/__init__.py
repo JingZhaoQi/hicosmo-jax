@@ -1,5 +1,5 @@
 """
-HiCosmo MCMC Sampling Module
+HIcosmo MCMC Sampling Module
 
 Provides flexible Bayesian inference tools built on NumPyro.
 Features both low-level NumPyro wrappers and high-level automatic systems.

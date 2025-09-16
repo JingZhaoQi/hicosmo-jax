@@ -55,6 +55,10 @@ from .core import (
     load_chain_simple,
 )
 
+from .multi_chain import (
+    MultiChain,
+)
+
 from .styles import (
     apply_style,
     qstyle,
@@ -66,6 +70,9 @@ __all__ = [
     'plot_chains',
     'plot_1d',
     'load_chain_simple',
+
+    # Multi-chain management
+    'MultiChain',
 
     # Backward compatibility
     'HIcosmoViz',

@@ -2,7 +2,7 @@
 Validation Tools Suite
 ======================
 
-Comprehensive validation and testing tools for HiCosmo.
+Comprehensive validation and testing tools for HIcosmo.
 Provides systematic comparison, benchmarking, and quality assurance.
 
 Key features:
@@ -13,7 +13,7 @@ Key features:
 - Parameter space exploration
 - Statistical validation methods
 
-Ensures HiCosmo maintains accuracy and reliability across updates.
+Ensures HIcosmo maintains accuracy and reliability across updates.
 """
 
 import jax.numpy as jnp
@@ -42,9 +42,9 @@ class ValidationResult:
 
 class ValidationSuite:
     """
-    Comprehensive validation suite for HiCosmo.
+    Comprehensive validation suite for HIcosmo.
     
-    Provides systematic testing and validation of all HiCosmo components
+    Provides systematic testing and validation of all HIcosmo components
     against established codes and theoretical benchmarks.
     """
     
@@ -55,7 +55,7 @@ class ValidationSuite:
         Parameters
         ----------
         hicosmo_components : dict
-            Dictionary containing all HiCosmo components
+            Dictionary containing all HIcosmo components
         """
         self.components = hicosmo_components
         
@@ -534,7 +534,7 @@ class ValidationSuite:
         dict
             Complete validation results organized by category
         """
-        print("Running HiCosmo Validation Suite...")
+        print("Running HIcosmo Validation Suite...")
         print("=" * 40)
         
         all_results = {}
@@ -575,7 +575,7 @@ class ValidationSuite:
             Formatted validation report
         """
         lines = [
-            "HiCosmo Validation Report",
+            "HIcosmo Validation Report",
             "=" * 30,
             f"Total Tests: {len(self.validation_results)}",
         ]
@@ -632,7 +632,7 @@ class ValidationSuite:
     
     def benchmark_performance(self, n_iterations: int = 10) -> Dict[str, float]:
         """
-        Benchmark performance of HiCosmo components.
+        Benchmark performance of HIcosmo components.
         
         Parameters
         ----------

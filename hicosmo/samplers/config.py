@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Parameter Configuration System for HiCosmo MCMC.
+Parameter Configuration System for HIcosmo MCMC.
 
 This module provides a dictionary-driven parameter management system that bridges
 user-friendly configuration with NumPyro's flexible model definition.
@@ -403,12 +403,13 @@ class ParameterConfig:
                 raise ValueError(f"Derived parameter '{derived_name}' is not a valid identifier")
     
     def _set_mcmc_defaults(self):
-        """Set default MCMC configuration."""
+        """Set basic MCMC configuration defaults.
+        
+        Note: num_samples and num_chains are now set intelligently by MCMC class,
+        so we don't set hardcoded defaults here anymore.
+        """
         defaults = {
-            # num_warmup removed - now set intelligently by AutoMCMC based on optimize_init
-            'num_samples': 4000,
-            'num_chains': 4,
-            'verbose': True
+            'verbose': True  # Only set basic defaults, let MCMC handle intelligent ones
         }
         
         for key, default_value in defaults.items():

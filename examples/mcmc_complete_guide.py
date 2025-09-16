@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-HiCosmo MCMC 完整使用指南
+HIcosmo MCMC 完整使用指南
 
-本示例详细展示如何使用 HiCosmo MCMC 进行贝叶斯推断，
+本示例详细展示如何使用 HIcosmo MCMC 进行贝叶斯推断，
 包括所有主要功能和接口的使用方法。
 """
 
@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # 第一步：优雅的多核初始化
-print("🚀 HiCosmo MCMC 完整使用指南")
+print("🚀 HIcosmo MCMC 完整使用指南")
 print("="*60)
 
 print("\n📝 步骤1: 优雅的多核初始化")
@@ -324,7 +324,7 @@ for test_name, result in test_results.items():
         print(f"    样本数: {samples}, 精度: {accuracy}")
 
 if successful_tests == total_tests:
-    print("\n🎊 所有功能测试通过！HiCosmo MCMC 运行正常！")
+    print("\n🎊 所有功能测试通过！HIcosmo MCMC 运行正常！")
     print("\n📚 使用总结:")
     print("1. Config.init() - 一行代码配置多核")
     print("2. 定义似然函数和参数配置")  

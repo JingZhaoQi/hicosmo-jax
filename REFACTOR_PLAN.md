@@ -1,4 +1,4 @@
-# HiCosmo Samplers模块重构计划
+# HIcosmo Samplers模块重构计划
 
 ## 🎯 重构目标
 
