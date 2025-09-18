@@ -187,7 +187,7 @@ def _prepare_latex_labels(param_names: List[str]) -> List[str]:
     return labels
 
 
-def _prepare_getdist_samples(data, params=None) -> MCSamples:
+def _prepare_getdist_samples(data, params=None, labels=None, ranges=None, **kwargs) -> MCSamples:
     """Convert to GetDist format - replaces complex adapters"""
     if isinstance(data, MCSamples):
         return data
@@ -220,9 +220,15 @@ def _prepare_getdist_samples(data, params=None) -> MCSamples:
             param_names = [f'param_{i}' for i in range(samples.shape[1])]
 
     # Prepare LaTeX labels
-    labels = _prepare_latex_labels(param_names)
+    if labels is not None:
+        # Use provided labels
+        plot_labels = labels
+    else:
+        # Generate LaTeX labels automatically
+        plot_labels = _prepare_latex_labels(param_names)
 
-    return MCSamples(samples=samples, names=param_names, labels=labels)
+    # Create MCSamples with ranges support
+    return MCSamples(samples=samples, names=param_names, labels=plot_labels, ranges=ranges, **kwargs)
 
 
 def plot_corner(data, params=None, style='modern', filename=None, labels=None, **kwargs) -> plt.Figure:
@@ -261,9 +267,11 @@ def plot_corner(data, params=None, style='modern', filename=None, labels=None, *
 
     if is_multi_chain:
         # Multi-chain mode
+        # Extract ranges from kwargs to avoid duplication
+        ranges = kwargs.pop('ranges', None)
         samples_list = []
         for i, chain_data in enumerate(data):
-            samples = _prepare_getdist_samples(chain_data, params)
+            samples = _prepare_getdist_samples(chain_data, params, labels=labels, ranges=ranges, **kwargs)
             # Set labels
             if labels and i < len(labels):
                 samples.label = labels[i]
@@ -276,7 +284,9 @@ def plot_corner(data, params=None, style='modern', filename=None, labels=None, *
         line_colors = colors[:len(samples_list)]
     else:
         # Single chain mode - backward compatible
-        samples = _prepare_getdist_samples(data, params)
+        # Extract ranges from kwargs to avoid duplication
+        ranges = kwargs.pop('ranges', None)
+        samples = _prepare_getdist_samples(data, params, labels=labels, ranges=ranges, **kwargs)
         samples_list = [samples]
         contour_colors = [colors[0]]
         line_colors = [colors[0]]
@@ -327,7 +337,7 @@ def plot_corner(data, params=None, style='modern', filename=None, labels=None, *
     return plotter.fig
 
 
-def plot_chains(data, params=None, style='modern', filename=None, **kwargs) -> plt.Figure:
+def plot_chains(data, params=None, style='modern', filename=None, labels=None, **kwargs) -> plt.Figure:
     """
     Create chain trace plots for convergence diagnostics
 
@@ -352,7 +362,9 @@ def plot_chains(data, params=None, style='modern', filename=None, **kwargs) -> p
     _apply_qijing_style()
     colors = MODERN_COLORS if style == 'modern' else CLASSIC_COLORS
 
-    samples = _prepare_getdist_samples(data, params)
+    # Extract ranges from kwargs to avoid duplication
+    ranges = kwargs.pop('ranges', None)
+    samples = _prepare_getdist_samples(data, params, labels=labels, ranges=ranges, **kwargs)
 
     if params is None:
         n_params = min(6, samples.samples.shape[1])  # Max 6 parameters
@@ -386,7 +398,7 @@ def plot_chains(data, params=None, style='modern', filename=None, **kwargs) -> p
     return fig
 
 
-def plot_1d(data, params=None, style='modern', filename=None, **kwargs) -> plt.Figure:
+def plot_1d(data, params=None, style='modern', filename=None, labels=None, **kwargs) -> plt.Figure:
     """
     Create 1D marginal distribution plots
 
@@ -411,7 +423,9 @@ def plot_1d(data, params=None, style='modern', filename=None, **kwargs) -> plt.F
     _apply_qijing_style()
     colors = MODERN_COLORS if style == 'modern' else CLASSIC_COLORS
 
-    samples = _prepare_getdist_samples(data, params)
+    # Extract ranges from kwargs to avoid duplication
+    ranges = kwargs.pop('ranges', None)
+    samples = _prepare_getdist_samples(data, params, labels=labels, ranges=ranges, **kwargs)
     plotter = plots.get_single_plotter(width_inch=8)
 
     plotter.settings.axes_fontsize = 12

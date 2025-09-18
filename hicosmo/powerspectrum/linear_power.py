@@ -26,7 +26,7 @@ from functools import partial
 from typing import Union, Tuple, Dict, Optional, Callable
 import numpy as np
 
-from ..background.background import BackgroundEvolution
+from ..models import LCDM  # Use models instead of background module
 from ..perturbations.linear_perturbations import LinearPerturbations
 from ..perturbations.transfer_functions import TransferFunctionCalculator
 from ..utils.constants import c_km_s, h_planck, k_B

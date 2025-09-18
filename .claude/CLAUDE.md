@@ -2,6 +2,13 @@
 
 > Think carefully and implement the most concise solution that changes as little code as possible.
 
+## 🚨 CRITICAL TESTING RULE
+**当用户要求写测试代码时，目的是为了测试已有的代码是否能有效工作，而不是为了实现要测试的内容！！！**
+- 必须使用已有的模块（MCMC、可视化、模型等）
+- 不要自己重新实现功能（如优化算法、绘图等）
+- 测试代码应该调用现有API，验证其功能
+- 如果已有功能不工作，报告问题而不是重写
+
 ## 🎯 HICOSMO ARCHITECTURAL PRINCIPLES (Updated 2025-01-09)
 
 ### 核心原则 (基于今天的重构经验)
@@ -56,6 +63,13 @@ python tests/test_[module]_benchmark.py
 ### 3. Always use the test-runner sub-agent to run tests and analyze results.
 
 ## 🚨 ABSOLUTE RULES (Updated with HIcosmo Experience)
+
+### 测试相关 (CRITICAL - 2025-01-17 刚刚犯错！)
+- **NO REIMPLEMENTATION IN TESTS**: 测试代码必须使用已有模块，绝不重新实现！
+- **TEST EXISTING CODE**: 测试的目的是验证已有代码工作，不是实现被测功能！
+- **USE EXISTING IMPORTS**: 从hicosmo.models、hicosmo.likelihoods、hicosmo.samplers导入
+- **NO TEST ADAPTERS**: 不创建"测试适配器"，直接测试生产代码！
+- **REMEMBER**: 当用户要求写测试代码时，目的是测试已有代码是否有效工作！
 
 ### 性能相关
 - **NO SLOW CODE**: 任何计算 > 1ms 必须优化或重写

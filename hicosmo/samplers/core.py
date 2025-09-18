@@ -17,7 +17,6 @@ from typing import Dict, List, Optional, Any, Callable, Union
 import numpy as np
 import jax
 import jax.numpy as jnp
-from jax import jit, vmap
 import numpyro
 from numpyro.infer import MCMC, NUTS, HMC, SA
 from numpyro.diagnostics import summary, effective_sample_size, gelman_rubin, hpdi
@@ -37,6 +36,10 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRe
 from rich.table import Table
 from rich.panel import Panel
 import warnings
+
+import jax
+import jax.numpy as jnp
+from jax import jit, vmap
 
 
 class MCMCSampler:
@@ -151,7 +154,6 @@ class MCMCSampler:
             return chain_method
         
         try:
-            import jax
             device_count = jax.local_device_count()
             
             # Determine method based on device count and chain count
@@ -166,8 +168,8 @@ class MCMCSampler:
             # JAX not available, default to sequential
             return 'sequential'
         
-    def run(self, rng_key: Optional[jax.random.PRNGKey] = None, 
-            *args, **kwargs) -> Dict[str, jnp.ndarray]:
+    def run(self, rng_key = None,
+            *args, **kwargs):
         """
         Run MCMC sampling.
         
@@ -176,14 +178,14 @@ class MCMCSampler:
         
         Parameters
         ----------
-        rng_key : jax.random.PRNGKey, optional
+        rng_key : optional
             Random key for JAX. If None, generates one from current time.
         *args, **kwargs
             Arguments passed directly to the model function
-            
+
         Returns
         -------
-        Dict[str, jnp.ndarray]
+        Dict
             Dictionary of samples for each parameter
         """
         if rng_key is None:
@@ -236,16 +238,32 @@ class MCMCSampler:
         self._start_time = start_datetime
         self._end_time = end_datetime
         
-        # Cache samples
+        # Get samples - force evaluation to avoid JAX lazy evaluation issues
+        if self.verbose:
+            print("📊 Retrieving samples...")
+
+        # Force JAX to complete all computations
+        if hasattr(self.mcmc, '_states'):
+            # Block until ready to ensure computation is complete
+            _ = jax.device_get(self.mcmc._states)
+
+        # Now get samples normally
         self._samples = self.mcmc.get_samples()
-        
+
+        # Convert to numpy arrays to avoid further JAX issues
+        self._samples = {k: np.array(v) for k, v in self._samples.items()}
+
+        if self.verbose:
+            n_samples = len(next(iter(self._samples.values())))
+            print(f"✓ Retrieved {n_samples} samples")
+
         # Print summary if verbose
         if self.verbose:
             self._print_summary()
         
         return self._samples
     
-    def get_samples(self, group_by_chain: bool = False) -> Dict[str, jnp.ndarray]:
+    def get_samples(self, group_by_chain: bool = False):
         """
         Get MCMC samples.
         
@@ -259,7 +277,7 @@ class MCMCSampler:
             
         Returns
         -------
-        Dict[str, jnp.ndarray]
+        Dict
             Dictionary of samples for each parameter
         """
         if self._samples is None:
@@ -528,11 +546,23 @@ class MCMCSampler:
     
     def _print_config(self) -> None:
         """Print MCMC configuration."""
-        # Get device information
+        # Get device information - prefer configured cores over JAX device count
         try:
-            import jax
-            device_count = jax.local_device_count()
-            device_info = f"{device_count} CPU cores"
+            # First try to get configured CPU cores from Config
+            from .init import Config
+            if hasattr(Config, '_config') and 'actual_cores' in Config._config:
+                configured_cores = Config._config['actual_cores']
+                device_info = f"{configured_cores} CPU cores (thread pool)"
+            else:
+                # Try JAX_NUM_THREADS environment variable
+                import os
+                jax_threads = os.environ.get('JAX_NUM_THREADS')
+                if jax_threads:
+                    device_info = f"{jax_threads} CPU cores (from JAX_NUM_THREADS)"
+                else:
+                    # Fallback to system CPU count
+                    cpu_count = os.cpu_count() or 1
+                    device_info = f"{cpu_count} CPU cores (system detected)"
         except:
             device_info = "Unknown"
             
@@ -586,7 +616,7 @@ class DiagnosticsTools:
     
     @staticmethod
     @jit
-    def autocorrelation(x: jnp.ndarray, max_lag: Optional[int] = None) -> jnp.ndarray:
+    def autocorrelation(x, max_lag: Optional[int] = None):
         """
         Compute autocorrelation function using JAX.
         

@@ -111,21 +111,17 @@ class LCDM(CosmologyBase):
     
     # ==================== Background Evolution ====================
     
-    @staticmethod
-    @jit
-    def E_z(z: Union[float, jnp.ndarray], params: Dict[str, float]) -> Union[float, jnp.ndarray]:
+    def E_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Dimensionless Hubble parameter E(z) = H(z)/H0 for ΛCDM.
-        
+
         E²(z) = Ω_m(1+z)³ + Ω_r(1+z)⁴ + Ω_k(1+z)² + Ω_Λ
-        
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-        params : dict
-            Must contain 'Omega_m', 'Omega_Lambda', 'Omega_r', 'Omega_k'
-            
+
         Returns
         -------
         float or array_like
@@ -133,36 +129,32 @@ class LCDM(CosmologyBase):
         """
         z_arr = jnp.asarray(z)
         one_plus_z = 1.0 + z_arr
-        
-        # Matter contribution
-        matter_term = params['Omega_m'] * one_plus_z**3
-        
-        # Radiation contribution
-        radiation_term = params.get('Omega_r', 0.0) * one_plus_z**4
-        
-        # Curvature contribution
-        curvature_term = params.get('Omega_k', 0.0) * one_plus_z**2
-        
-        # Dark energy contribution (constant for ΛCDM)
-        de_term = params['Omega_Lambda']
-        
+
+        # Get parameters from instance
+        Omega_m = self.params['Omega_m']
+        Omega_r = self.params.get('Omega_r', 0.0)
+        Omega_k = self.params.get('Omega_k', 0.0)
+        Omega_Lambda = self.params['Omega_Lambda']
+
+        # Components
+        matter_term = Omega_m * one_plus_z**3
+        radiation_term = Omega_r * one_plus_z**4
+        curvature_term = Omega_k * one_plus_z**2
+        de_term = Omega_Lambda
+
         E_squared = matter_term + radiation_term + curvature_term + de_term
-        
+
         return jnp.sqrt(E_squared)
     
-    @staticmethod
-    @jit
-    def w_z(z: Union[float, jnp.ndarray], params: Dict[str, float]) -> Union[float, jnp.ndarray]:
+    def w_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Dark energy equation of state for ΛCDM: w = -1.
-        
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-        params : dict
-            Dictionary of parameters (not used for ΛCDM)
-            
+
         Returns
         -------
         float or array_like
@@ -172,9 +164,7 @@ class LCDM(CosmologyBase):
     
     # ==================== Specialized LCDM Functions ====================
     
-    @staticmethod
-    @jit
-    def redshift_equality(params: Dict[str, float]) -> float:
+    def redshift_equality(self) -> float:
         """
         Matter-radiation equality redshift z_eq.
         
@@ -190,9 +180,7 @@ class LCDM(CosmologyBase):
         """
         return params['Omega_m'] / params['Omega_r'] - 1
     
-    @staticmethod
-    @jit
-    def redshift_acceleration(params: Dict[str, float]) -> float:
+    def redshift_acceleration(self) -> float:
         """
         Acceleration redshift z_acc where q(z_acc) = 0.
         
@@ -211,9 +199,8 @@ class LCDM(CosmologyBase):
         ratio = 2 * params['Omega_Lambda'] / params['Omega_m']
         return jnp.power(ratio, 1.0/3.0) - 1.0
     
-    @staticmethod
     @partial(jit, static_argnums=(2,))
-    def sound_horizon(z: float, params: Dict[str, float], n_steps: int = 1000) -> float:
+    def sound_horizon(self, z: float, n_steps: int = 1000) -> float:
         """
         Sound horizon at redshift z in Mpc.
         
@@ -248,9 +235,7 @@ class LCDM(CosmologyBase):
         
         return jnp.trapz(integrand_vals, z_arr)
     
-    @staticmethod
-    @jit
-    def sound_horizon_drag(params: Dict[str, float]) -> float:
+    def sound_horizon_drag(self) -> float:
         """
         Sound horizon at drag epoch (fitting formula from Eisenstein & Hu 1998).
         
@@ -282,8 +267,7 @@ class LCDM(CosmologyBase):
         
         return s * c_km_s / (h * 100)  # Convert to Mpc
     
-    @staticmethod
-    def critical_density(z: Union[float, jnp.ndarray], params: Dict[str, float]) -> Union[float, jnp.ndarray]:
+    def critical_density(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Critical density at redshift z in units of M_sun/Mpc³.
         
@@ -694,10 +678,8 @@ class LCDM(CosmologyBase):
     
     # ==================== Specialized Distances ====================
     
-    @staticmethod
-    @partial(jit, static_argnums=(2, 3))
-    def time_delay_distance(z_l: float, z_s: float, 
-                           params: Dict[str, float],
+    @partial(jit, static_argnums=(3,))
+    def time_delay_distance(self, z_l: float, z_s: float,
                            n_steps: int = 1000) -> float:
         """
         Time delay distance for strong lensing.
@@ -739,10 +721,7 @@ class LCDM(CosmologyBase):
         
         return (1 + z_l) * D_A_l * D_A_s / D_A_ls
     
-    @staticmethod
-    @jit
-    def drift_rate(z: float, params: Dict[str, float], 
-                   observation_time_yr: float = 30.0) -> float:
+    def drift_rate(self, z: float, observation_time_yr: float = 30.0) -> float:
         """
         Redshift drift rate for Sandage test.
         
@@ -885,7 +864,7 @@ class LCDM(CosmologyBase):
             Hubble parameter in km/s/Mpc
         """
         H0 = self.params['H0']
-        E_z_val = self.E_z(z, self.params)
+        E_z_val = self.E_z(z)
         return H0 * E_z_val
     
     @property
@@ -901,7 +880,7 @@ class LCDM(CosmologyBase):
     
     def Omega_m_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """Matter density parameter as function of redshift."""
-        E_z_val = self.E_z(z, self.params)
+        E_z_val = self.E_z(z)
         z_arr = jnp.asarray(z)
         return self.params['Omega_m'] * (1 + z_arr)**3 / E_z_val**2
     

@@ -17,6 +17,9 @@ from typing import Dict, Optional, Union, List, Any
 from dataclasses import dataclass
 import warnings
 import numpy as np
+import jax.numpy as jnp
+import jax
+import jax.errors
 
 
 @dataclass
@@ -87,24 +90,35 @@ class CosmologicalParameters:
         # Compute derived parameters
         self._compute_derived()
         
-    def set_parameter(self, name: str, value: float) -> None:
-        """Set a parameter with validation."""
+    def set_parameter(self, name: str, value) -> None:
+        """Set a parameter with validation. JAX-compatible - accepts tracers."""
         if name not in self.PARAM_SPECS:
             warnings.warn(f"Unknown parameter '{name}'. Adding without validation.")
-            self._params[name] = float(value)
+            self._params[name] = value  # No float() conversion!
             return
-            
+
         spec = self.PARAM_SPECS[name]
-        value = float(value)
-        
-        # Range validation
-        if spec.min_val is not None and value < spec.min_val:
-            raise ValueError(f"{name} = {value} below minimum {spec.min_val}")
-        if spec.max_val is not None and value > spec.max_val:
-            raise ValueError(f"{name} = {value} above maximum {spec.max_val}")
-            
-        self._params[name] = value
-        self._compute_derived()
+        # NO float() conversion - JAX tracer compatibility!
+
+        # Skip validation for JAX tracers (during MCMC)
+        try:
+            # Try range validation only if concrete value
+            concrete_value = float(value)
+            if spec.min_val is not None and concrete_value < spec.min_val:
+                raise ValueError(f"{name} = {concrete_value} below minimum {spec.min_val}")
+            if spec.max_val is not None and concrete_value > spec.max_val:
+                raise ValueError(f"{name} = {concrete_value} above maximum {spec.max_val}")
+        except (TypeError, jax.errors.TracerIntegerConversionError, jax.errors.ConcretizationTypeError):
+            # JAX tracer - skip validation during MCMC sampling
+            pass
+
+        self._params[name] = value  # Store original value (tracer or float)
+        # Skip derived computation for tracers
+        try:
+            float(value)
+            self._compute_derived()
+        except (TypeError, jax.errors.TracerIntegerConversionError, jax.errors.ConcretizationTypeError):
+            pass
         
     def get_parameter(self, name: str) -> float:
         """Get parameter value."""
@@ -156,10 +170,12 @@ class CosmologicalParameters:
         # Age of universe (rough approximation)
         Om = params['Omega_m']
         OL = self._derived['Omega_Lambda']
-        if OL > 0:
-            self._derived['age'] = (2.0/3.0) * self._derived['t_H'] / np.sqrt(OL)
-        else:
-            self._derived['age'] = (2.0/3.0) * self._derived['t_H']
+        # Use JAX-compatible conditional for tracers
+        self._derived['age'] = jnp.where(
+            OL > 0,
+            (2.0/3.0) * self._derived['t_H'] / jnp.sqrt(OL),
+            (2.0/3.0) * self._derived['t_H']
+        )
             
         # Critical density
         self._derived['rho_crit'] = 2.77536627e11 * h**2  # M_sun/Mpc^3
@@ -167,28 +183,43 @@ class CosmologicalParameters:
     def validate_closure(self, tolerance: float = 1e-6) -> None:
         """Validate closure relation."""
         total = (
-            self._params['Omega_m'] + 
-            self._params['Omega_k'] + 
-            self._derived['Omega_r'] + 
+            self._params['Omega_m'] +
+            self._params['Omega_k'] +
+            self._derived['Omega_r'] +
             self._derived['Omega_Lambda']
         )
-        
-        if abs(total - 1.0) > tolerance:
-            raise ValueError(f"Closure relation violated: Ω_total = {total:.6f} ≠ 1")
+
+        # Skip validation for JAX tracers during MCMC sampling
+        try:
+            concrete_total = float(total)
+            if abs(concrete_total - 1.0) > tolerance:
+                raise ValueError(f"Closure relation violated: Ω_total = {concrete_total:.6f} ≠ 1")
+        except (TypeError, jax.errors.TracerIntegerConversionError, jax.errors.ConcretizationTypeError):
+            # JAX tracer - skip validation during MCMC sampling
+            pass
             
     def validate_physics(self) -> None:
         """Check for unphysical parameter combinations."""
-        # Dark energy density should be positive
-        if self._derived['Omega_Lambda'] < -1e-6:
-            raise ValueError(f"Omega_Lambda = {self._derived['Omega_Lambda']:.6f} < 0 unphysical")
-            
-        # Dark matter should be positive
-        if self._derived['Omega_c'] < -1e-6:
-            raise ValueError(f"Omega_c = {self._derived['Omega_c']:.6f} < 0 unphysical")
-            
-        # Baryon fraction should be reasonable
-        if self._params['Omega_b'] >= self._params['Omega_m']:
-            raise ValueError("Omega_b >= Omega_m unphysical")
+        # Skip validation for JAX tracers during MCMC sampling
+        try:
+            # Dark energy density should be positive
+            OL = float(self._derived['Omega_Lambda'])
+            if OL < -1e-6:
+                raise ValueError(f"Omega_Lambda = {OL:.6f} < 0 unphysical")
+
+            # Dark matter should be positive
+            Oc = float(self._derived['Omega_c'])
+            if Oc < -1e-6:
+                raise ValueError(f"Omega_c = {Oc:.6f} < 0 unphysical")
+
+            # Baryon fraction should be reasonable
+            Ob = float(self._params['Omega_b'])
+            Om = float(self._params['Omega_m'])
+            if Ob >= Om:
+                raise ValueError("Omega_b >= Omega_m unphysical")
+        except (TypeError, jax.errors.TracerIntegerConversionError, jax.errors.ConcretizationTypeError):
+            # JAX tracer - skip validation during MCMC sampling
+            pass
             
     def summary(self) -> str:
         """Generate parameter summary."""

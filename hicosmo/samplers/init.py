@@ -104,18 +104,20 @@ class Config:
                     print("⚠️  Invalid core count, using 1")
                 num_cores = 1
             
-            # Set environment variables (must be before NumPyro import)
-            if num_cores > 1:
-                os.environ['XLA_FLAGS'] = f'--xla_force_host_platform_device_count={num_cores}'
-            
-            # Import and configure NumPyro
+            # Set threading hints for JAX/NumPyro before they are imported.
+            os.environ.setdefault('JAX_NUM_THREADS', str(num_cores))
+
+            if 'XLA_FLAGS' not in os.environ:
+                os.environ['XLA_FLAGS'] = '--xla_cpu_multi_thread_eigen=true'
+
+            # Import and configure NumPyro after environment setup
             import numpyro
-            numpyro.set_host_device_count(num_cores)
+            numpyro.set_host_device_count(1)
             
             cls._config['actual_cores'] = num_cores
             
             if verbose:
-                print(f"🚀 Multi-core configured: {num_cores} CPU cores")
+                print(f"🚀 Configured {num_cores} CPU cores via thread pool")
                 
             return True
             
@@ -136,19 +138,21 @@ class Config:
         actual_cores = cls._config.get('actual_cores', 1)
         
         print(f"CPU Configuration: {cpu_config}")
-        print(f"Active CPU Cores: {actual_cores}")
-        
+        print(f"Thread Pool Cores: {actual_cores}")
+
         # Verify JAX devices
         try:
             import jax
             devices = jax.devices()
             device_count = len(devices)
             print(f"JAX Devices: {device_count} ({devices[0].platform})")
-            
-            if device_count != actual_cores:
+
+            if device_count == 1 and actual_cores > 1 and devices[0].platform == 'cpu':
+                print("✅ CPU backend using thread pool; single XLA device is expected")
+            elif device_count != actual_cores:
                 print(f"⚠️  Device count mismatch: expected {actual_cores}, got {device_count}")
             else:
-                print("✅ Multi-core setup verified")
+                print("✅ Device configuration verified")
                 
         except ImportError:
             print("JAX: Not available")

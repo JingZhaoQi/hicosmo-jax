@@ -12,7 +12,10 @@
       "Bash(git push:*)",
       "WebFetch(domain:num.pyro.ai)",
       "WebFetch(domain:getdist.readthedocs.io)",
-      "WebFetch(domain:seaborn.pydata.org)"
+      "WebFetch(domain:seaborn.pydata.org)",
+      "Bash(grep:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "deny": [],
     "ask": []

@@ -168,23 +168,19 @@ class FastIntegration:
         ])
             
     def _precompute_distance_table(self):
-        """Precompute distance lookup table"""
+        """Precompute distance lookup table - JAX compatible"""
         if self.cache_size <= 0:
             return
-            
+
         # Create high-density redshift grid
         z_min = 1e-6  # Avoid numerical issues at z=0
         self.z_table = jnp.logspace(
             jnp.log10(z_min), jnp.log10(self.z_max), self.cache_size
         )
-        
-        # Precompute distances using high precision method
-        distances = []
-        for z in self.z_table:
-            dist = self._ultra_precise_single_numpy(float(z))
-            distances.append(dist)
-            
-        self.distance_table = jnp.array(distances)
+
+        # Precompute distances using the JAX ultra-precise integrator
+        vectorized_distance = vmap(self._ultra_precise_single)
+        self.distance_table = vectorized_distance(self.z_table)
         
     def _ultra_precise_single_numpy(self, z: float) -> float:
         """High precision single point calculation (NumPy version, for precomputation)"""
@@ -221,8 +217,10 @@ class FastIntegration:
         
         _ = self._ultra_fast_single(test_z)
         _ = self._ultra_precise_single(test_z)
+        _ = vmap(self._ultra_fast_single)(test_z_array)
+        _ = vmap(self._ultra_precise_single)(test_z_array)
         if self.distance_table is not None:
-            _ = self._interpolation_lookup(test_z)
+            _ = self._interpolation_lookup(test_z_array)
             
     @staticmethod
     @jit
@@ -319,14 +317,36 @@ class FastIntegration:
             raise ValueError("Distance table not precomputed. Set cache_size > 0 or auto_select=True")
             
         z = jnp.atleast_1d(z)
-        
+
         # Use JAX's interp function for fast interpolation
-        result = jnp.interp(z, self.z_table, self.distance_table)
-        
-        # Return scalar if input is scalar
-        if result.shape == (1,):
-            return result[0]
-        return result
+        return jnp.interp(z, self.z_table, self.distance_table)
+
+    @staticmethod
+    def _normalize_input(z: Union[float, np.ndarray, jnp.ndarray]) -> Tuple[jnp.ndarray, bool, Tuple[int, ...]]:
+        """Convert input to JAX array and capture shape metadata."""
+        z_array = jnp.asarray(z)
+        if z_array.ndim == 0:
+            return z_array, True, ()
+        return z_array, False, z_array.shape
+
+    @staticmethod
+    def _format_output(
+        value: Union[float, jnp.ndarray],
+        original_input: Union[float, np.ndarray, jnp.ndarray],
+        is_scalar: bool
+    ) -> Union[float, np.ndarray, jnp.ndarray]:
+        """Cast results back to match the original input's expectations - JAX compatible."""
+        if is_scalar:
+            if isinstance(original_input, (float, int, np.floating)):
+                # JAX compatible: use .item() instead of float() for tracers
+                return value.item() if hasattr(value, 'item') else value
+            if isinstance(original_input, np.ndarray):
+                return np.asarray(value)
+            return value
+
+        if isinstance(original_input, np.ndarray):
+            return np.asarray(value)
+        return value
         
     def _ultra_simple_interpolation(self, z_array: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """Learn from astropy's simple linear interpolation strategy"""
@@ -337,9 +357,9 @@ class FastIntegration:
         
         # Use numpy's fast interpolation
         result = np.interp(z_array, np.array(self.z_table), np.array(self.distance_table))
-        
+
         if result.shape == (1,):
-            return float(result[0])
+            return result.item()  # JAX compatible: use .item() instead of float()
         return result
         
     def comoving_distance(
@@ -367,48 +387,52 @@ class FastIntegration:
         float or array_like
             Comoving distance (unit: Mpc)
         """
-        # Handle input
-        z_input = z
-        is_scalar = np.isscalar(z)
-        z_array = np.atleast_1d(z)
-        n_points = len(z_array)
-        
-        # Intelligent method selection
-        if method is None and self.auto_select:
-            if is_scalar:
-                method = 'fast'  # Use fast method for single point
+        z_array, is_scalar, original_shape = self._normalize_input(z)
+        z_flat = jnp.reshape(z_array, (1,)) if is_scalar else jnp.reshape(z_array, (-1,))
+
+        # Method selection that respects tracer inputs
+        if method is None:
+            if not self.auto_select:
+                method = 'fast'
+            elif is_scalar:
+                method = 'fast'
             elif self.distance_table is not None:
-                method = 'interpolation'  # Use interpolation when precomputed table available
-            elif n_points < self.batch_threshold:
-                method = 'vectorized'  # Use vectorization for small batch
+                method = 'interpolation'
+            elif z_flat.shape[0] < self.batch_threshold:
+                method = 'fast'
             else:
-                method = 'interpolation'  # Use interpolation for large batch
-        elif method is None:
-            method = 'fast'  # Default fast method
-            
-        # Execute calculation
+                method = 'interpolation'
+
+        method = method or 'fast'
+
         if method == 'fast':
             if is_scalar:
-                return float(self._ultra_fast_single(z))
+                result_flat = jnp.reshape(self._ultra_fast_single(z_array), (1,))
             else:
-                return np.array([float(self._ultra_fast_single(zi)) for zi in z_array])
-                
+                result_flat = vmap(self._ultra_fast_single)(z_flat)
         elif method == 'precise':
             if is_scalar:
-                return float(self._ultra_precise_single(z))
+                result_flat = jnp.reshape(self._ultra_precise_single(z_array), (1,))
             else:
-                return np.array([float(self._ultra_precise_single(zi)) for zi in z_array])
-                
+                result_flat = vmap(self._ultra_precise_single)(z_flat)
         elif method == 'vectorized':
-            result = self._numpy_vectorized_batch(z_array)
-            return float(result[0]) if is_scalar else result
-            
+            if is_scalar:
+                result_flat = jnp.reshape(self._ultra_fast_single(z_array), (1,))
+            else:
+                result_flat = vmap(self._ultra_fast_single)(z_flat)
         elif method == 'interpolation':
-            result = self._ultra_simple_interpolation(z_array)
-            return float(result) if is_scalar else result
-            
+            result_flat = self._interpolation_lookup(z_flat)
         else:
-            raise ValueError(f"Unknown method: {method}. Options: 'fast', 'precise', 'vectorized', 'interpolation'")
+            raise ValueError(
+                f"Unknown method: {method}. Options: 'fast', 'precise', 'vectorized', 'interpolation'"
+            )
+
+        if is_scalar:
+            formatted = result_flat[0]
+        else:
+            formatted = jnp.reshape(result_flat, original_shape)
+
+        return self._format_output(formatted, z, is_scalar)
             
     def angular_diameter_distance(
         self, 
@@ -431,14 +455,14 @@ class FastIntegration:
             Angular diameter distance (unit: Mpc)
         """
         # First calculate comoving distance
+        z_array, is_scalar, original_shape = self._normalize_input(z)
         d_c = self.comoving_distance(z, method=method)
-        
-        # Convert to angular diameter distance: D_A = D_C / (1 + z)
-        if np.isscalar(z):
-            return d_c / (1.0 + z)
-        else:
-            z_array = np.atleast_1d(z)
-            return d_c / (1.0 + z_array)
+        d_c_array = jnp.asarray(d_c)
+        if not is_scalar:
+            d_c_array = jnp.reshape(d_c_array, original_shape)
+
+        result = d_c_array / (1.0 + z_array)
+        return self._format_output(result, z, is_scalar)
             
     def luminosity_distance(
         self, 
@@ -461,14 +485,14 @@ class FastIntegration:
             Luminosity distance (unit: Mpc)
         """
         # First calculate comoving distance
+        z_array, is_scalar, original_shape = self._normalize_input(z)
         d_c = self.comoving_distance(z, method=method)
-        
-        # Convert to luminosity distance: D_L = D_C * (1 + z)
-        if np.isscalar(z):
-            return d_c * (1.0 + z)
-        else:
-            z_array = np.atleast_1d(z)
-            return d_c * (1.0 + z_array)
+        d_c_array = jnp.asarray(d_c)
+        if not is_scalar:
+            d_c_array = jnp.reshape(d_c_array, original_shape)
+
+        result = d_c_array * (1.0 + z_array)
+        return self._format_output(result, z, is_scalar)
             
     def distance_modulus(
         self, 
@@ -491,11 +515,14 @@ class FastIntegration:
             Distance modulus (unit: mag)
         """
         # First calculate luminosity distance
+        z_array, is_scalar, original_shape = self._normalize_input(z)
         d_l = self.luminosity_distance(z, method=method)
-        
-        # Convert to distance modulus: μ = 5 * log10(D_L / 10 pc)
-        # D_L unit is Mpc, convert to pc by multiplying 10^6
-        return 5.0 * np.log10(d_l * 1e6 / 10.0)
+        d_l_array = jnp.asarray(d_l)
+        if not is_scalar:
+            d_l_array = jnp.reshape(d_l_array, original_shape)
+
+        result = 5.0 * jnp.log10(d_l_array * 1e6 / 10.0)
+        return self._format_output(result, z, is_scalar)
         
     def update_params(self, new_params: Dict[str, float]):
         """
