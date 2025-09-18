@@ -211,6 +211,10 @@ class PantheonPlusLikelihood:
         condition_number = jnp.linalg.cond(stable_cov)
         print(f"   Covariance: {self.n_sne}×{self.n_sne}, condition number: {condition_number:.1e}")
 
+        # JAX JIT optimization: Pre-compile fixed M_B likelihood with closures
+        # This eliminates repeated compilation for different M_B values
+        self._setup_jit_optimized_likelihood()
+
     def log_likelihood(self, model: CosmologyBase, M_B: Optional[float] = None) -> float:
         """
         Compute log-likelihood following official cosmosis implementation.
@@ -244,55 +248,108 @@ class PantheonPlusLikelihood:
                 raise ValueError("M_B must be provided when marginalize_M_B=False")
             return self._fixed_likelihood(theory_mu, M_B)
 
-    @partial(jit, static_argnums=(0,))
+    def _setup_jit_optimized_likelihood(self):
+        """Setup JAX JIT optimized likelihood functions to avoid repeated compilation."""
+        # Convert to device arrays to ensure consistent dtype and memory layout
+        # Use float32 for optimal JAX performance and compatibility
+        self.m_obs = jnp.asarray(self.m_obs, dtype=jnp.float32)
+        self.cov_inv = jnp.asarray(self.cov_inv, dtype=jnp.float32)
+        self.log_det_cov = jnp.asarray(self.log_det_cov, dtype=jnp.float32)
+
+        # Create JIT-compiled function with closure to capture constants
+        # This ensures JAX compiles only once regardless of M_B values
+        self._jit_fixed_likelihood = jit(self._create_fixed_likelihood_closure())
+
+        # Also JIT compile marginalized likelihood for consistent performance
+        self._jit_marginalized_likelihood = jit(self._create_marginalized_likelihood_closure())
+
+    def _create_fixed_likelihood_closure(self):
+        """Create closure function that captures constant arrays for JIT optimization."""
+        # Capture constant arrays in closure to avoid repeated compilation
+        m_obs = self.m_obs
+        cov_inv = self.cov_inv
+        log_det_cov = self.log_det_cov
+
+        def fixed_likelihood_impl(mu_theory, M_B):
+            """Pure function implementation of fixed M_B likelihood.
+
+            This function only depends on JAX arrays, not Python objects,
+            allowing JAX to compile once and reuse for all M_B values.
+            """
+            # Theory prediction: theoretical magnitude = mu_theory + M_B
+            m_theory = mu_theory + M_B
+
+            # Residual: observed magnitude - theoretical magnitude
+            residual = m_obs - m_theory
+
+            # χ² calculation
+            chi2 = jnp.dot(residual, jnp.dot(cov_inv, residual))
+
+            # Log-likelihood
+            log_like = -0.5 * chi2 - 0.5 * log_det_cov
+
+            return log_like
+
+        return fixed_likelihood_impl
+
+    def _create_marginalized_likelihood_closure(self):
+        """Create closure function for marginalized likelihood JIT optimization."""
+        # Capture constant arrays in closure
+        m_obs = self.m_obs
+        cov_inv = self.cov_inv
+        log_det_cov = self.log_det_cov
+        n_sne = self.n_sne
+
+        def marginalized_likelihood_impl(mu_theory):
+            """Pure function implementation of marginalized M_B likelihood."""
+            # Residual vector: observed magnitude - theoretical magnitude (without M_B)
+            residual = m_obs - mu_theory
+
+            # Solve for optimal M_B: M_B_best = (1^T C^-1 r) / (1^T C^-1 1)
+            ones = jnp.ones(n_sne)
+            numerator = jnp.dot(ones, jnp.dot(cov_inv, residual))
+            denominator = jnp.dot(ones, jnp.dot(cov_inv, ones))
+            M_B_best = numerator / denominator
+
+            # Marginalized residual
+            marginalized_residual = residual - M_B_best * ones
+
+            # χ² calculation
+            chi2 = jnp.dot(marginalized_residual, jnp.dot(cov_inv, marginalized_residual))
+
+            # Log-likelihood
+            log_like = -0.5 * chi2 - 0.5 * log_det_cov
+
+            # Marginalization correction (from M_B integral Jacobian)
+            log_like += 0.5 * jnp.log(denominator)
+
+            return log_like
+
+        return marginalized_likelihood_impl
+
     def _fixed_likelihood(self, mu_theory: jnp.ndarray, M_B: float) -> float:
-        """Fixed M_B likelihood."""
-        # Theory prediction: theoretical magnitude = mu_theory + M_B
-        m_theory = mu_theory + M_B
+        """Fixed M_B likelihood with JAX JIT optimization.
 
-        # Residual: observed magnitude - theoretical magnitude
-        residual = self.m_obs - m_theory
+        This method now uses pre-compiled JIT function to avoid
+        repeated compilation for different M_B values.
+        """
+        # Ensure M_B has consistent dtype to prevent recompilation
+        M_B_array = jnp.asarray(M_B, dtype=self.m_obs.dtype)
 
-        # χ² calculation
-        chi2 = jnp.dot(residual, jnp.dot(self.cov_inv, residual))
-
-        # Log-likelihood
-        log_like = -0.5 * chi2 - 0.5 * self.log_det_cov
-
-        return log_like
+        # Use pre-compiled JIT function
+        return self._jit_fixed_likelihood(mu_theory, M_B_array)
 
     def _marginalized_likelihood(self, mu_theory: jnp.ndarray) -> float:
         """
-        Analytically marginalized likelihood over M_B.
+        Analytically marginalized likelihood over M_B with JAX JIT optimization.
 
         For linear parameter M_B, we can analytically integrate:
         L_marg = ∫ L(μ|M_B, θ) π(M_B) dM_B
 
-        where μ_obs = μ_theory + M_B, so optimal M_B can be solved analytically.
+        This method now uses pre-compiled JIT function for optimal performance.
         """
-        # Residual vector: observed magnitude - theoretical magnitude (without M_B)
-        # m_obs = mu_theory + M_B, so residual = m_obs - mu_theory - M_B
-        residual = self.m_obs - mu_theory
-
-        # Solve for optimal M_B: M_B_best = (1^T C^-1 r) / (1^T C^-1 1)
-        ones = jnp.ones(self.n_sne)
-        numerator = jnp.dot(ones, jnp.dot(self.cov_inv, residual))
-        denominator = jnp.dot(ones, jnp.dot(self.cov_inv, ones))
-        M_B_best = numerator / denominator
-
-        # Marginalized residual
-        marginalized_residual = residual - M_B_best * ones
-
-        # χ² calculation
-        chi2 = jnp.dot(marginalized_residual, jnp.dot(self.cov_inv, marginalized_residual))
-
-        # Log-likelihood (constant terms omitted)
-        log_like = -0.5 * chi2 - 0.5 * self.log_det_cov
-
-        # Marginalization correction (from M_B integral Jacobian)
-        log_like += 0.5 * jnp.log(denominator)
-
-        return log_like
+        # Use pre-compiled JIT function
+        return self._jit_marginalized_likelihood(mu_theory)
 
     def chi2(self, model: CosmologyBase, M_B: float) -> float:
         """

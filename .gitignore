@@ -83,3 +83,4 @@ Thumbs.db
 *.log
 logs/
 qcosmc/
+data/
