@@ -93,13 +93,9 @@ class LCDM(CosmologyBase):
         # Call parent with parameter dictionary for compatibility
         super().__init__(**self.cosmology_params.to_dict())
         
-        # Initialize ultra-fast integration engine
+        # Initialize generic integration engine (no cosmology-specific code)
         self.precision_mode = precision_mode
-        self.fast_integration = FastIntegration(
-            params=self.params,
-            precision_mode=precision_mode,
-            auto_select=True
-        )
+        self.fast_integration = FastIntegration(precision_mode=precision_mode)
     
     # Radiation density computation now handled by unified parameter system
     

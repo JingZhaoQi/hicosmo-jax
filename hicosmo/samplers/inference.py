@@ -392,25 +392,28 @@ class MCMC:
         
         if num_chains > 1:
             # Distribute total samples across chains
-            samples_per_chain = max(1, total_samples // num_chains)
+            # Use ceiling division to ensure we get AT LEAST the requested number
+            samples_per_chain = (total_samples + num_chains - 1) // num_chains  # Ceiling division
+            actual_total = samples_per_chain * num_chains
             mcmc_kwargs['num_samples'] = samples_per_chain
-            
+
             if mcmc_kwargs.get('verbose', True):
-                actual_total = samples_per_chain * num_chains
-                print(f"📊 Sample distribution: {total_samples} total → {samples_per_chain} per chain × {num_chains} chains = {actual_total} actual total")
-                
-                if actual_total != total_samples:
-                    diff = total_samples - actual_total
-                    print(f"⚠️  Rounded down by {diff} samples due to even distribution")
+                print(f"📊 Sample distribution: {total_samples} requested → {samples_per_chain} per chain × {num_chains} chains = {actual_total} actual total")
+                if actual_total > total_samples:
+                    extra = actual_total - total_samples
+                    print(f"   ℹ️  Rounded up by {extra} samples to ensure even distribution (all chains get same number)")
 
             if default_warmup:
-                # Distribute total warmup across chains
+                # Distribute total warmup across chains (use ceiling division)
                 total_warmup_original = mcmc_kwargs['num_warmup']
-                warmup_per_chain = max(1, total_warmup_original // num_chains)
+                warmup_per_chain = max(1, (total_warmup_original + num_chains - 1) // num_chains)
                 mcmc_kwargs['num_warmup'] = warmup_per_chain
                 total_warmup_actual = warmup_per_chain * num_chains
-                if verbose:
-                    print(f"📊 Warmup distribution: {total_warmup_original} total → {warmup_per_chain} per chain × {num_chains} chains = {total_warmup_actual} actual")
+                if mcmc_kwargs.get('verbose', True):
+                    print(f"📊 Warmup distribution: {total_warmup_original} requested → {warmup_per_chain} per chain × {num_chains} chains = {total_warmup_actual} actual")
+                    if total_warmup_actual > total_warmup_original:
+                        extra = total_warmup_actual - total_warmup_original
+                        print(f"   ℹ️  Rounded up by {extra} warmup samples")
         else:
             # Single chain: no conversion needed
             if mcmc_kwargs.get('verbose', True):

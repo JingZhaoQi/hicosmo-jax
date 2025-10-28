@@ -37,51 +37,28 @@ class FastIntegration:
     """
     
     def __init__(
-        self, 
-        params: Dict[str, float],
-        precision_mode: Literal['fast', 'balanced', 'precise'] = 'balanced',
-        cache_size: int = 5000,
-        z_max: float = 20.0,
-        auto_select: bool = True
+        self,
+        precision_mode: Literal['fast', 'balanced', 'precise'] = 'balanced'
     ):
         """
-        Initialize ultra-high performance integration system
-        
+        Initialize generic integration engine.
+
+        FastIntegration is a pure mathematical tool for numerical integration
+        using Gauss-Legendre quadrature. It contains NO cosmology-specific code.
+
         Parameters
         ----------
-        params : Dict[str, float]
-            Cosmological parameters dictionary, must contain H0, Omega_m
         precision_mode : {'fast', 'balanced', 'precise'}
             Precision mode:
-            - 'fast': Prioritize speed, 8-point Gauss integration
-            - 'balanced': Balance precision and speed, 12-point Gauss integration  
-            - 'precise': Prioritize precision, 16-point Gauss integration
-        cache_size : int
-            Size of precomputed lookup table (default 5000 points)
-        z_max : float
-            Maximum redshift range (default 20.0)
-        auto_select : bool
-            Whether to enable intelligent method selection (default True)
+            - 'fast': 8-point Gauss integration (~0.1% error)
+            - 'balanced': 12-point Gauss integration (~0.01% error, default)
+            - 'precise': 16-point Gauss integration (~0.001% error)
         """
-        self.params = params.copy()
         self.precision_mode = precision_mode
-        self.cache_size = cache_size  
-        self.z_max = z_max
-        self.auto_select = auto_select
-        
-        # Validate required parameters
-        required_params = ['H0', 'Omega_m']
-        missing = [p for p in required_params if p not in params]
-        if missing:
-            raise ValueError(f"Missing required parameters: {missing}")
-            
-        # Calculate derived parameters
-        self.params['Omega_Lambda'] = 1.0 - self.params['Omega_m'] - self.params.get('Omega_k', 0.0)
-        self.params['D_H'] = c_km_s / self.params['H0']  # Hubble distance
-        
+
         # Set integration parameters based on precision mode
         self._setup_integration_params()
-        
+
         # Precompute Gaussian integration nodes and weights
         self._precompute_gauss_quadrature()
 
@@ -92,16 +69,10 @@ class FastIntegration:
         """Set integration parameters based on precision mode"""
         if self.precision_mode == 'fast':
             self.primary_order = 8
-            self.precise_order = 12
-            self.batch_threshold = 20  # Use vectorization for less than 20 points
         elif self.precision_mode == 'balanced':
             self.primary_order = 12
-            self.precise_order = 16
-            self.batch_threshold = 50  # Use vectorization for less than 50 points
         else:  # 'precise'
             self.primary_order = 16
-            self.precise_order = 20
-            self.batch_threshold = 100  # Use vectorization for less than 100 points
             
     def _precompute_gauss_quadrature(self):
         """Precompute Gauss-Legendre nodes and weights for different orders"""
@@ -143,22 +114,6 @@ class FastIntegration:
             0.1495959888, 0.1691565194, 0.1826034150, 0.1894506105,
             0.1894506105, 0.1826034150, 0.1691565194, 0.1495959888,
             0.1246289712, 0.0951585117, 0.0622535239, 0.0271524594
-        ])
-        
-        # 20-point Gaussian integration (ultra high precision)
-        self.gauss_nodes[20] = jnp.array([
-            -0.9931285992, -0.9639719273, -0.9122344283, -0.8391169718,
-            -0.7463319065, -0.6360536807, -0.5108670020, -0.3737060887,
-            -0.2277858511, -0.0765265211,  0.0765265211,  0.2277858511,
-             0.3737060887,  0.5108670020,  0.6360536807,  0.7463319065,
-             0.8391169718,  0.9122344283,  0.9639719273,  0.9931285992
-        ])
-        self.gauss_weights[20] = jnp.array([
-            0.0176140071, 0.0406014298, 0.0626720483, 0.0832767416,
-            0.1019301198, 0.1181945320, 0.1316886384, 0.1420961093,
-            0.1491729865, 0.1527533871, 0.1527533871, 0.1491729865,
-            0.1420961093, 0.1316886384, 0.1181945320, 0.1019301198,
-            0.0832767416, 0.0626720483, 0.0406014298, 0.0176140071
         ])
             
     def _compile_functions(self):
@@ -274,7 +229,6 @@ class FastIntegration:
         """
         info = {
             'precision_mode': self.precision_mode,
-            'primary_order': f"{self.primary_order}-point Gauss",
-            'precise_order': f"{self.precise_order}-point Gauss",
+            'integration_order': f"{self.primary_order}-point Gauss",
         }
         return info
