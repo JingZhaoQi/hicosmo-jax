@@ -182,16 +182,94 @@ class IntensityMappingSurvey:
             data = yaml.safe_load(handle)
         if 'name' not in data:
             raise ValueError('Survey configuration must contain "name" field')
-        instrument_cfg = InstrumentConfig.from_dict(data['instrument'])
-        default_delta_z = float(data.get('default_delta_z', 0.1))
-        bins = [RedshiftBin.from_dict(entry, default_delta_z) for entry in data['redshift_bins']]
-        bias_fn = _build_redshift_function(data.get('hi_bias'), default=1.0)
-        omega_hi_fn = _build_redshift_function(data.get('hi_density'), default=4.8e-4)
-        reference = {k: float(v) for k, v in data.get('reference', {}).items()}
-        priors = {k: float(v) for k, v in data.get('priors', {}).items()}
+
+        # Check schema version to determine how to parse
+        metadata = data.get('metadata', {})
+        schema_version = metadata.get('schema_version', '1.0')
+
+        if schema_version == '2.0':
+            # Schema v2.0: Nested structure (instrument, observing, noise separate)
+            # Merge fields from different sections for InstrumentConfig
+            instrument_data = {}
+
+            # From instrument section
+            if 'instrument' in data:
+                inst = data['instrument']
+                telescope_type = inst.get('telescope_type', 'single_dish')
+
+                # Map different telescope types to unified parameters
+                if telescope_type in ('single_dish', 'interferometer_autocorr'):
+                    # Direct mapping (both use same parameter structure)
+                    instrument_data.update({
+                        'ndish': inst.get('ndish'),
+                        'dish_diameter_m': inst.get('dish_diameter_m'),
+                        'nbeam': inst.get('nbeam'),
+                    })
+                elif telescope_type == 'cylinder_array':
+                    # Map cylinder parameters to equivalent single-dish parameters
+                    # ncylinders → ndish
+                    # cylinder_length_m → dish_diameter_m (effective aperture)
+                    # nfeeds → total feeds (distribute to nbeam)
+                    ncylinders = inst.get('ncylinders', 1)
+                    nfeeds_total = inst.get('nfeeds', 1)
+                    instrument_data.update({
+                        'ndish': ncylinders,
+                        'dish_diameter_m': inst.get('cylinder_length_m', inst.get('cylinder_width_m', 1.0)),
+                        'nbeam': nfeeds_total // ncylinders if ncylinders > 0 else 1,
+                    })
+                else:
+                    raise ValueError(f"Unknown telescope_type: {telescope_type}")
+
+            # From observing section
+            if 'observing' in data:
+                observing = data['observing']
+                instrument_data['survey_area_deg2'] = observing.get('survey_area_deg2')
+                instrument_data['total_time_hours'] = observing.get('total_time_hours')
+
+                # Handle channel_width - can be in MHz or Hz
+                if 'channel_width_hz' in observing:
+                    instrument_data['channel_width_hz'] = observing['channel_width_hz']
+                elif 'channel_width_MHz' in observing:
+                    instrument_data['channel_width_hz'] = observing['channel_width_MHz'] * 1e6
+
+            # From noise section
+            if 'noise' in data:
+                noise = data['noise']
+                instrument_data['system_temperature_K'] = noise.get('system_temperature_K', 0.0)
+                instrument_data['sky_temperature'] = noise.get('sky_temperature')
+
+            instrument_cfg = InstrumentConfig.from_dict(instrument_data)
+
+            # Parse redshift bins (Schema v2.0 format)
+            redshift_bins_data = data.get('redshift_bins', {})
+            default_delta_z = float(redshift_bins_data.get('default_delta_z', 0.1))
+            centers = redshift_bins_data.get('centers', [])
+            bins = [RedshiftBin(z=float(z), delta_z=default_delta_z) for z in centers]
+
+            # Parse HI tracers (Schema v2.0 format)
+            hi_tracers = data.get('hi_tracers', {})
+            bias_fn = _build_redshift_function(hi_tracers.get('bias'), default=1.0)
+            omega_hi_fn = _build_redshift_function(hi_tracers.get('density'), default=4.8e-4)
+
+            # Schema v2.0 should NOT have model/reference/priors
+            reference = {}
+            priors = {}
+            model = 'lcdm'  # Default, should be overridden by explicit cosmology parameter
+
+        else:
+            # Schema v1.0: Flat structure (backward compatibility)
+            instrument_cfg = InstrumentConfig.from_dict(data['instrument'])
+            default_delta_z = float(data.get('default_delta_z', 0.1))
+            bins = [RedshiftBin.from_dict(entry, default_delta_z) for entry in data['redshift_bins']]
+            bias_fn = _build_redshift_function(data.get('hi_bias'), default=1.0)
+            omega_hi_fn = _build_redshift_function(data.get('hi_density'), default=4.8e-4)
+            reference = {k: float(v) for k, v in data.get('reference', {}).items()}
+            priors = {k: float(v) for k, v in data.get('priors', {}).items()}
+            model = data.get('model', 'lcdm')
+
         return cls(
             name=data['name'],
-            model=data.get('model', 'lcdm'),
+            model=model,
             reference=reference,
             instrument=instrument_cfg,
             redshift_bins=bins,
