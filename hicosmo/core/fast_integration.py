@@ -214,18 +214,125 @@ class FastIntegration:
         # Warm up all JIT functions
         test_z = 1.0
         test_z_array = jnp.array([0.5, 1.0, 2.0])
-        
+
         _ = self._ultra_fast_single(test_z)
         _ = self._ultra_precise_single(test_z)
         _ = vmap(self._ultra_fast_single)(test_z_array)
         _ = vmap(self._ultra_precise_single)(test_z_array)
         if self.distance_table is not None:
             _ = self._interpolation_lookup(test_z_array)
-            
+
+        # Warm up generic integrator
+        test_integrand = lambda z: z**2
+        _ = self.integrate(test_integrand, 0.0, 1.0)
+        _ = self.integrate_batch(test_integrand, test_z_array, 0.0)
+
+    # ==================== Generic Integration Methods ====================
+    # These methods accept arbitrary integrands (no hardcoded cosmology)
+
+    @partial(jit, static_argnums=(0, 1))  # Mark self and integrand as static
+    def integrate(
+        self,
+        integrand: callable,
+        z_min: float,
+        z_max: float
+    ) -> float:
+        """
+        Generic numerical integration using Gauss-Legendre quadrature.
+
+        This is the core integration engine with NO cosmology hardcoded.
+        Accepts any integrand function.
+
+        Parameters
+        ----------
+        integrand : callable
+            Function to integrate, signature: integrand(z: float) -> float
+        z_min : float
+            Lower integration limit
+        z_max : float
+            Upper integration limit
+
+        Returns
+        -------
+        float
+            Integral value: ∫[z_min, z_max] integrand(z) dz
+
+        Examples
+        --------
+        >>> integrator = FastIntegration(params={'H0': 70, 'Omega_m': 0.3})
+        >>> # Integrate x^2 from 0 to 1
+        >>> result = integrator.integrate(lambda z: z**2, 0.0, 1.0)
+        >>> print(result)  # Should be ~0.333
+        >>>
+        >>> # Use with cosmology: integrate 1/E(z)
+        >>> def inv_E_z(z):
+        >>>     return 1.0 / model.E_z(z)
+        >>> d_c = integrator.integrate(inv_E_z, 0.0, 1.0) * (c/H0)
+        """
+        # Get Gauss-Legendre nodes and weights
+        nodes = self.gauss_nodes[self.primary_order]
+        weights = self.gauss_weights[self.primary_order]
+
+        # Transform interval [z_min, z_max] to [-1, 1]
+        z_mid = 0.5 * (z_max + z_min)
+        z_half = 0.5 * (z_max - z_min)
+
+        # Compute integration nodes
+        z_nodes = z_mid + z_half * nodes
+
+        # Evaluate integrand at all nodes (vectorized)
+        integrand_vals = vmap(integrand)(z_nodes)
+
+        # Gauss-Legendre integration
+        integral = z_half * jnp.sum(weights * integrand_vals)
+
+        return integral
+
+    def integrate_batch(
+        self,
+        integrand: callable,
+        z_array: jnp.ndarray,
+        z_min: float = 0.0
+    ) -> jnp.ndarray:
+        """
+        Batch integration: compute ∫[z_min, z_i] integrand(z) dz for multiple z_i.
+
+        Parameters
+        ----------
+        integrand : callable
+            Function to integrate
+        z_array : array_like
+            Array of upper integration limits [z_1, z_2, ..., z_n]
+        z_min : float, optional
+            Lower integration limit (default: 0.0)
+
+        Returns
+        -------
+        array_like
+            Array of integral values
+
+        Examples
+        --------
+        >>> z_vals = jnp.array([0.5, 1.0, 1.5, 2.0])
+        >>> results = integrator.integrate_batch(lambda z: 1/E(z), z_vals)
+        """
+        # Vectorize single integration
+        integrate_single = lambda z_max: self.integrate(integrand, z_min, z_max)
+        return vmap(integrate_single)(z_array)
+
+    # ==================== Deprecated: Old Hardcoded Methods ====================
+    # These methods will be removed after LCDM refactoring
+    # They hardcode LCDM's E(z) = sqrt(Omega_m * (1+z)^3 + Omega_Lambda)
+
     @staticmethod
     @jit
     def _E_z(z: float, Om: float, OL: float) -> float:
-        """ΛCDM E(z) = H(z)/H0 (static method, avoid parameter passing)"""
+        """
+        [DEPRECATED] ΛCDM E(z) = H(z)/H0.
+
+        This method hardcodes LCDM cosmology and will be removed.
+        Models should define their own E_z and use integrate() instead.
+        """
         one_plus_z = 1.0 + z
         return jnp.sqrt(Om * one_plus_z**3 + OL)
     
@@ -363,12 +470,15 @@ class FastIntegration:
         return result
         
     def comoving_distance(
-        self, 
+        self,
         z: Union[float, np.ndarray, jnp.ndarray],
         method: Optional[str] = None
     ) -> Union[float, np.ndarray]:
         """
-        Calculate comoving distance
+        [DEPRECATED] Calculate comoving distance with hardcoded LCDM.
+
+        WARNING: This method will be removed. Use integrate() instead.
+        Models should define their own E_z and call integrate().
         
         Parameters
         ----------
@@ -435,12 +545,15 @@ class FastIntegration:
         return self._format_output(formatted, z, is_scalar)
             
     def angular_diameter_distance(
-        self, 
+        self,
         z: Union[float, np.ndarray, jnp.ndarray],
         method: Optional[str] = None
     ) -> Union[float, np.ndarray]:
         """
-        Calculate angular diameter distance
+        [DEPRECATED] Calculate angular diameter distance.
+
+        WARNING: This method will be removed. Models should compute this
+        from their own comoving_distance().
         
         Parameters
         ----------
@@ -465,12 +578,15 @@ class FastIntegration:
         return self._format_output(result, z, is_scalar)
             
     def luminosity_distance(
-        self, 
+        self,
         z: Union[float, np.ndarray, jnp.ndarray],
         method: Optional[str] = None
     ) -> Union[float, np.ndarray]:
         """
-        Calculate luminosity distance
+        [DEPRECATED] Calculate luminosity distance.
+
+        WARNING: This method will be removed. Models should compute this
+        from their own comoving_distance().
         
         Parameters
         ----------
@@ -495,12 +611,15 @@ class FastIntegration:
         return self._format_output(result, z, is_scalar)
             
     def distance_modulus(
-        self, 
+        self,
         z: Union[float, np.ndarray, jnp.ndarray],
         method: Optional[str] = None
     ) -> Union[float, np.ndarray]:
         """
-        Calculate distance modulus
+        [DEPRECATED] Calculate distance modulus.
+
+        WARNING: This method will be removed. Models should compute this
+        from their own luminosity_distance().
         
         Parameters
         ----------

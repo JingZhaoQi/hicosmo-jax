@@ -905,26 +905,47 @@ class LCDM(CosmologyBase):
     # ==================== Distance Calculation Methods (Diffrax Integration) ====================
     
     # Old Diffrax integration methods removed - now using ultra-fast integration engine
-    
+
     def comoving_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Vectorized comoving distance calculation.
-        
-        Uses ultra-fast integration engine by default (8-3400x faster than Diffrax)
-        or fallback to Diffrax for compatibility.
-        
+
+        Computes D_c(z) = (c/H0) * ∫[0, z] dz'/E(z')
+
+        Uses LCDM's own E_z definition with the generic integration engine.
+        This allows the integrator to remain model-agnostic.
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-            
+
         Returns
         -------
         float or array_like
             Comoving distance(s) in Mpc
+
+        Notes
+        -----
+        This method now uses the generic integrate() function,
+        passing LCDM's E_z as the integrand.
         """
-        # Use ultra-fast integration engine (8-3400x faster than Diffrax)
-        return self.fast_integration.comoving_distance(z)
+        # Define the integrand: 1/E(z)
+        def integrand(z_prime):
+            return 1.0 / self.E_z(z_prime)
+
+        # Single redshift case
+        if jnp.isscalar(z) or (isinstance(z, (float, int))):
+            # Integrate from 0 to z
+            integral = self.fast_integration.integrate(integrand, 0.0, float(z))
+            return self.params['D_H'] * integral
+
+        # Array case
+        else:
+            z_array = jnp.atleast_1d(z)
+            # Batch integration
+            integrals = self.fast_integration.integrate_batch(integrand, z_array, z_min=0.0)
+            return self.params['D_H'] * integrals
     
     def transverse_comoving_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
@@ -1011,65 +1032,68 @@ class LCDM(CosmologyBase):
     def angular_diameter_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Angular diameter distance.
-        
+
         D_A(z) = D_M(z) / (1 + z)
-        
-        Uses ultra-fast integration engine for superior performance.
-        
+
+        For flat universe: D_A(z) = D_c(z) / (1 + z)
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-            
+
         Returns
         -------
         float or array_like
             Angular diameter distance(s) in Mpc
         """
-        # Use ultra-fast integration engine
-        return self.fast_integration.angular_diameter_distance(z)
+        # Compute from comoving distance
+        d_c = self.comoving_distance(z)
+        z_array = jnp.atleast_1d(z)
+        return d_c / (1.0 + z_array) if z_array.size > 1 else d_c / (1.0 + z)
     
     def luminosity_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Luminosity distance.
-        
+
         D_L(z) = D_M(z) * (1 + z)
-        
-        Uses ultra-fast integration engine for superior performance.
-        
+
+        For flat universe: D_L(z) = D_c(z) * (1 + z)
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-            
+
         Returns
         -------
         float or array_like
             Luminosity distance(s) in Mpc
         """
-        # Use ultra-fast integration engine
-        return self.fast_integration.luminosity_distance(z)
+        # Compute from comoving distance
+        d_c = self.comoving_distance(z)
+        z_array = jnp.atleast_1d(z)
+        return d_c * (1.0 + z_array) if z_array.size > 1 else d_c * (1.0 + z)
     
     def distance_modulus(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Distance modulus.
-        
+
         μ(z) = 5 log₁₀(D_L(z) / 10 pc) = 5 log₁₀(D_L(z)) + 25
-        
-        Uses ultra-fast integration engine for superior performance.
-        
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-            
+
         Returns
         -------
         float or array_like
             Distance modulus (magnitude)
         """
-        # Use ultra-fast integration engine
-        return self.fast_integration.distance_modulus(z)
+        # Compute from luminosity distance
+        d_L = self.luminosity_distance(z)
+        return 5.0 * jnp.log10(d_L) + 25.0
     
     def distance_summary(self, z: float = 1.0) -> str:
         """
