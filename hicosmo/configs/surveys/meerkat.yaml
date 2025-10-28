@@ -1,40 +1,60 @@
+# MeerKAT Survey Configuration
+# Reference: Bull et al. (2016)
+#
+# This file contains ONLY hardware specifications and observing strategy.
+# Cosmological model parameters should be specified in analysis scripts.
+
 name: MeerKAT
-model: CPL
 description: |
-  MeerKAT large survey project intensity mapping mode with focus on 0.3 < z < 1.
-parameters:
-  - H0
-  - Omega_m
-  - w0
-  - wa
-reference:
-  H0: 67.36
-  Omega_m: 0.3153
-  Omega_b: 0.0493
-  Omega_k: 0.0
-  sigma8: 0.8111
-  n_s: 0.9649
-  T_cmb: 2.7255
-  N_eff: 3.046
-  w0: -1.0
-  wa: 0.0
-measurements:
-  - z: 0.35
-    sigma_da: 0.025
-    sigma_h: 0.032
-    sigma_fs8: 0.070
-  - z: 0.60
-    sigma_da: 0.020
-    sigma_h: 0.028
-    sigma_fs8: 0.065
-  - z: 0.85
-    sigma_da: 0.021
-    sigma_h: 0.030
-    sigma_fs8: 0.068
-priors:
-  H0: 5.0
-survey:
-  sky_fraction: 0.20
-  time_years: 1.5
-  channel_width_mhz: 0.40
-  notes: 64 dish receivers, autocorrelation mode
+  MeerKAT Large Survey Project intensity mapping mode with focus on 0.3 < z < 1.
+  64-dish receivers operating in autocorrelation mode.
+
+# Hardware configuration
+instrument:
+  telescope_type: interferometer_autocorr
+  ndish: 64  # 64 dish receivers
+  dish_diameter_m: 13.5  # 13.5m diameter dishes
+  nbeam: 1
+
+# Observing strategy
+observing:
+  survey_area_deg2: 8250.0  # ~20% sky fraction
+  total_time_hours: 13140.0  # 1.5 years = 13140 hours
+  frequency_range_MHz: [900, 1420]  # 21cm at z=0-0.58
+  channel_width_MHz: 0.40
+  channel_width_hz: 400000.0
+  redshift_range: [0.3, 1.0]
+
+# Noise parameters
+noise:
+  system_temperature_K: 29.0  # MeerKAT system temperature
+  sky_temperature:
+    model: power_law
+    T_ref_K: 25.0
+    nu_ref_MHz: 408.0
+    beta: 2.75
+
+# HI tracer properties
+hi_tracers:
+  bias:
+    model: polynomial
+    coefficients: [0.67, 0.18, 0.05]
+  density:
+    model: polynomial
+    coefficients: [0.00048, 0.00039, -0.000065]
+
+# Redshift binning strategy
+redshift_bins:
+  default_delta_z: 0.25
+  centers:
+    - 0.35
+    - 0.60
+    - 0.85
+
+# Metadata
+metadata:
+  reference: "Bull et al. (2016)"
+  notes: "64 dish receivers, autocorrelation mode"
+  telescope_location: "Northern Cape, South Africa"
+  date_created: "2025-10-28"
+  schema_version: "2.0"

@@ -1,40 +1,61 @@
+# Tianlai Survey Configuration
+# Reference: Bull et al. (2016)
+#
+# This file contains ONLY hardware specifications and observing strategy.
+# Cosmological model parameters should be specified in analysis scripts.
+
 name: Tianlai
-model: CPL
 description: |
-  Tianlai cylinder array intensity mapping pathfinder covering 0.8 < z < 1.6.
-parameters:
-  - H0
-  - Omega_m
-  - w0
-  - wa
-reference:
-  H0: 67.36
-  Omega_m: 0.3153
-  Omega_b: 0.0493
-  Omega_k: 0.0
-  sigma8: 0.8111
-  n_s: 0.9649
-  T_cmb: 2.7255
-  N_eff: 3.046
-  w0: -1.0
-  wa: 0.0
-measurements:
-  - z: 0.90
-    sigma_da: 0.035
-    sigma_h: 0.040
-    sigma_fs8: 0.090
-  - z: 1.20
-    sigma_da: 0.032
-    sigma_h: 0.038
-    sigma_fs8: 0.088
-  - z: 1.50
-    sigma_da: 0.036
-    sigma_h: 0.042
-    sigma_fs8: 0.095
-priors:
-  H0: 6.0
-survey:
-  sky_fraction: 0.35
-  time_years: 1.0
-  channel_width_mhz: 0.50
-  notes: Three-cylinder interferometer, north-south drift scan
+  Tianlai (天籁) cylinder array intensity mapping pathfinder covering 0.8 < z < 1.6.
+  Three-cylinder interferometer with north-south drift scan.
+
+# Hardware configuration
+instrument:
+  telescope_type: cylinder_array
+  ncylinders: 3  # Three cylindrical reflectors
+  cylinder_length_m: 40.0
+  cylinder_width_m: 15.0
+  nfeeds: 96  # Feeds per cylinder (estimated)
+
+# Observing strategy
+observing:
+  survey_area_deg2: 14427.0  # ~35% sky fraction
+  total_time_hours: 8760.0  # 1 year = 8760 hours
+  frequency_range_MHz: [700, 800]  # 21cm at z=0.78-1.03
+  channel_width_MHz: 0.50
+  channel_width_hz: 500000.0
+  redshift_range: [0.8, 1.6]
+
+# Noise parameters
+noise:
+  system_temperature_K: 60.0  # Typical for pathfinder
+  sky_temperature:
+    model: power_law
+    T_ref_K: 25.0
+    nu_ref_MHz: 408.0
+    beta: 2.75
+
+# HI tracer properties
+hi_tracers:
+  bias:
+    model: polynomial
+    coefficients: [0.67, 0.18, 0.05]
+  density:
+    model: polynomial
+    coefficients: [0.00048, 0.00039, -0.000065]
+
+# Redshift binning strategy
+redshift_bins:
+  default_delta_z: 0.3
+  centers:
+    - 0.90
+    - 1.20
+    - 1.50
+
+# Metadata
+metadata:
+  reference: "Bull et al. (2016)"
+  notes: "Three-cylinder interferometer, north-south drift scan, pathfinder experiment"
+  telescope_location: "Xinjiang, China"
+  date_created: "2025-10-28"
+  schema_version: "2.0"

@@ -1,45 +1,63 @@
+# CHIME Survey Configuration
+# Reference: Bull et al. (2016)
+#
+# This file contains ONLY hardware specifications and observing strategy.
+# Cosmological model parameters should be specified in analysis scripts.
+
 name: CHIME
-model: CPL
 description: |
-  CHIME 21cm intensity mapping survey probing 0.8 < z < 2.5 with cylindrical
-  interferometer technology.
-parameters:
-  - H0
-  - Omega_m
-  - w0
-  - wa
-reference:
-  H0: 67.36
-  Omega_m: 0.3153
-  Omega_b: 0.0493
-  Omega_k: 0.0
-  sigma8: 0.8111
-  n_s: 0.9649
-  T_cmb: 2.7255
-  N_eff: 3.046
-  w0: -1.0
-  wa: 0.0
-measurements:
-  - z: 0.90
-    sigma_da: 0.022
-    sigma_h: 0.028
-    sigma_fs8: 0.060
-  - z: 1.20
-    sigma_da: 0.020
-    sigma_h: 0.026
-    sigma_fs8: 0.058
-  - z: 1.60
-    sigma_da: 0.021
-    sigma_h: 0.028
-    sigma_fs8: 0.060
-  - z: 2.00
-    sigma_da: 0.025
-    sigma_h: 0.032
-    sigma_fs8: 0.065
-priors:
-  H0: 4.5
-survey:
-  sky_fraction: 0.55
-  time_years: 3.0
-  channel_width_mhz: 0.39
-  notes: Cylindrical array, drift scan at fixed declination
+  CHIME (Canadian Hydrogen Intensity Mapping Experiment) 21cm intensity
+  mapping survey probing 0.8 < z < 2.5 with cylindrical interferometer technology.
+  Drift scan at fixed declination.
+
+# Hardware configuration
+instrument:
+  telescope_type: cylinder_array
+  ncylinders: 5  # 5 cylindrical reflectors
+  cylinder_length_m: 100.0
+  cylinder_width_m: 20.0
+  nfeeds: 1024  # Total feeds across all cylinders
+
+# Observing strategy
+observing:
+  survey_area_deg2: 22620.0  # ~55% sky fraction
+  total_time_hours: 26280.0  # 3 years = 26280 hours
+  frequency_range_MHz: [400, 800]  # 21cm at z=0.8-2.5
+  channel_width_MHz: 0.39
+  channel_width_hz: 390000.0
+  redshift_range: [0.8, 2.5]
+
+# Noise parameters
+noise:
+  system_temperature_K: 50.0  # Typical for this frequency range
+  sky_temperature:
+    model: power_law
+    T_ref_K: 25.0
+    nu_ref_MHz: 408.0
+    beta: 2.75
+
+# HI tracer properties
+hi_tracers:
+  bias:
+    model: polynomial
+    coefficients: [0.67, 0.18, 0.05]
+  density:
+    model: polynomial
+    coefficients: [0.00048, 0.00039, -0.000065]
+
+# Redshift binning strategy
+redshift_bins:
+  default_delta_z: 0.3
+  centers:
+    - 0.90
+    - 1.20
+    - 1.60
+    - 2.00
+
+# Metadata
+metadata:
+  reference: "Bull et al. (2016)"
+  notes: "Cylindrical array, drift scan at fixed declination"
+  telescope_location: "British Columbia, Canada"
+  date_created: "2025-10-28"
+  schema_version: "2.0"

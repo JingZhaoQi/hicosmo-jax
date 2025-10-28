@@ -348,17 +348,86 @@ class FisherResult:
 
 
 class IntensityMappingFisher:
-    """Compute Fisher information for an intensity mapping survey."""
+    """Compute Fisher information for an intensity mapping survey.
+
+    This class implements the correct separation of concerns:
+    - Survey configuration contains ONLY hardware and observing strategy
+    - Cosmological model is passed as a separate parameter
+
+    This allows testing multiple cosmological models with the same survey.
+    """
 
     def __init__(
         self,
         survey: IntensityMappingSurvey,
-        model_override: Optional[str] = None,
+        cosmology = None,  # CosmologyBase instance (required for new API)
+        model_override: Optional[str] = None,  # DEPRECATED: for backward compatibility
         gamma: float = 0.55,
     ) -> None:
-        model_name = model_override or survey.model
-        params = survey.reference.copy()
-        self.cosmology = _instantiate_cosmology(model_name, params)
+        """
+        Initialize Fisher matrix calculator for intensity mapping.
+
+        Parameters
+        ----------
+        survey : IntensityMappingSurvey
+            Survey configuration (hardware and observing strategy ONLY)
+        cosmology : CosmologyBase
+            Cosmological model instance (e.g., LCDM, wCDM, CPL)
+            This parameter is REQUIRED in the new API.
+        model_override : str, optional
+            DEPRECATED: For backward compatibility only.
+            Will be removed in v2.0.
+        gamma : float, default=0.55
+            Growth index parameter
+
+        Examples
+        --------
+        >>> from hicosmo.models import CPL
+        >>> from hicosmo.forecasts import load_survey, IntensityMappingFisher
+        >>>
+        >>> # Load survey (only hardware config)
+        >>> survey = load_survey('ska1_mid_band2')
+        >>>
+        >>> # Define cosmology separately
+        >>> cosmo = CPL(H0=67.36, Omega_m=0.3153, w0=-1.0, wa=0.0)
+        >>>
+        >>> # Create Fisher calculator with explicit cosmology
+        >>> fisher = IntensityMappingFisher(survey, cosmo)
+        """
+        import warnings
+
+        # NEW API: Cosmology passed explicitly
+        if cosmology is not None:
+            self.cosmology = cosmology
+            if hasattr(survey, 'model') or hasattr(survey, 'reference'):
+                warnings.warn(
+                    "Survey configuration contains 'model' or 'reference' fields, "
+                    "but cosmology was passed explicitly. Using explicit cosmology. "
+                    "Please update survey config to remove model/reference fields.",
+                    DeprecationWarning,
+                    stacklevel=2
+                )
+        # OLD API: Backward compatibility (DEPRECATED)
+        elif hasattr(survey, 'model') and hasattr(survey, 'reference'):
+            warnings.warn(
+                "Passing cosmology via survey.model/survey.reference is DEPRECATED. "
+                "Please pass cosmology explicitly as the second parameter:\n"
+                "  fisher = IntensityMappingFisher(survey, cosmology)\n"
+                "This backward-compatible behavior will be removed in v2.0.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            model_name = model_override or survey.model
+            params = survey.reference.copy()
+            self.cosmology = _instantiate_cosmology(model_name, params)
+        else:
+            raise ValueError(
+                "Cosmology must be provided. Either:\n"
+                "  1. Pass cosmology explicitly (NEW API, recommended):\n"
+                "     fisher = IntensityMappingFisher(survey, cosmology)\n"
+                "  2. Or survey must have 'model' and 'reference' (OLD API, deprecated)"
+            )
+
         self.survey = survey
         self.gamma = gamma
         self.growth = GrowthModel(self.cosmology, gamma=gamma)

@@ -1,37 +1,61 @@
+# BINGO Survey Configuration
+# Reference: Abdurashidova et al. (2022), Bull et al. (2016)
+#
+# This file contains ONLY hardware specifications and observing strategy.
+# Cosmological model parameters should be specified in analysis scripts.
+
 name: BINGO
-model: CPL
 description: |
-  BINGO single-dish 21cm intensity mapping survey targeting 0.13 < z < 0.5.
-  Forecast follows baseline specifications in Abdurashidova et al. (2022).
-parameters:
-  - H0
-  - Omega_m
-  - w0
-  - wa
-reference:
-  H0: 67.36
-  Omega_m: 0.3153
-  Omega_b: 0.0493
-  Omega_k: 0.0
-  sigma8: 0.8111
-  n_s: 0.9649
-  T_cmb: 2.7255
-  N_eff: 3.046
-  w0: -1.0
-  wa: 0.0
-measurements:
-  - z: 0.30
-    sigma_da: 0.030
-    sigma_h: 0.036
-    sigma_fs8: 0.090
-  - z: 0.40
-    sigma_da: 0.028
-    sigma_h: 0.034
-    sigma_fs8: 0.085
-priors:
-  H0: 5.0
-survey:
-  sky_fraction: 0.1
-  time_years: 1.0
-  channel_width_mhz: 1.0
-  notes: 40 feed horns, dual-dish configuration
+  BINGO (Baryon Acoustic Oscillations from Integrated Neutral Gas Observations)
+  single-dish 21cm intensity mapping survey targeting 0.13 < z < 0.5.
+  Baseline specifications from Abdurashidova et al. (2022).
+
+# Hardware configuration
+instrument:
+  telescope_type: single_dish
+  ndish: 2  # Dual-dish configuration
+  dish_diameter_m: 40.0  # 40m diameter dishes
+  nbeam: 40  # 40 feed horns per dish
+
+# Observing strategy
+observing:
+  survey_area_deg2: 4130.0  # ~10% sky fraction (41253 deg^2 * 0.1)
+  total_time_hours: 8760.0  # 1 year = 8760 hours
+  frequency_range_MHz: [960, 1260]  # 21cm at z=0.13-0.5
+  channel_width_MHz: 1.0
+  channel_width_hz: 1000000.0
+  redshift_range: [0.13, 0.5]
+
+# Noise parameters
+noise:
+  system_temperature_K: 50.0  # Typical for this frequency range
+  sky_temperature:
+    model: power_law
+    T_ref_K: 25.0
+    nu_ref_MHz: 408.0
+    beta: 2.75
+
+# HI tracer properties (observational, not cosmological)
+hi_tracers:
+  bias:
+    model: polynomial
+    coefficients: [0.67, 0.18, 0.05]
+  density:
+    model: polynomial
+    coefficients: [0.00048, 0.00039, -0.000065]
+
+# Redshift binning strategy
+redshift_bins:
+  default_delta_z: 0.1
+  centers:
+    - 0.20
+    - 0.30
+    - 0.40
+
+# Metadata for provenance tracking
+metadata:
+  reference: "Abdurashidova et al. (2022), Bull et al. (2016)"
+  notes: "Dual-dish configuration with 40 feed horns, optimized for 0.13 < z < 0.5"
+  telescope_location: "Atacama Desert, Chile (planned)"
+  date_created: "2025-10-28"
+  schema_version: "2.0"

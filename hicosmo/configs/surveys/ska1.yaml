@@ -1,38 +1,53 @@
-SKA1:
-  description: "SKA1-MID Band 1 intensity mapping reference survey"
-  model: "LCDM"
-  parameters: ["H0", "Omega_m"]
-  reference:
-    H0: 67.36
-    Omega_m: 0.3153
-  measurements:
-    - z: 0.35
-      sigma:
-        DA_over_rs: 0.025
-        H_times_rs: 0.022
-        fsigma8: 0.04
-    - z: 0.6
-      sigma:
-        DA_over_rs: 0.02
-        H_times_rs: 0.018
-        fsigma8: 0.035
-    - z: 0.9
-      sigma:
-        DA_over_rs: 0.018
-        H_times_rs: 0.016
-        fsigma8: 0.032
-  priors:
-    Omega_m: 0.02
-  Area: 20000.0
-  Ddish: 1500.0
-  Dzbin: 0.1
-  Nbeams: 1
-  Ndishes: 190
-  T_inst: 28000.0
-  dfpix: 50000.0
-  omega_total: 6.092348395734171
-  t_total: 36000000
-  zlist:
+# SKA1-MID Band 1 Survey Configuration
+# Reference: Bull et al. (2016) - intensity mapping reference survey
+#
+# This file contains ONLY hardware specifications and observing strategy.
+# Cosmological model parameters should be specified in analysis scripts.
+#
+# NOTE: This was previously incorrectly formatted with measurements as output.
+# Now restructured to contain only hardware and observing strategy.
+
+name: SKA1
+description: "SKA1-MID Band 1 intensity mapping reference survey"
+
+# Hardware configuration
+instrument:
+  telescope_type: single_dish
+  ndish: 190  # Ndishes from original config
+  dish_diameter_m: 15.0  # Ddish / 100 = 1500/100 = 15m
+  nbeam: 1  # Nbeams from original config
+
+# Observing strategy
+observing:
+  survey_area_deg2: 20000.0  # Area from original config
+  total_time_hours: 10000.0  # t_total / 3600 = 36000000/3600 = 10000 hours
+  frequency_range_MHz: [350, 1050]  # Band 1 coverage
+  channel_width_MHz: 0.05
+  channel_width_hz: 50000.0  # dfpix from original config
+  redshift_range: [0.35, 1.15]
+
+# Noise parameters
+noise:
+  system_temperature_K: 28.0  # T_inst / 1000 = 28000/1000 = 28K
+  sky_temperature:
+    model: power_law
+    T_ref_K: 25.0
+    nu_ref_MHz: 408.0
+    beta: 2.75
+
+# HI tracer properties
+hi_tracers:
+  bias:
+    model: polynomial
+    coefficients: [0.67, 0.18, 0.05]
+  density:
+    model: polynomial
+    coefficients: [0.00048, 0.00039, -0.000065]
+
+# Redshift binning strategy
+redshift_bins:
+  default_delta_z: 0.1  # Dzbin from original config
+  centers:  # zlist from original config
     - 0.35
     - 0.45
     - 0.55
@@ -42,3 +57,15 @@ SKA1:
     - 0.95
     - 1.05
     - 1.15
+
+# Metadata
+metadata:
+  reference: "Bull et al. (2016) Table 1"
+  notes: |
+    Restructured from original config which incorrectly mixed:
+    - Hardware specs (now here)
+    - Cosmology parameters (removed - specify in scripts)
+    - Measurement predictions (removed - those are outputs)
+  date_created: "2025-10-28"
+  schema_version: "2.0"
+  omega_total: 6.092348395734171  # Preserved for reference (solid angle in steradians)

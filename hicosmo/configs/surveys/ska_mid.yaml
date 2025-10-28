@@ -1,50 +1,62 @@
+# SKA-MID Survey Configuration
+# Reference: Bull et al. (2015, 2016)
+#
+# This file contains ONLY hardware specifications and observing strategy.
+# Cosmological model parameters should be specified in analysis scripts.
+
 name: SKA_MID
-model: CPL
 description: |
   SKA Phase 1 MID intensity mapping survey with single-dish mode covering
   0.2 < z < 2.5. Forecast numbers follow Bull et al. (2015) benchmark scenario.
-parameters:
-  - H0
-  - Omega_m
-  - w0
-  - wa
-reference:
-  H0: 67.36
-  Omega_m: 0.3153
-  Omega_b: 0.0493
-  Omega_k: 0.0
-  sigma8: 0.8111
-  n_s: 0.9649
-  T_cmb: 2.7255
-  N_eff: 3.046
-  w0: -1.0
-  wa: 0.0
-measurements:
-  - z: 0.30
-    sigma_da: 0.015
-    sigma_h: 0.018
-    sigma_fs8: 0.050
-  - z: 0.60
-    sigma_da: 0.012
-    sigma_h: 0.016
-    sigma_fs8: 0.045
-  - z: 1.00
-    sigma_da: 0.011
-    sigma_h: 0.015
-    sigma_fs8: 0.042
-  - z: 1.50
-    sigma_da: 0.012
-    sigma_h: 0.018
-    sigma_fs8: 0.048
-  - z: 2.00
-    sigma_da: 0.016
-    sigma_h: 0.022
-    sigma_fs8: 0.060
-priors:
-  H0: 4.0
-  Omega_m: 0.03
-survey:
-  sky_fraction: 0.75
-  time_years: 2.0
-  channel_width_mhz: 0.35
-  notes: 190 dish receivers, 1.7 sr coverage
+
+# Hardware configuration
+instrument:
+  telescope_type: single_dish
+  ndish: 190  # 190 dish receivers
+  dish_diameter_m: 15.0  # 15m diameter dishes
+  nbeam: 1
+
+# Observing strategy
+observing:
+  survey_area_deg2: 30940.0  # ~75% sky fraction (1.7 sr)
+  total_time_hours: 17520.0  # 2 years = 17520 hours
+  frequency_range_MHz: [350, 1050]  # Wide frequency coverage
+  channel_width_MHz: 0.35
+  channel_width_hz: 350000.0
+  redshift_range: [0.2, 2.5]
+
+# Noise parameters
+noise:
+  system_temperature_K: 20.0  # SKA-MID system temperature
+  sky_temperature:
+    model: power_law
+    T_ref_K: 25.0
+    nu_ref_MHz: 408.0
+    beta: 2.75
+
+# HI tracer properties
+hi_tracers:
+  bias:
+    model: polynomial
+    coefficients: [0.67, 0.18, 0.05]
+  density:
+    model: polynomial
+    coefficients: [0.00048, 0.00039, -0.000065]
+
+# Redshift binning strategy
+redshift_bins:
+  default_delta_z: 0.3
+  centers:
+    - 0.30
+    - 0.60
+    - 1.00
+    - 1.50
+    - 2.00
+
+# Metadata
+metadata:
+  reference: "Bull et al. (2015, 2016)"
+  notes: "190 dish receivers, 1.7 sr coverage, benchmark scenario"
+  telescope_location: "South Africa + Australia (planned)"
+  date_created: "2025-10-28"
+  schema_version: "2.0"
