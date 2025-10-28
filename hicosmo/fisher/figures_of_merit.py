@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 import warnings
 
 from .fisher_matrix import FisherMatrix
-from ..core.parameters_professional import CosmologyParameters
+from ..core.unified_parameters import CosmologicalParameters
 
 
 @dataclass

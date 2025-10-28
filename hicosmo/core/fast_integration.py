@@ -338,8 +338,8 @@ class FastIntegration:
         """Cast results back to match the original input's expectations - JAX compatible."""
         if is_scalar:
             if isinstance(original_input, (float, int, np.floating)):
-                # JAX compatible: use .item() instead of float() for tracers
-                return value.item() if hasattr(value, 'item') else value
+                # Return as-is for JAX compatibility (no .item() during tracing)
+                return value
             if isinstance(original_input, np.ndarray):
                 return np.asarray(value)
             return value

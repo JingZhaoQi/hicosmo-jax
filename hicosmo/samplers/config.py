@@ -270,21 +270,35 @@ class AutoParameter:
         """
         # Convert set to list if needed (sets don't preserve order)
         if isinstance(values, set):
-            # Separate strings and numbers
+            # Extract numeric and string components from unordered set input
             str_vals = [v for v in values if isinstance(v, str)]
-            num_vals = [v for v in values if not isinstance(v, str)]
-            
-            # Sort numbers to get consistent ordering (initial, min, max)
-            num_vals = sorted(num_vals)
-            
-            # Combine: numbers first, then string (latex) if present
-            if str_vals:
-                values = num_vals + str_vals
+            num_vals = [float(v) for v in values if not isinstance(v, str)]
+
+            if len(num_vals) < 3:
+                raise ValueError(
+                    f"Set-format parameter '{name}' must include at least three numeric "
+                    "entries (initial, min, max)."
+                )
+
+            min_val = min(num_vals)
+            max_val = max(num_vals)
+
+            # Identify initial value as the one that is neither min nor max
+            remaining = [v for v in num_vals if v not in (min_val, max_val)]
+            if not remaining:
+                # If only two unique values are provided, default initial to midpoint
+                initial_val = (min_val + max_val) / 2.0
             else:
-                values = num_vals
+                # If multiple middle values exist, take the first sorted
+                initial_val = sorted(remaining)[0]
+
+            values = [initial_val, min_val, max_val]
+            if str_vals:
+                # Use the first provided string as LaTeX label
+                values.append(str_vals[0])
         else:
             values = list(values)
-        
+
         if len(values) < 3:
             raise ValueError(f"Parameter '{name}' needs at least (initial, min, max)")
         
@@ -382,11 +396,25 @@ class ParameterConfig:
         if not self.parameters:
             raise ValueError("At least one parameter must be defined")
         
+        # Normalise simple definitions into AutoParameter instances
+        for name, param in list(self.parameters.items()):
+            if isinstance(param, AutoParameter):
+                continue
+            if isinstance(param, (list, tuple, set)):
+                self.parameters[name] = AutoParameter.from_tuple(name, param)
+            elif isinstance(param, dict):
+                self.parameters[name] = AutoParameter.from_dict(param, name=name)
+            else:
+                raise ValueError(
+                    f"Unsupported parameter specification for '{name}'. "
+                    "Provide an AutoParameter, tuple/list/set, or dict definition."
+                )
+
         # Check for name conflicts
         param_names = set(self.parameters.keys())
         if len(param_names) != len(self.parameters):
             raise ValueError("Duplicate parameter names found")
-        
+
         # Validate each parameter
         for name, param in self.parameters.items():
             if param.name != name:

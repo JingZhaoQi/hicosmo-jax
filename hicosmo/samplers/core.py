@@ -14,6 +14,7 @@ Key Features:
 """
 
 from typing import Dict, List, Optional, Any, Callable, Union
+import os
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -71,7 +72,7 @@ class MCMCSampler:
                  kernel: Optional[object] = None,
                  num_warmup: int = DEFAULT_WARMUP_STANDARD,  # Default value, intelligently adjusted by MCMC
                  num_samples: int = DEFAULT_NUM_SAMPLES,
-                 num_chains: int = 4,
+                 num_chains: Optional[int] = None,
                  chain_method: Optional[str] = None,  # None means auto-detect
                  progress_bar: bool = True,
                  verbose: bool = True,
@@ -106,7 +107,7 @@ class MCMCSampler:
         self.model_fn = model_fn
         self.num_warmup = num_warmup
         self.num_samples = num_samples
-        self.num_chains = num_chains
+        self.num_chains = num_chains or self._auto_num_chains()
         self.progress_bar = progress_bar
         self.verbose = verbose
         
@@ -126,8 +127,8 @@ class MCMCSampler:
             num_warmup=num_warmup,
             num_samples=num_samples,
             num_chains=num_chains,
-            chain_method=self.chain_method,  # Use detected method
-            progress_bar=False,  # We'll use our own progress display
+            chain_method=self.chain_method,
+            progress_bar=progress_bar,
             **mcmc_kwargs
         )
         
@@ -154,19 +155,41 @@ class MCMCSampler:
             return chain_method
         
         try:
-            device_count = jax.local_device_count()
-            
-            # Determine method based on device count and chain count
-            if device_count >= self.num_chains and self.num_chains > 1:
-                return 'parallel'
-            elif self.num_chains > 1:
-                return 'sequential'  # Multiple chains but insufficient devices, use sequential
-            else:
-                return 'sequential'  # Single chain case
-                
-        except ImportError:
-            # JAX not available, default to sequential
+            devices = jax.devices()
+            # Check if we have GPU devices
+            has_gpu = any(device.device_kind in ['gpu', 'cuda', 'tpu'] for device in devices)
+
+            if self.num_chains > 1:
+                if has_gpu and len(devices) >= self.num_chains:
+                    # Use parallel only on GPU with sufficient devices
+                    return 'parallel'
+                else:
+                    # CPU environment: vectorized is more efficient than parallel
+                    return 'vectorized'
             return 'sequential'
+        except Exception:
+            return 'vectorized' if self.num_chains > 1 else 'sequential'
+
+    def _auto_num_chains(self) -> int:
+        """Pick a sensible default number of chains based on available CPU threads."""
+        try:
+            from .init import Config
+            configured = getattr(Config, '_config', {}).get('actual_cores')
+            if configured:
+                return max(1, min(int(configured), 8))
+        except Exception:
+            pass
+
+        try:
+            import jax
+            device_count = len(jax.devices())
+            if device_count > 1:
+                return min(device_count, 8)
+        except Exception:
+            pass
+
+        thread_count = int(os.environ.get('JAX_NUM_THREADS', os.cpu_count() or 1))
+        return max(1, min(thread_count, 8))
         
     def run(self, rng_key = None,
             *args, **kwargs):
@@ -202,32 +225,14 @@ class MCMCSampler:
         
         if self.verbose:
             self.console.print(f"🚀 [bold]MCMC Started:[/bold] {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
-        
-        # Run MCMC with progress display
-        if self.progress_bar and self.verbose:
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                TimeRemainingColumn(),
-                console=self.console
-            ) as progress:
-                # Create progress task
-                total_steps = self.num_warmup + self.num_samples
-                task = progress.add_task(
-                    f"Running MCMC ({self.num_chains} chains)", 
-                    total=total_steps
-                )
-                
-                # Run MCMC (NumPyro handles everything internally)
-                self.mcmc.run(rng_key, *args, **kwargs)
-                
-                # Update progress to complete
-                progress.update(task, completed=total_steps)
-        else:
-            # Run without progress display
-            self.mcmc.run(rng_key, *args, **kwargs)
+
+            # Calculate total steps for user information
+            total_steps_per_chain = self.num_samples + self.num_warmup
+            total_steps_all_chains = total_steps_per_chain * self.num_chains
+            self.console.print(f"📊 [cyan]Progress Bar Note:[/cyan] Shows per-chain progress ({total_steps_per_chain} steps/chain). Total computation: {total_steps_all_chains} steps across {self.num_chains} chains")
+
+        # Use NumPyro's native progress bar to ensure updates stream continuously
+        self.mcmc.run(rng_key, *args, **kwargs)
         
         # Record run time with detailed information
         end_time = time.time()

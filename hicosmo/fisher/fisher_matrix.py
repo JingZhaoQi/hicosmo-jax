@@ -15,24 +15,35 @@ Key features:
 """
 
 import jax.numpy as jnp
-from jax import grad, hessian, vmap, jit
-import numpy as np
+from jax import config as jax_config
+from jax import hessian, jit
 from typing import Dict, List, Optional, Callable, Tuple, Union
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import warnings
 
 from ..core.unified_parameters import CosmologicalParameters
+from .numerical_derivatives import (
+    compute_step_sizes,
+    finite_difference_hessian,
+    finite_difference_jacobian,
+)
+
+
+_X64_ENABLED = bool(jax_config.read("jax_enable_x64"))
+_DEFAULT_DTYPE = jnp.float64 if _X64_ENABLED else jnp.float32
 
 
 @dataclass
 class FisherMatrixConfig:
     """Configuration for Fisher matrix calculations."""
-    
+
     # Numerical differentiation parameters
+    differentiation_method: str = 'automatic'  # 'automatic', 'numerical', 'hybrid'
     step_size: float = 1e-6
     step_method: str = 'adaptive'  # 'fixed', 'adaptive', 'optimal'
+    fallback_to_numerical: bool = True
     max_condition_number: float = 1e12
-    
+
     # Regularization parameters
     regularization: bool = True
     reg_lambda: float = 1e-10
@@ -97,23 +108,27 @@ class FisherMatrix:
         param_names : List[str]
             Ordered list of parameter names corresponding to matrix indices
         """
-        # Get free parameters for Fisher matrix
-        free_params = parameters.get_free_parameters()
-        param_names = [p.name for p in free_params]
+        # Determine parameter ordering for Fisher matrix construction
+        if fiducial_values:
+            param_names = list(fiducial_values.keys())
+        else:
+            free_params = parameters.get_free_parameters()
+            param_names = [p.name for p in free_params]
+
+        if not param_names:
+            raise ValueError("No parameters specified for Fisher matrix calculation")
+
         n_params = len(param_names)
-        
-        if n_params == 0:
-            raise ValueError("No free parameters found for Fisher matrix calculation")
-            
+
         # Validate fiducial values
         self._validate_fiducial_values(fiducial_values, param_names)
-        
+
         # Create parameter vector at fiducial values
         fiducial_vector = jnp.array([fiducial_values[name] for name in param_names])
-        
+
         # Compute second derivatives (Fisher matrix elements)
         print(f"Computing Fisher matrix for {n_params} parameters...")
-        fisher_matrix = self._compute_hessian_matrix(
+        fisher_matrix = self._compute_fisher_core(
             likelihood_func, param_names, fiducial_vector, parameters
         )
         
@@ -129,7 +144,67 @@ class FisherMatrix:
         
         print(f"✓ Fisher matrix computed successfully for probe '{probe_name}'")
         return fisher_matrix, param_names
-    
+
+    def _compute_fisher_core(
+        self,
+        likelihood_func: Callable,
+        param_names: List[str],
+        fiducial_vector: jnp.ndarray,
+        parameters: CosmologicalParameters
+    ) -> jnp.ndarray:
+        """Select differentiation strategy and compute Hessian."""
+        method = (self.config.differentiation_method or 'automatic').lower()
+        step_sizes = compute_step_sizes(
+            fiducial_vector,
+            self.config.step_size,
+            self.config.step_method
+        )
+
+        if method == 'automatic':
+            try:
+                return self._compute_hessian_matrix(
+                    likelihood_func, param_names, fiducial_vector, parameters
+                )
+            except Exception as exc:
+                if not self.config.fallback_to_numerical:
+                    raise
+                warnings.warn(
+                    f"Automatic differentiation failed ({exc}); falling back to numerical Hessian.",
+                    RuntimeWarning
+                )
+                return self._compute_hessian_numerical(
+                    likelihood_func, param_names, fiducial_vector, parameters, step_sizes
+                )
+
+        if method == 'numerical':
+            return self._compute_hessian_numerical(
+                likelihood_func, param_names, fiducial_vector, parameters, step_sizes
+            )
+
+        if method == 'hybrid':
+            try:
+                auto = self._compute_hessian_matrix(
+                    likelihood_func, param_names, fiducial_vector, parameters
+                )
+            except Exception as exc:
+                warnings.warn(
+                    f"Hybrid mode: automatic differentiation failed ({exc}); using numerical Hessian.",
+                    RuntimeWarning
+                )
+                auto = None
+
+            if auto is not None:
+                numerical = self._compute_hessian_numerical(
+                    likelihood_func, param_names, fiducial_vector, parameters, step_sizes
+                )
+                return 0.5 * (auto + numerical)
+
+            return self._compute_hessian_numerical(
+                likelihood_func, param_names, fiducial_vector, parameters, step_sizes
+            )
+
+        raise ValueError(f"Unknown differentiation method '{self.config.differentiation_method}'")
+
     def combine_fisher_matrices(
         self,
         fisher_list: List[Tuple[jnp.ndarray, List[str]]],
@@ -334,6 +409,63 @@ class FisherMatrix:
                 errors[name] = float(jnp.sqrt(variance))
                 
         return errors
+
+    def invert_fisher_matrix(
+        self,
+        fisher_matrix: jnp.ndarray,
+        regularize: bool = True
+    ) -> jnp.ndarray:
+        """Return covariance matrix by inverting the Fisher matrix."""
+        try:
+            return jnp.linalg.inv(fisher_matrix)
+        except (jnp.linalg.LinAlgError, RuntimeError):
+            if not regularize:
+                raise
+            warnings.warn(
+                "Fisher matrix inversion failed; applying pseudo-inverse with regularization.",
+                RuntimeWarning
+            )
+            epsilon = self.config.reg_lambda if self.config.regularization else 1e-12
+            regulated = fisher_matrix + epsilon * jnp.eye(fisher_matrix.shape[0])
+            return jnp.linalg.pinv(regulated, rcond=self.config.svd_threshold)
+
+    def transform_fisher_matrix(
+        self,
+        fisher_matrix: jnp.ndarray,
+        param_names: List[str],
+        transform: Union[jnp.ndarray, Callable[[Dict[str, float]], jnp.ndarray]],
+        fiducial_vector: Optional[jnp.ndarray] = None,
+        new_param_names: Optional[List[str]] = None
+    ) -> Tuple[jnp.ndarray, List[str]]:
+        """Transform Fisher matrix to a new parameter basis."""
+        if callable(transform):
+            if fiducial_vector is None:
+                raise ValueError("fiducial_vector required when transform is callable")
+
+            steps = compute_step_sizes(
+                fiducial_vector,
+                self.config.step_size,
+                self.config.step_method
+            )
+
+            def wrapper(theta: jnp.ndarray) -> jnp.ndarray:
+                param_dict = dict(zip(param_names, theta))
+                result = transform(param_dict)
+                return jnp.asarray(result, dtype=_DEFAULT_DTYPE)
+
+            jacobian = finite_difference_jacobian(wrapper, fiducial_vector, steps)
+        else:
+            jacobian = jnp.asarray(transform, dtype=_DEFAULT_DTYPE)
+
+        transformed = jacobian @ fisher_matrix @ jacobian.T
+
+        if new_param_names is None:
+            if jacobian.shape[0] == len(param_names):
+                new_param_names = list(param_names)
+            else:
+                new_param_names = [f"param_{i}" for i in range(jacobian.shape[0])]
+
+        return transformed, new_param_names
     
     def _compute_hessian_matrix(
         self,
@@ -343,19 +475,38 @@ class FisherMatrix:
         parameters: CosmologicalParameters
     ) -> jnp.ndarray:
         """Compute Hessian matrix using JAX automatic differentiation."""
-        
+
         # Create wrapper function for vector input
         def likelihood_wrapper(param_vector: jnp.ndarray) -> float:
             param_dict = dict(zip(param_names, param_vector))
             # Update parameter manager and compute derived parameters
             updated_params = parameters.update_and_compute_derived(param_dict)
-            return likelihood_func(updated_params)
-            
+            value = likelihood_func(updated_params)
+            return float(jnp.asarray(value, dtype=_DEFAULT_DTYPE))
+
         # Use JAX hessian for automatic differentiation
         hessian_func = jit(hessian(likelihood_wrapper))
         hessian_matrix = hessian_func(fiducial_vector)
-        
+
         return hessian_matrix
+
+    def _compute_hessian_numerical(
+        self,
+        likelihood_func: Callable,
+        param_names: List[str],
+        fiducial_vector: jnp.ndarray,
+        parameters: CosmologicalParameters,
+        step_sizes: jnp.ndarray
+    ) -> jnp.ndarray:
+        """Compute Hessian via central finite differences."""
+
+        def likelihood_wrapper(param_vector: jnp.ndarray) -> float:
+            param_dict = dict(zip(param_names, param_vector))
+            updated_params = parameters.update_and_compute_derived(param_dict)
+            value = likelihood_func(updated_params)
+            return float(jnp.asarray(value, dtype=_DEFAULT_DTYPE))
+
+        return finite_difference_hessian(likelihood_wrapper, fiducial_vector, step_sizes)
     
     def _validate_fiducial_values(
         self, 

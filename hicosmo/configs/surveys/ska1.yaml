@@ -1,0 +1,44 @@
+SKA1:
+  description: "SKA1-MID Band 1 intensity mapping reference survey"
+  model: "LCDM"
+  parameters: ["H0", "Omega_m"]
+  reference:
+    H0: 67.36
+    Omega_m: 0.3153
+  measurements:
+    - z: 0.35
+      sigma:
+        DA_over_rs: 0.025
+        H_times_rs: 0.022
+        fsigma8: 0.04
+    - z: 0.6
+      sigma:
+        DA_over_rs: 0.02
+        H_times_rs: 0.018
+        fsigma8: 0.035
+    - z: 0.9
+      sigma:
+        DA_over_rs: 0.018
+        H_times_rs: 0.016
+        fsigma8: 0.032
+  priors:
+    Omega_m: 0.02
+  Area: 20000.0
+  Ddish: 1500.0
+  Dzbin: 0.1
+  Nbeams: 1
+  Ndishes: 190
+  T_inst: 28000.0
+  dfpix: 50000.0
+  omega_total: 6.092348395734171
+  t_total: 36000000
+  zlist:
+    - 0.35
+    - 0.45
+    - 0.55
+    - 0.65
+    - 0.75
+    - 0.85
+    - 0.95
+    - 1.05
+    - 1.15

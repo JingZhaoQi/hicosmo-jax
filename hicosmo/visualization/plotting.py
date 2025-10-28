@@ -6,6 +6,7 @@ HIcosmo Visualization System - Core Plotting Functions
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import warnings
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Tuple
 
@@ -19,6 +20,17 @@ except ImportError:
 # Color schemes
 MODERN_COLORS = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#592E83', '#0F7173', '#7B2D26']
 CLASSIC_COLORS = ['#348ABD', '#7A68A6', '#E24A33', '#467821', '#ffb3a6', '#188487', '#A60628']
+
+
+def _safe_tight_layout(fig: plt.Figure) -> None:
+    """Apply tight_layout while suppressing Matplotlib warnings about incompatible axes."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            "This figure includes Axes that are not compatible with tight_layout",
+            UserWarning
+        )
+        fig.tight_layout()
 
 # LaTeX label mappings
 LATEX_LABELS = {
@@ -160,8 +172,14 @@ def _load_chain_simple(filename: str):
             import h5py
             data = {}
             with h5py.File(file_path, 'r') as f:
-                for key in f.keys():
-                    data[key] = f[key][:]
+                if 'samples' in f:
+                    group = f['samples']
+                elif 'chains' in f:
+                    group = f['chains']
+                else:
+                    group = f
+                for key in group.keys():
+                    data[str(key)] = group[key][:]
             return data
         except ImportError:
             raise ImportError("h5py required for HDF5 files")
@@ -319,8 +337,8 @@ def plot_corner(data, params=None, style='modern', filename=None, labels=None, *
                              **kwargs)
 
     # Optimize ticks
-    _optimize_ticks(plotter.fig)
-    plt.tight_layout()
+        _optimize_ticks(plotter.fig)
+        _safe_tight_layout(plotter.fig)
 
     # Auto-save to caller's results/ directory
     if filename:
@@ -335,6 +353,40 @@ def plot_corner(data, params=None, style='modern', filename=None, labels=None, *
         print(f"Corner plot saved to: {save_path}")
 
     return plotter.fig
+
+
+def plot_fisher_contours(
+    mean: Union[np.ndarray, List[float]],
+    covariance: Union[np.ndarray, List[List[float]]],
+    param_names: List[str],
+    *,
+    style: str = 'modern',
+    filename: Optional[Union[str, Path]] = None,
+    nsample: int = 200_000,
+    **kwargs,
+) -> plt.Figure:
+    """Generate contour plot for a multivariate Gaussian described by Fisher matrix results."""
+
+    mean_arr = np.asarray(mean, dtype=float)
+    cov_arr = np.asarray(covariance, dtype=float)
+
+    if mean_arr.ndim != 1:
+        raise ValueError("mean must be a 1-D array")
+    if cov_arr.ndim != 2 or cov_arr.shape[0] != cov_arr.shape[1]:
+        raise ValueError("covariance must be a square 2-D array")
+    if cov_arr.shape[0] != mean_arr.shape[0]:
+        raise ValueError("Mean and covariance dimensions do not match")
+    if len(param_names) != mean_arr.shape[0]:
+        raise ValueError("Number of parameter names must equal the size of the mean vector")
+
+    from getdist.gaussian_mixtures import GaussianND
+
+    latex_labels = _prepare_latex_labels(param_names)
+    gaussian = GaussianND(mean_arr, cov_arr, names=param_names, labels=latex_labels)
+    samples = gaussian.MCSamples(nsample)
+
+    fig = plot_corner(samples, style=style, filename=filename, **kwargs)
+    return fig
 
 
 def plot_chains(data, params=None, style='modern', filename=None, labels=None, **kwargs) -> plt.Figure:
@@ -383,7 +435,7 @@ def plot_chains(data, params=None, style='modern', filename=None, labels=None, *
         axes[i].grid(True, alpha=0.3)
 
     axes[-1].set_xlabel('Sample Index')
-    plt.tight_layout()
+    _safe_tight_layout(plotter.fig)
 
     if filename:
         results_dir = _get_results_dir()
@@ -435,7 +487,7 @@ def plot_1d(data, params=None, style='modern', filename=None, labels=None, **kwa
 
     plotter.plots_1d(samples, **kwargs)
     _optimize_ticks(plotter.fig)
-    plt.tight_layout()
+    _safe_tight_layout(plotter.fig)
 
     if filename:
         results_dir = _get_results_dir()

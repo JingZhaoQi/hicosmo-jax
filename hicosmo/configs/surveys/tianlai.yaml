@@ -1,0 +1,40 @@
+name: Tianlai
+model: CPL
+description: |
+  Tianlai cylinder array intensity mapping pathfinder covering 0.8 < z < 1.6.
+parameters:
+  - H0
+  - Omega_m
+  - w0
+  - wa
+reference:
+  H0: 67.36
+  Omega_m: 0.3153
+  Omega_b: 0.0493
+  Omega_k: 0.0
+  sigma8: 0.8111
+  n_s: 0.9649
+  T_cmb: 2.7255
+  N_eff: 3.046
+  w0: -1.0
+  wa: 0.0
+measurements:
+  - z: 0.90
+    sigma_da: 0.035
+    sigma_h: 0.040
+    sigma_fs8: 0.090
+  - z: 1.20
+    sigma_da: 0.032
+    sigma_h: 0.038
+    sigma_fs8: 0.088
+  - z: 1.50
+    sigma_da: 0.036
+    sigma_h: 0.042
+    sigma_fs8: 0.095
+priors:
+  H0: 6.0
+survey:
+  sky_fraction: 0.35
+  time_years: 1.0
+  channel_width_mhz: 0.50
+  notes: Three-cylinder interferometer, north-south drift scan

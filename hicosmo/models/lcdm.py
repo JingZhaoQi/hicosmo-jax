@@ -8,10 +8,10 @@ Now includes ultra-fast integration engine that outperforms both qcosmc and astr
 """
 
 from typing import Dict, Union, Optional, Tuple, Literal
+import math
 import jax.numpy as jnp
 from jax import jit, grad, vmap
 from functools import partial
-import numpy as np
 # Diffrax removed - now using ultra-fast integration engine
 
 from ..core.base import CosmologyBase
@@ -238,35 +238,53 @@ class LCDM(CosmologyBase):
     def sound_horizon_drag(self) -> float:
         """
         Sound horizon at drag epoch (fitting formula from Eisenstein & Hu 1998).
-        
-        Parameters
-        ----------
-        params : dict
-            Must contain cosmological parameters
-            
+
         Returns
         -------
         float
             r_s(z_d) in Mpc
         """
-        h = params['H0'] / 100.0
-        Omega_m_h2 = params['Omega_m'] * h**2
-        Omega_b_h2 = params.get('Omega_b', 0.05) * h**2
-        
-        # Eisenstein & Hu 1998 fitting formulas
-        b1 = 0.313 * (Omega_m_h2)**(-0.419) * (1 + 0.607 * (Omega_m_h2)**(0.674))
-        b2 = 0.238 * (Omega_m_h2)**(0.223)
-        z_d = 1291 * (Omega_m_h2)**(0.251) / (1 + 0.659 * (Omega_m_h2)**(0.828)) * \
-              (1 + b1 * (Omega_b_h2)**(b2))
-        
-        R_eq = 31.5 * Omega_b_h2 * (T_cmb / 2.7)**(-4) * (z_d / 1000)
-        R_d = 31.5 * Omega_b_h2 * (T_cmb / 2.7)**(-4) * (z_d / 1000)
-        
-        s = (2.0 / (3 * R_eq)) * jnp.log((jnp.sqrt(1 + R_d) + jnp.sqrt(R_eq + R_d)) / 
-                                        (1 + jnp.sqrt(R_eq)))
-        
-        return s * c_km_s / (h * 100)  # Convert to Mpc
-    
+        h = self.params['H0'] / 100.0
+        Omega_m = self.params['Omega_m']
+        Omega_b = self.params.get('Omega_b', 0.05)
+
+        Omega_m_h2 = Omega_m * h**2
+        Omega_b_h2 = Omega_b * h**2
+
+        T_cmb = self.params.get('T_cmb', 2.7255)
+        theta_cmb = T_cmb / 2.7
+
+        # Eisenstein & Hu (1998) fitting formulas
+        b1 = 0.313 * Omega_m_h2**(-0.419) * (1 + 0.607 * Omega_m_h2**0.674)
+        b2 = 0.238 * Omega_m_h2**0.223
+        z_d = (
+            1291 * Omega_m_h2**0.251 / (1 + 0.659 * Omega_m_h2**0.828)
+            * (1 + b1 * Omega_b_h2**b2)
+        )
+
+        z_eq = 2.50e4 * Omega_m_h2 * theta_cmb**-4
+        k_eq = 7.46e-2 * Omega_m_h2 * theta_cmb**-2  # Mpc^{-1}
+
+        R_eq = 31.5 * Omega_b_h2 * theta_cmb**-4 * (1000.0 / z_eq)
+        R_d = 31.5 * Omega_b_h2 * theta_cmb**-4 * (1000.0 / z_d)
+
+        sqrt_term = jnp.sqrt(6.0 / R_eq)
+        log_arg = (jnp.sqrt(1.0 + R_d) + jnp.sqrt(R_d + R_eq)) / (1.0 + jnp.sqrt(R_eq))
+        s = (2.0 / (3.0 * k_eq)) * sqrt_term * jnp.log(log_arg)
+
+        return s
+
+    def rs_drag(self) -> float:
+        """
+        Alias for sound_horizon_drag() for compatibility with BAO likelihoods.
+
+        Returns
+        -------
+        float
+            Sound horizon at drag epoch in Mpc
+        """
+        return self.sound_horizon_drag()
+
     def critical_density(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Critical density at redshift z in units of M_sun/Mpc³.
@@ -911,7 +929,7 @@ class LCDM(CosmologyBase):
     def transverse_comoving_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Transverse comoving distance (accounts for curvature).
-        
+
         D_M(z) = {
             D_H/√Ωk sinh(√Ωk D_C/D_H)  for Ωk > 0 (open)
             D_C                          for Ωk = 0 (flat)
@@ -953,6 +971,42 @@ class LCDM(CosmologyBase):
                 closed_case(D_C, Omega_k)
             )
         )
+
+    def _transverse_comoving_distance_delta(self, z1: float, z2: float) -> jnp.ndarray:
+        """Transverse comoving distance between two redshifts (z2 > z1)."""
+        if z2 <= z1:
+            raise ValueError("Source redshift must be greater than lens redshift.")
+
+        D_C1 = jnp.asarray(self.comoving_distance(z1))
+        D_C2 = jnp.asarray(self.comoving_distance(z2))
+        D_H = jnp.asarray(self.D_H)
+        delta_chi = (D_C2 - D_C1) / D_H
+
+        Omega_k = jnp.asarray(self.params.get('Omega_k', 0.0))
+        sqrt_ok = jnp.sqrt(jnp.maximum(Omega_k, 0.0))
+        sqrt_abs_ok = jnp.sqrt(jnp.maximum(-Omega_k, 0.0))
+
+        flat = D_H * delta_chi
+        open_case = jnp.where(sqrt_ok > 0, D_H / sqrt_ok * jnp.sinh(sqrt_ok * delta_chi), flat)
+        closed_case = jnp.where(sqrt_abs_ok > 0, D_H / sqrt_abs_ok * jnp.sin(sqrt_abs_ok * delta_chi), flat)
+
+        return jnp.where(
+            jnp.abs(Omega_k) < 1e-8,
+            flat,
+            jnp.where(Omega_k > 0, open_case, closed_case)
+        )
+
+    def angular_diameter_distance_between(self, z1: float, z2: float) -> jnp.ndarray:
+        """Angular diameter distance between two redshifts z1 < z2."""
+        D_M = self._transverse_comoving_distance_delta(z1, z2)
+        return D_M / (1.0 + z2)
+
+    def time_delay_distance(self, z_lens: float, z_source: float) -> jnp.ndarray:
+        """Time-delay distance in Mpc for a lens-source pair."""
+        D_d = jnp.asarray(self.angular_diameter_distance(z_lens))
+        D_s = jnp.asarray(self.angular_diameter_distance(z_source))
+        D_ds = jnp.asarray(self.angular_diameter_distance_between(z_lens, z_source))
+        return (1.0 + z_lens) * D_d * D_s / D_ds
     
     def angular_diameter_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """

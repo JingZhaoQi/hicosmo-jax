@@ -1,36 +1,31 @@
 # Repository Guidelines
 
-Use this guide to orient new contributions and keep the HIcosmo toolchain predictable across CPU and GPU environments.
-
 ## Project Structure & Module Organization
-- `hicosmo/` holds production JAX code (models, samplers, likelihoods, visualization). Mirror new components in this tree.
-- `qcosmc/` is the legacy scipy baseline; touch only when syncing behaviour for regression comparisons.
-- `tests/` and top-level `test_*.py` contain regression, benchmarking, and diagnostics; group additions by domain (e.g., `tests/analysis/`).
-- `examples/`, `docs/`, and published `results/` artefacts document and showcase functionality; keep notebooks and figures consistent with API changes.
+- Core JAX models, samplers, and visualization live in `hicosmo/`; mirror new functionality there and colocate configs under `hicosmo/configs/` (e.g., `pantheon_plus.yaml`).
+- Legacy scipy comparisons remain in `qcosmc/`; touch only when keeping baseline parity.
+- Tests reside in `tests/` with domain folders (`tests/analysis/`, `tests/chains/`) plus top-level `test_*.py` entry points. Align new tests with existing markers.
+- Examples, documentation, and published figures stay in `examples/`, `docs/`, and `results/`; update notebooks whenever APIs change.
 
 ## Build, Test, and Development Commands
-- `pip install -e ".[dev]"` — install editable sources with linting, typing, and test extras.
-- `pytest` or `pytest -m "not slow"` — run the default suite; reserve `-m slow` and `-m gpu` for dedicated hardware checks.
-- `pytest --cov=hicosmo --cov-report=term-missing` — confirm coverage before merging feature branches.
-- `black . && isort .`, then `mypy hicosmo` and `flake8 hicosmo tests` — match repo formatting and static checks; use `pre-commit run --all-files` for a single pass.
+- `pip install -e ".[dev]"` — installs the project with linting, typing, and test extras for iterative work.
+- `pytest` or `pytest -m "not slow"` — runs the default unit and regression suite; reserve `-m slow`/`-m gpu` for targeted hardware runs.
+- `pytest --cov=hicosmo --cov-report=term-missing` — verifies coverage before publishing changes.
+- `black . && isort .` followed by `mypy hicosmo` and `flake8 hicosmo tests` — enforces formatting, typing, and linting standards.
 
 ## Coding Style & Naming Conventions
-- Enforce Black’s 88-character layout and isort’s Black profile for imports.
-- Prefer pure, type-annotated functions; decorate with `@jax.jit` or `@jax.vmap` only after profiling benefits.
-- Use `snake_case` for modules/functions, `CamelCase` for classes, and upper-case constants for cosmological parameters.
-- Place reusable YAML configs under `hicosmo/configs/` with dataset-based filenames (e.g., `pantheon_plus.yaml`).
+- Adhere to Black’s 88-character layout and isort’s Black profile; avoid manual formatting tweaks.
+- Prefer pure, type-annotated functions; gate `@jax.jit` or `@jax.vmap` behind demonstrated performance wins.
+- Use `snake_case` for modules and functions, `CamelCase` for classes, and uppercase for cosmological constants or dataset tags.
 
 ## Testing Guidelines
-- Honour pytest markers: gate heavy runs behind `slow`, GPU-specific checks behind `gpu`, and scenario tests behind `integration`.
-- Provide deterministic fixtures for new samplers or likelihoods; update comparison plots in `tests/chains/` when distributions change.
-- Preserve coverage trends; document any intentional drop-off in the PR and create a follow-up issue if needed.
+- Honour pytest markers (`slow`, `gpu`, `integration`) so CI remains deterministic; add deterministic fixtures for stochastic samplers.
+- Update plots in `tests/chains/` when sampler distributions change and document intentional coverage deltas in follow-up issues.
 
 ## Commit & Pull Request Guidelines
-- Follow existing history: short imperative subjects (emoji optional), with bodies for context, metrics, or bilingual notes.
-- Reference issues using `Refs #123` or `Fixes #123`; highlight breaking API changes explicitly.
-- PRs must list validation commands, attach figures for visualization tweaks, and mention GPU vs CPU behaviour when relevant.
-- Keep PR scope tight; split sweeping refactors into preparatory commits linked through the description.
+- Write imperative commit subjects (emoji optional) and add bodies for context, metrics, or bilingual notes.
+- Reference issues with `Refs #123` or `Fixes #123`; call out breaking API changes explicitly.
+- PRs should list validation commands, attach refreshed figures for visualization tweaks, and note CPU vs GPU behaviour when relevant.
 
 ## Environment & Configuration Tips
-- Support Python 3.9–3.11; install GPU extras via `pip install "hicosmo-jax[gpu]"` when CUDA is available.
-- Set `JAX_PLATFORM_NAME=cpu` for deterministic CI runs and describe any required `XLA_FLAGS` or dataset locations in the PR notes.
+- Support Python 3.9–3.11; set `JAX_PLATFORM_NAME=cpu` for deterministic CI and document any required `XLA_FLAGS` or dataset locations in PR notes.
+- Install GPU extras via `pip install "hicosmo-jax[gpu]"` when CUDA hardware is available; mention hardware specs in performance reports.

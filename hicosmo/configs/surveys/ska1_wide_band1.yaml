@@ -1,0 +1,61 @@
+name: ska1_wide_band1
+model: cpl
+description: "SKA1-MID Wide Band 1 IM survey (Red Book 2018)"
+reference:
+  H0: 67.36
+  Omega_m: 0.316
+  Omega_b: 0.049
+  sigma8: 0.834
+  n_s: 0.962
+  w0: -1.0
+  wa: 0.0
+instrument:
+  ndish: 200
+  dish_diameter_m: 15.0
+  nbeam: 1
+  survey_area_deg2: 20000.0
+  total_time_hours: 10000.0
+  channel_width_hz: 50000.0
+  system_temperature_K: 25.0
+  sky_temperature:
+    kind: power_law
+    T_ref_K: 25.0
+    nu_ref_MHz: 408.0
+    beta: 2.75
+hi_bias:
+  kind: polynomial
+  coefficients: [0.67, 0.18, 0.05]
+hi_density:
+  kind: polynomial
+  coefficients: [0.00048, 0.00039, -0.000065]
+default_delta_z: 0.1
+redshift_bins:
+  - z: 0.35
+  - z: 0.45
+  - z: 0.55
+  - z: 0.65
+  - z: 0.75
+  - z: 0.85
+  - z: 0.95
+  - z: 1.05
+  - z: 1.15
+  - z: 1.25
+  - z: 1.35
+  - z: 1.45
+  - z: 1.55
+  - z: 1.65
+  - z: 1.75
+  - z: 1.85
+  - z: 1.95
+  - z: 2.05
+  - z: 2.15
+  - z: 2.25
+  - z: 2.35
+  - z: 2.45
+  - z: 2.55
+  - z: 2.65
+  - z: 2.75
+  - z: 2.85
+  - z: 2.95
+priors:
+  sigma_H0: 0.5

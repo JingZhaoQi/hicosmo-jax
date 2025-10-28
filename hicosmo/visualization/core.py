@@ -6,8 +6,17 @@ HIcosmo Visualization System - User's Preferred Architecture
 from pathlib import Path
 from typing import Union, List, Optional, Any
 
-from .plotting import plot_corner, plot_chains, plot_1d, RESULTS_DIR
+import numpy as np
+
+from .plotting import (
+    plot_corner,
+    plot_chains,
+    plot_1d,
+    plot_fisher_contours,
+    RESULTS_DIR,
+)
 from .mcplot_redesign import MCplot as MCplotNew
+from getdist.gaussian_mixtures import GaussianND
 
 class HIcosmoViz:
     """
@@ -48,6 +57,17 @@ class HIcosmoViz:
         """Create 1D marginal distribution plots"""
         return plot_1d(data, params=params, filename=filename, **kwargs)
 
+    def fisher_contours(
+        self,
+        mean: Union[List[float], np.ndarray],
+        covariance: Union[List[List[float]], np.ndarray],
+        params: List[str],
+        filename: Optional[Union[str, Path]] = None,
+        **kwargs,
+    ):
+        """Generate Fisher contour plot from mean/covariance."""
+        return plot_fisher_contours(mean, covariance, params, filename=filename, **kwargs)
+
     # Aliases - backward compatibility
     plot_corner = corner
     plot_chains = traces
@@ -55,6 +75,56 @@ class HIcosmoViz:
 
 # User's preferred architecture - new MCplot class
 MCplot = MCplotNew
+
+
+class FisherPlot:
+    """Lightweight Gaussian Fisher contour helper inspired by legacy qcosmc implementation."""
+
+    def __init__(
+        self,
+        mean: Union[List[float], np.ndarray],
+        covariance: Union[List[List[float]], np.ndarray],
+        labels: List[str],
+        legend: str = '',
+        *,
+        nsample: int = 200_000,
+        style: str = 'modern',
+    ) -> None:
+        self.param_names = list(labels)
+        self.style = style
+        self.nsample = nsample
+        self._samples: List[Any] = []
+        self._legends: List[str] = []
+
+        self.add_covariance(mean, covariance, legend or 'Forecast')
+
+    def add_covariance(
+        self,
+        mean: Union[List[float], np.ndarray],
+        covariance: Union[List[List[float]], np.ndarray],
+        legend: str,
+    ) -> None:
+        mean_arr = np.asarray(mean, dtype=float)
+        cov_arr = np.asarray(covariance, dtype=float)
+        gaussian = GaussianND(mean_arr, cov_arr, names=self.param_names, labels=self.param_names)
+        samples = gaussian.MCSamples(self.nsample)
+        samples.label = legend
+        self._samples.append(samples)
+        self._legends.append(legend)
+
+    def figure(
+        self,
+        filename: Optional[Union[str, Path]] = None,
+        **kwargs,
+    ):
+        data = self._samples if len(self._samples) > 1 else self._samples[0]
+        return plot_corner(
+            data,
+            style=self.style,
+            filename=filename,
+            labels=self._legends if len(self._samples) > 1 else None,
+            **kwargs,
+        )
 
 def load_chain_simple(filename: str):
     """
@@ -80,9 +150,10 @@ def load_chain_simple(filename: str):
         import h5py
         data = {}
         with h5py.File(file_path, 'r') as f:
-            if 'chains' in f:
-                for param in f['chains'].keys():
-                    data[param] = f['chains'][param][:]
+            group_name = 'samples' if 'samples' in f else 'chains'
+            if group_name in f:
+                for param in f[group_name].keys():
+                    data[param] = f[group_name][param][:]
         return data
     else:
         raise ValueError(f"Unsupported file format: {file_path.suffix}")
@@ -91,7 +162,9 @@ __all__ = [
     'plot_corner',
     'plot_chains',
     'plot_1d',
+    'plot_fisher_contours',
     'load_chain_simple',
     'HIcosmoViz',
+    'FisherPlot',
     'MCplot',
 ]

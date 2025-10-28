@@ -1,0 +1,40 @@
+name: MeerKAT
+model: CPL
+description: |
+  MeerKAT large survey project intensity mapping mode with focus on 0.3 < z < 1.
+parameters:
+  - H0
+  - Omega_m
+  - w0
+  - wa
+reference:
+  H0: 67.36
+  Omega_m: 0.3153
+  Omega_b: 0.0493
+  Omega_k: 0.0
+  sigma8: 0.8111
+  n_s: 0.9649
+  T_cmb: 2.7255
+  N_eff: 3.046
+  w0: -1.0
+  wa: 0.0
+measurements:
+  - z: 0.35
+    sigma_da: 0.025
+    sigma_h: 0.032
+    sigma_fs8: 0.070
+  - z: 0.60
+    sigma_da: 0.020
+    sigma_h: 0.028
+    sigma_fs8: 0.065
+  - z: 0.85
+    sigma_da: 0.021
+    sigma_h: 0.030
+    sigma_fs8: 0.068
+priors:
+  H0: 5.0
+survey:
+  sky_fraction: 0.20
+  time_years: 1.5
+  channel_width_mhz: 0.40
+  notes: 64 dish receivers, autocorrelation mode

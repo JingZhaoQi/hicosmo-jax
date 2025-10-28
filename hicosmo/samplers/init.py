@@ -63,6 +63,7 @@ class Config:
             return True
             
         try:
+            os.environ.setdefault('JAX_ENABLE_X64', 'True')
             # Set CPU cores
             if cpu_cores is not None:
                 success = cls._setup_multicore(cpu_cores, verbose)

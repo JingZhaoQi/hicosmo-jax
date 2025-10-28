@@ -42,24 +42,28 @@ class PantheonPlusLikelihood:
         Maximum redshift cut. If None, no upper limit applied.
     apply_z_cut : bool, default True
         Whether to apply redshift cuts. Set False to use all data.
+    marginalize_M_B : bool, default True
+        If ``True`` analytically marginalize absolute magnitude ``M_B`` (matching the
+        official CosmoSIS likelihood). If ``False`` treat ``M_B`` as an explicit
+        parameter to be sampled alongside cosmology.
     """
 
     def __init__(self,
                  data_path: str,
                  include_shoes: bool = False,
                  include_systematics: bool = True,
-                 marginalize_M_B: bool = True,
                  z_min: float = 0.01,
                  z_max: Optional[float] = None,
-                 apply_z_cut: bool = True):
+                 apply_z_cut: bool = True,
+                 marginalize_M_B: bool = True):  # Default to True for better performance
 
         self.data_path = data_path
         self.include_shoes = include_shoes
         self.include_systematics = include_systematics
-        self.marginalize_M_B = marginalize_M_B
         self.z_min = z_min
         self.z_max = z_max
         self.apply_z_cut = apply_z_cut
+        self.marginalize_M_B = marginalize_M_B
 
         # Load data
         self._load_data()
@@ -153,8 +157,8 @@ class PantheonPlusLikelihood:
         self.z_hel = jnp.array(z_hel_raw[self.ww])  # Heliocentric (for peculiar motion)
         self.z_hd = jnp.array(z_hd_raw[self.ww])   # Hubble flow (for cuts)
         self.m_obs = jnp.array(m_b_corr_raw[self.ww])  # Observed corrected magnitude
-        self.is_calibrator = is_calibrator_raw[self.ww]  # Calibrator flags
-        self.ceph_dist = ceph_dist_raw[self.ww]  # Cepheid distances
+        self.is_calibrator = jnp.array(is_calibrator_raw[self.ww])  # Calibrator flags
+        self.ceph_dist = jnp.array(ceph_dist_raw[self.ww])  # Cepheid distances
 
         # Store redshifts for backward compatibility (use Hubble flow)
         self.redshifts = self.z_hd
@@ -211,9 +215,7 @@ class PantheonPlusLikelihood:
         condition_number = jnp.linalg.cond(stable_cov)
         print(f"   Covariance: {self.n_sne}×{self.n_sne}, condition number: {condition_number:.1e}")
 
-        # JAX JIT optimization: Pre-compile fixed M_B likelihood with closures
-        # This eliminates repeated compilation for different M_B values
-        self._setup_jit_optimized_likelihood()
+        self._initialize_jit_likelihood()
 
     def log_likelihood(self, model: CosmologyBase, M_B: Optional[float] = None) -> float:
         """
@@ -224,8 +226,8 @@ class PantheonPlusLikelihood:
         model : CosmologyBase
             Cosmological model instance
         M_B : float, optional
-            Absolute magnitude parameter. If marginalize_M_B=True, this is ignored.
-            If marginalize_M_B=False, this must be provided.
+            Absolute magnitude parameter. Required if marginalize_M_B=False.
+            Ignored if marginalize_M_B=True (default).
 
         Returns
         -------
@@ -240,116 +242,65 @@ class PantheonPlusLikelihood:
             # Pantheon+ mode: all objects use cosmology + official formula
             theory_mu = self._compute_theory_pantheon(model)
 
-        # Choose between marginalized or fixed M_B likelihood
+        # Choose computation path based on marginalization setting
         if self.marginalize_M_B:
+            # Analytically marginalize over M_B
             return self._marginalized_likelihood(theory_mu)
         else:
+            # Treat M_B as explicit parameter
             if M_B is None:
                 raise ValueError("M_B must be provided when marginalize_M_B=False")
             return self._fixed_likelihood(theory_mu, M_B)
 
-    def _setup_jit_optimized_likelihood(self):
-        """Setup JAX JIT optimized likelihood functions to avoid repeated compilation."""
-        # Convert to device arrays to ensure consistent dtype and memory layout
-        # Use float32 for optimal JAX performance and compatibility
-        self.m_obs = jnp.asarray(self.m_obs, dtype=jnp.float32)
-        self.cov_inv = jnp.asarray(self.cov_inv, dtype=jnp.float32)
-        self.log_det_cov = jnp.asarray(self.log_det_cov, dtype=jnp.float32)
+    def _initialize_jit_likelihood(self) -> None:
+        """Precompile both fixed and marginalized likelihood functions."""
+        dtype = self.covariance.dtype
+        self.m_obs = jnp.asarray(self.m_obs, dtype=dtype)
+        self.cov_inv = jnp.asarray(self.cov_inv, dtype=dtype)
+        self.log_det_cov = jnp.asarray(self.log_det_cov, dtype=dtype)
+        self.ceph_dist = jnp.asarray(self.ceph_dist, dtype=dtype)
+        self.is_calibrator = jnp.asarray(self.is_calibrator, dtype=bool)
+        ones_vec = jnp.ones((self.n_sne,), dtype=dtype)
+        cov_inv_ones = self.cov_inv @ ones_vec
+        mb_denominator = ones_vec @ cov_inv_ones
+        self._mb_aux = (ones_vec, cov_inv_ones, mb_denominator, jnp.log(mb_denominator))
 
-        # Create JIT-compiled function with closure to capture constants
-        # This ensures JAX compiles only once regardless of M_B values
-        self._jit_fixed_likelihood = jit(self._create_fixed_likelihood_closure())
-
-        # Also JIT compile marginalized likelihood for consistent performance
-        self._jit_marginalized_likelihood = jit(self._create_marginalized_likelihood_closure())
-
-    def _create_fixed_likelihood_closure(self):
-        """Create closure function that captures constant arrays for JIT optimization."""
-        # Capture constant arrays in closure to avoid repeated compilation
-        m_obs = self.m_obs
-        cov_inv = self.cov_inv
-        log_det_cov = self.log_det_cov
-
-        def fixed_likelihood_impl(mu_theory, M_B):
-            """Pure function implementation of fixed M_B likelihood.
-
-            This function only depends on JAX arrays, not Python objects,
-            allowing JAX to compile once and reuse for all M_B values.
-            """
-            # Theory prediction: theoretical magnitude = mu_theory + M_B
-            m_theory = mu_theory + M_B
-
-            # Residual: observed magnitude - theoretical magnitude
-            residual = m_obs - m_theory
-
-            # χ² calculation
-            chi2 = jnp.dot(residual, jnp.dot(cov_inv, residual))
-
-            # Log-likelihood
-            log_like = -0.5 * chi2 - 0.5 * log_det_cov
-
-            return log_like
-
-        return fixed_likelihood_impl
-
-    def _create_marginalized_likelihood_closure(self):
-        """Create closure function for marginalized likelihood JIT optimization."""
-        # Capture constant arrays in closure
+        # Capture constants in closure for JIT compilation
         m_obs = self.m_obs
         cov_inv = self.cov_inv
         log_det_cov = self.log_det_cov
         n_sne = self.n_sne
+        ones_vec_const, cov_inv_ones_const, mb_denominator_const, mb_log_den_const = self._mb_aux
 
-        def marginalized_likelihood_impl(mu_theory):
-            """Pure function implementation of marginalized M_B likelihood."""
-            # Residual vector: observed magnitude - theoretical magnitude (without M_B)
+        # JIT compile fixed M_B likelihood
+        def _fixed_likelihood_impl(mu_theory: jnp.ndarray, M_B: jnp.ndarray) -> jnp.ndarray:
+            residual = m_obs - (mu_theory + M_B)
+            chi2 = residual @ (cov_inv @ residual)
+            return -0.5 * chi2 - 0.5 * log_det_cov
+
+        self._fixed_likelihood_jit = jit(_fixed_likelihood_impl)
+
+        # JIT compile marginalized M_B likelihood
+        def _marginalized_likelihood_impl(mu_theory: jnp.ndarray) -> jnp.ndarray:
             residual = m_obs - mu_theory
+            numerator = residual @ cov_inv_ones_const
+            M_B_best = numerator / mb_denominator_const
+            marginalized_residual = residual - M_B_best * ones_vec_const
+            chi2 = marginalized_residual @ (cov_inv @ marginalized_residual)
+            return -0.5 * chi2 - 0.5 * log_det_cov + 0.5 * mb_log_den_const
 
-            # Solve for optimal M_B: M_B_best = (1^T C^-1 r) / (1^T C^-1 1)
-            ones = jnp.ones(n_sne)
-            numerator = jnp.dot(ones, jnp.dot(cov_inv, residual))
-            denominator = jnp.dot(ones, jnp.dot(cov_inv, ones))
-            M_B_best = numerator / denominator
-
-            # Marginalized residual
-            marginalized_residual = residual - M_B_best * ones
-
-            # χ² calculation
-            chi2 = jnp.dot(marginalized_residual, jnp.dot(cov_inv, marginalized_residual))
-
-            # Log-likelihood
-            log_like = -0.5 * chi2 - 0.5 * log_det_cov
-
-            # Marginalization correction (from M_B integral Jacobian)
-            log_like += 0.5 * jnp.log(denominator)
-
-            return log_like
-
-        return marginalized_likelihood_impl
+        self._marginalized_likelihood_jit = jit(_marginalized_likelihood_impl)
 
     def _fixed_likelihood(self, mu_theory: jnp.ndarray, M_B: float) -> float:
-        """Fixed M_B likelihood with JAX JIT optimization.
-
-        This method now uses pre-compiled JIT function to avoid
-        repeated compilation for different M_B values.
-        """
-        # Ensure M_B has consistent dtype to prevent recompilation
+        """Wrapper for JIT-compiled fixed M_B likelihood."""
+        mu_theory = jnp.asarray(mu_theory, dtype=self.m_obs.dtype)
         M_B_array = jnp.asarray(M_B, dtype=self.m_obs.dtype)
-
-        # Use pre-compiled JIT function
-        return self._jit_fixed_likelihood(mu_theory, M_B_array)
+        return self._fixed_likelihood_jit(mu_theory, M_B_array)
 
     def _marginalized_likelihood(self, mu_theory: jnp.ndarray) -> float:
-        """
-        Analytically marginalized likelihood over M_B with JAX JIT optimization.
-
-        For linear parameter M_B, we can analytically integrate:
-        L_marg = ∫ L(μ|M_B, θ) π(M_B) dM_B
-
-        This method now uses pre-compiled JIT function for optimal performance.
-        """
-        # Use pre-compiled JIT function
-        return self._jit_marginalized_likelihood(mu_theory)
+        """Wrapper for JIT-compiled marginalized likelihood."""
+        mu_theory = jnp.asarray(mu_theory, dtype=self.m_obs.dtype)
+        return self._marginalized_likelihood_jit(mu_theory)
 
     def chi2(self, model: CosmologyBase, M_B: float) -> float:
         """
@@ -373,15 +324,9 @@ class PantheonPlusLikelihood:
         else:
             theory_mu = self._compute_theory_pantheon(model)
 
-        # Theory prediction: theoretical magnitude = mu_theory + M_B
-        m_theory = theory_mu + M_B
-
-        # Residual: observed magnitude - theoretical magnitude
-        residual = self.m_obs - m_theory
-
-        # χ² calculation
-        chi2 = jnp.dot(residual, jnp.dot(self.cov_inv, residual))
-
+        theory_mu = jnp.asarray(theory_mu, dtype=self.m_obs.dtype)
+        residual = self.m_obs - (theory_mu + jnp.asarray(M_B, dtype=self.m_obs.dtype))
+        chi2 = residual @ (self.cov_inv @ residual)
         return float(chi2)
 
     def best_fit_M_B(self, model: CosmologyBase) -> float:
@@ -404,12 +349,9 @@ class PantheonPlusLikelihood:
         else:
             theory_mu = self._compute_theory_pantheon(model)
 
-        residual = self.m_obs - theory_mu
-
-        ones = jnp.ones(self.n_sne)
-        numerator = jnp.dot(ones, jnp.dot(self.cov_inv, residual))
-        denominator = jnp.dot(ones, jnp.dot(self.cov_inv, ones))
-
+        residual = self.m_obs - jnp.asarray(theory_mu, dtype=self.m_obs.dtype)
+        ones_vec, cov_inv_ones, denominator, _ = self._mb_aux
+        numerator = residual @ cov_inv_ones
         return float(numerator / denominator)
 
     def get_info(self) -> Dict:
@@ -451,10 +393,10 @@ class PantheonPlusLikelihood:
         Calibrators: use fixed Cepheid distances
         Hubble flow SNe: use cosmology with redshift corrections
         """
-        theory_mu = jnp.zeros(len(self.m_obs))
+        theory_mu = jnp.zeros(len(self.m_obs), dtype=self.m_obs.dtype)
 
         # Use boolean masks instead of indices for JAX compatibility
-        calibrator_mask = jnp.array(self.is_calibrator)
+        calibrator_mask = self.is_calibrator
         hubble_mask = ~calibrator_mask
 
         # For Cepheid calibrators: use fixed distances (line 102)

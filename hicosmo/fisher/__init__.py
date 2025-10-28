@@ -17,6 +17,19 @@ Key features:
 """
 
 from .fisher_matrix import FisherMatrix, FisherMatrixConfig
+from .numerical_derivatives import (
+    compute_step_sizes,
+    finite_difference_gradient,
+    finite_difference_hessian,
+    finite_difference_jacobian,
+)
+from .intensity_mapping import (
+    IntensityMappingSurvey,
+    IntensityMappingFisher,
+    list_available_surveys,
+    load_survey,
+    run_forecast,
+)
 from .forecasting import (
     CosmologicalForecaster,
     SurveySpecification, 
@@ -31,6 +44,19 @@ __all__ = [
     # Core Fisher matrix tools
     'FisherMatrix',
     'FisherMatrixConfig',
+
+    # Numerical differentiation utilities
+    'compute_step_sizes',
+    'finite_difference_gradient',
+    'finite_difference_hessian',
+    'finite_difference_jacobian',
+
+    # Intensity mapping forecasts
+    'IntensityMappingSurvey',
+    'IntensityMappingFisher',
+    'list_available_surveys',
+    'load_survey',
+    'run_forecast',
     
     # Forecasting tools
     'CosmologicalForecaster',

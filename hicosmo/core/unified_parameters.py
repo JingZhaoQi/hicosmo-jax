@@ -32,6 +32,14 @@ class ParameterSpec:
     unit: str = ""
 
 
+@dataclass
+class FreeParameter:
+    """Lightweight container describing a free parameter."""
+
+    name: str
+    value: float
+
+
 class CosmologicalParameters:
     """
     Unified cosmological parameter manager.
@@ -78,17 +86,21 @@ class CosmologicalParameters:
         """
         self._params = {}
         self._derived = {}
-        
+        self._free_parameter_names: List[str] = []
+
         # Set defaults first
         for name, spec in self.PARAM_SPECS.items():
             self._params[name] = spec.default
-            
+
         # Override with user values
         for name, value in params.items():
             self.set_parameter(name, value)
             
         # Compute derived parameters
         self._compute_derived()
+
+        # By default treat all primary parameters as free
+        self._free_parameter_names = list(self._params.keys())
         
     def set_parameter(self, name: str, value) -> None:
         """Set a parameter with validation. JAX-compatible - accepts tracers."""
@@ -119,7 +131,10 @@ class CosmologicalParameters:
             self._compute_derived()
         except (TypeError, jax.errors.TracerIntegerConversionError, jax.errors.ConcretizationTypeError):
             pass
-        
+
+        if name not in self._free_parameter_names and name in self._params:
+            self._free_parameter_names.append(name)
+
     def get_parameter(self, name: str) -> float:
         """Get parameter value."""
         if name in self._params:
@@ -138,7 +153,7 @@ class CosmologicalParameters:
     def _compute_derived(self) -> None:
         """Compute derived parameters."""
         params = self._params
-        
+
         # Hubble parameter  
         self._derived['h'] = params['H0'] / 100.0
         
@@ -198,6 +213,47 @@ class CosmologicalParameters:
             # JAX tracer - skip validation during MCMC sampling
             pass
             
+    def set_free_parameters(self, parameter_names: List[str]) -> None:
+        """Specify which primary parameters are treated as free."""
+        valid_names: List[str] = []
+        for name in parameter_names:
+            if name in self._params:
+                valid_names.append(name)
+            elif name in self._derived:
+                warnings.warn(
+                    f"Derived parameter '{name}' cannot be set free directly; ignoring.",
+                    RuntimeWarning
+                )
+            else:
+                warnings.warn(
+                    f"Unknown parameter '{name}' provided to set_free_parameters; ignoring.",
+                    RuntimeWarning
+                )
+
+        if valid_names:
+            self._free_parameter_names = valid_names
+        else:
+            warnings.warn(
+                "No valid primary parameters supplied to set_free_parameters; keeping previous selection.",
+                RuntimeWarning
+            )
+
+    def get_free_parameters(self) -> List[FreeParameter]:
+        """Return the list of currently free primary parameters."""
+        return [FreeParameter(name, self._params[name]) for name in self._free_parameter_names]
+
+    def update_and_compute_derived(self, updates: Dict[str, float]) -> Dict[str, float]:
+        """
+        Return parameter dictionary after applying updates while leaving the
+        current instance unchanged.
+        """
+        base_params = self._params.copy()
+        base_params.update({k: updates[k] for k in updates if k in base_params or k in self._derived})
+
+        # Preserve existing values for parameters not explicitly updated
+        temp = type(self)(**base_params)
+        return temp.get_all_parameters()
+
     def validate_physics(self) -> None:
         """Check for unphysical parameter combinations."""
         # Skip validation for JAX tracers during MCMC sampling

@@ -8,6 +8,7 @@ for effortless MCMC sampling.
 """
 
 from typing import Dict, Any, Optional, Callable, Union, List
+import os
 import warnings
 from pathlib import Path
 import yaml
@@ -15,6 +16,7 @@ import json
 import jax
 import jax.numpy as jnp
 import optax
+from numpyro.infer import SA, NUTS, HMC
 
 from .config import ParameterConfig, AutoParameter
 from .utils import ParameterMapper, analyze_likelihood_function
@@ -27,6 +29,7 @@ from .constants import (
     OPTIMIZATION_PENALTY_FACTOR, DEFAULT_CHECKPOINT_INTERVAL,
     DEFAULT_CHECKPOINT_DIR, RNG_SEED_MODULO
 )
+from .init import Config
 
 
 class MCMC:
@@ -350,33 +353,32 @@ class MCMC:
         total_samples = mcmc_kwargs['num_samples']
         
         # 2. Smart default for num_chains: match CPU cores (but reasonable limits)
+        default_warmup = False
+
         if 'num_chains' not in mcmc_kwargs:
-            try:
-                import jax
-                available_devices = len(jax.devices())
-                # Use available devices, but cap between 1-8 chains for efficiency
-                optimal_chains = max(1, min(available_devices, 8))
-                mcmc_kwargs['num_chains'] = optimal_chains
-                if verbose:
-                    print(f"📝 Auto-detected num_chains: {optimal_chains} (based on {available_devices} CPU cores)")
-            except Exception:
-                # Fallback to default
-                mcmc_kwargs['num_chains'] = DEFAULT_NUM_CHAINS
-                if verbose:
-                    print(f"📝 Using default num_chains: {DEFAULT_NUM_CHAINS}")
+            configured = getattr(Config, '_config', {}).get('actual_cores')
+            if configured:
+                optimal_chains = max(1, min(int(configured), 8))
+            else:
+                available_threads = int(os.environ.get('JAX_NUM_THREADS', os.cpu_count() or 1))
+                optimal_chains = max(1, min(available_threads, 8))
+
+            mcmc_kwargs['num_chains'] = optimal_chains
+            if verbose:
+                print(f"📝 Auto-detected num_chains: {optimal_chains} (based on configured CPU threads)")
         else:
             if verbose:
                 print(f"📝 Using user-specified num_chains: {mcmc_kwargs['num_chains']}")
         
         num_chains = mcmc_kwargs['num_chains']
-        
+
         # 3. Smart default for num_warmup: 20% of total samples
         if 'num_warmup' not in mcmc_kwargs:
-            # Calculate 20% of total samples, with reasonable bounds
-            warmup_samples = max(100, int(total_samples * 0.2))  # At least 100, 20% of total
-            mcmc_kwargs['num_warmup'] = warmup_samples
+            total_warmup = max(10, int(total_samples * 0.2))
+            mcmc_kwargs['num_warmup'] = total_warmup
+            default_warmup = True
             if verbose:
-                print(f"📝 Auto-calculated num_warmup: {warmup_samples} (20% of {total_samples} total samples)")
+                print(f"📝 Auto-calculated total warmup: {total_warmup} (20% of {total_samples} total samples)")
         else:
             # User specified warmup value
             user_warmup = mcmc_kwargs['num_warmup']
@@ -400,11 +402,23 @@ class MCMC:
                 if actual_total != total_samples:
                     diff = total_samples - actual_total
                     print(f"⚠️  Rounded down by {diff} samples due to even distribution")
+
+            if default_warmup:
+                # Distribute total warmup across chains
+                total_warmup_original = mcmc_kwargs['num_warmup']
+                warmup_per_chain = max(1, total_warmup_original // num_chains)
+                mcmc_kwargs['num_warmup'] = warmup_per_chain
+                total_warmup_actual = warmup_per_chain * num_chains
+                if verbose:
+                    print(f"📊 Warmup distribution: {total_warmup_original} total → {warmup_per_chain} per chain × {num_chains} chains = {total_warmup_actual} actual")
         else:
             # Single chain: no conversion needed
             if mcmc_kwargs.get('verbose', True):
                 print(f"📊 Single chain: {total_samples} samples")
-        
+            if default_warmup:
+                warmup_per_chain = max(1, mcmc_kwargs['num_warmup'])
+                mcmc_kwargs['num_warmup'] = warmup_per_chain
+
         return mcmc_kwargs
     
     def _setup_mcmc(self):
@@ -417,10 +431,26 @@ class MCMC:
         # Create MCMCSampler with intelligent warmup defaults
         mcmc_kwargs = self.param_config.mcmc.copy()
         verbose = mcmc_kwargs.pop('verbose', True)
-        
+
         # Apply intelligent warmup defaults based on optimization setting
         mcmc_kwargs = self._apply_intelligent_defaults(mcmc_kwargs)
-        
+
+        kernel_spec = mcmc_kwargs.pop('kernel', None)
+        kernel_obj = None
+        if isinstance(kernel_spec, str):
+            name = kernel_spec.lower()
+            if name == 'sa':
+                kernel_obj = SA(self.numpyro_model)
+            elif name == 'nuts':
+                kernel_obj = NUTS(self.numpyro_model)
+            elif name == 'hmc':
+                kernel_obj = HMC(self.numpyro_model)
+        elif kernel_spec is not None:
+            kernel_obj = kernel_spec
+
+        if kernel_obj is not None:
+            mcmc_kwargs['kernel'] = kernel_obj
+
         self.sampler = MCMCSampler(
             self.numpyro_model,
             verbose=verbose,
