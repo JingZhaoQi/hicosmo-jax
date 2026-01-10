@@ -1,0 +1,85 @@
+# SKA1-MID Band 1 - Bull et al. (2016) EXACT configuration
+# Reference: Bull et al. (2016), ApJ 817:26, Table 1 and Table 2
+#
+# This configuration attempts to EXACTLY reproduce the Bull 2016 Table 2 results
+# by using the REBASELINED specifications (130 dishes, as in Bull 2016 Table 1)
+
+name: ska1_bull2016_exact
+description: "SKA1-MID Band 1 - Bull 2016 exact reproduction (Rebaselined: 130 dishes)"
+
+# Hardware configuration - REBASELINED (Bull 2016 Table 1)
+instrument:
+  telescope_type: single_dish
+  ndish: 130  # ← Bull 2016 Rebaselined configuration (Table 1)
+  dish_diameter_m: 15.0
+  nbeam: 1
+
+# Observing strategy
+observing:
+  survey_area_deg2: 25000.0  # ← From Bull 2016 text (not 20000!)
+  total_time_hours: 10000.0  # Standard 10k hours
+  frequency_range_MHz: [350, 1050]  # Band 1
+  channel_width_MHz: 0.05
+  channel_width_hz: 50000.0  # 50 kHz
+
+# Noise parameters
+noise:
+  system_temperature_K: 23.0  # ← From Bull 2016 Table 1 (Rebaselined config, not 28K)
+  sky_temperature:
+    model: power_law
+    T_ref_K: 25.0
+    nu_ref_MHz: 408.0
+    beta: 2.75
+
+# HI tracer properties
+# NOTE: These MUST match Bull et al. (2015) ApJ 803:21 EXACTLY
+# Formula: b(z) = 0.67 + 0.18z + 0.05z²
+# Formula: Ω_HI(z) = (4.8 + 3.9z - 0.65z²) × 10⁻⁴
+hi_tracers:
+  bias:
+    kind: polynomial
+    coefficients: [0.67, 0.18, 0.05]  # b(z) = 0.67 + 0.18z + 0.05z²
+  density:
+    kind: polynomial
+    coefficients: [4.8e-4, 3.9e-4, -6.5e-5]  # Ω_HI(z) = (4.8 + 3.9z - 0.65z²) × 10⁻⁴
+
+# Redshift binning - Bull 2016 Table 2 Band 1
+redshift_bins:
+  default_delta_z: 0.1
+  centers:
+    - 0.35
+    - 0.45
+    - 0.55
+    - 0.65
+    - 0.75
+    - 0.85
+    - 0.95
+    - 1.05
+    - 1.15
+
+# Metadata
+metadata:
+  reference: "Bull et al. (2016) ApJ 817:26, Table 1 and Table 2"
+  notes: |
+    This configuration uses the REBASELINED specifications from Bull 2016 Table 1:
+      - ndish = 130 (Rebaselined configuration, NOT 190 pre-rebaselining)
+      - survey_area = 25000 deg² (from Bull 2016 text)
+      - Trecv = 23K (from Table 1 Rebaselined config)
+
+    CRITICAL: Bull 2016 Figure 5 caption states that ALL ellipses include
+    both Planck AND BOSS Fisher matrix priors! So Table 2 constraints are
+    likely SKA + Planck + BOSS combined.
+
+    Expected results (Bull 2016 Table 2, CPL model, 0.35 < z < 1.15):
+      σ(w0) = 0.060
+      σ(wa) = 0.22
+
+    If results still don't match, need to check:
+      1. T_b formula (now using 27 mK standard) ✓
+      2. Bias and Ω_HI models ✓
+      3. Prior settings: MUST include Planck + BOSS!
+      4. Fisher methodology details
+  date_created: "2025-10-29"
+  date_updated: "2025-10-29"
+  purpose: "Exact Bull 2016 reproduction with correct Rebaselined specs"
+  schema_version: "2.0"

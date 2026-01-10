@@ -1,0 +1,46 @@
+# HIcosmo Repository - Only sync: hicosmo/, examples/, tutorials/, README.md
+
+# Ignore everything by default
+*
+
+# Allow only these directories and files
+!hicosmo/
+!hicosmo/**
+!examples/
+!examples/**
+!tutorials/
+!tutorials/**
+!README.md
+!.gitignore
+
+# Python artifacts (always ignore within allowed dirs)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test/temp files
+*.log
+*.tmp
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MCMC chains and results (large files)
+mcmc_chains/
+results/*.pdf
+results/*.png

@@ -1,0 +1,66 @@
+# BINGO Survey Configuration
+# Reference: Abdurashidova et al. (2022), Bull et al. (2016)
+#
+# This file contains ONLY hardware specifications and observing strategy.
+# Cosmological model parameters should be specified in analysis scripts.
+
+name: BINGO
+description: |
+  BINGO (Baryon Acoustic Oscillations from Integrated Neutral Gas Observations)
+  single offset Gregorian telescope for 21cm intensity mapping targeting 0.13 < z < 0.5.
+  Phase 1: 28 feed horns. Baseline specifications from Abdurashidova et al. (2022) A&A.
+
+# Hardware configuration
+instrument:
+  telescope_type: single_dish
+  ndish: 1  # Single offset Gregorian telescope
+  dish_diameter_m: 40.0  # 40m primary mirror diameter
+  nbeam: 28  # Phase 1: 28 feed horns (Abdurashidova et al. 2022)
+
+# Observing strategy
+observing:
+  survey_area_deg2: 4130.0  # ~10% sky fraction (41253 deg^2 * 0.1)
+  total_time_hours: 8760.0  # 1 year = 8760 hours
+  frequency_range_MHz: [960, 1260]  # 21cm at z=0.13-0.5
+  channel_width_MHz: 1.0
+  channel_width_hz: 1000000.0
+  redshift_range: [0.13, 0.5]
+
+# Noise parameters
+noise:
+  system_temperature_K: 50.0  # Typical for this frequency range
+  sky_temperature:
+    model: power_law
+    T_ref_K: 25.0
+    nu_ref_MHz: 408.0
+    beta: 2.75
+
+# HI tracer properties (observational, not cosmological)
+hi_tracers:
+  bias:
+    model: polynomial
+    coefficients: [0.67, 0.18, 0.05]
+  density:
+    model: polynomial
+    coefficients: [0.00048, 0.00039, -0.000065]
+
+# Redshift binning strategy
+redshift_bins:
+  default_delta_z: 0.1
+  centers:
+    - 0.20
+    - 0.30
+    - 0.40
+
+# Metadata for provenance tracking
+metadata:
+  reference: "Abdurashidova et al. (2022) A&A 664, A16; Bull et al. (2016)"
+  notes: |
+    Single 40m offset Gregorian telescope with 28 feed horns in Phase 1.
+    Crossed-Dragone configuration, focal length 63m.
+    Primary mirror: paraboloid, 20m semi-minor axis.
+    Secondary mirror: hyperboloid, 17.8m semi-minor axis.
+  telescope_location: "Near Aguiar, Brazil (under construction)"
+  date_created: "2025-10-28"
+  date_corrected: "2025-10-28"
+  schema_version: "2.0"

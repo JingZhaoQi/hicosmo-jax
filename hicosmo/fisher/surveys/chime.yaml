@@ -1,0 +1,68 @@
+# CHIME Survey Configuration
+# Reference: Bull et al. (2016)
+#
+# This file contains ONLY hardware specifications and observing strategy.
+# Cosmological model parameters should be specified in analysis scripts.
+
+name: CHIME
+description: |
+  CHIME (Canadian Hydrogen Intensity Mapping Experiment) 21cm intensity
+  mapping survey probing 0.8 < z < 2.5 with 4 cylindrical reflectors.
+  Each cylinder 100m×20m with 256 dual-polarization feeds. Drift scan observation.
+
+# Hardware configuration
+instrument:
+  telescope_type: cylinder_array
+  ncylinders: 4  # 4 parallel cylindrical reflectors (CORRECTED from 5)
+  cylinder_length_m: 100.0
+  cylinder_width_m: 20.0
+  nfeeds: 1024  # 256 feeds per cylinder × 4 cylinders = 1024 total
+
+# Observing strategy
+observing:
+  survey_area_deg2: 22620.0  # ~55% sky fraction
+  total_time_hours: 26280.0  # 3 years = 26280 hours
+  frequency_range_MHz: [400, 800]  # 21cm at z=0.8-2.5
+  channel_width_MHz: 0.39
+  channel_width_hz: 390000.0
+  redshift_range: [0.8, 2.5]
+
+# Noise parameters
+noise:
+  system_temperature_K: 50.0  # Typical for this frequency range
+  sky_temperature:
+    model: power_law
+    T_ref_K: 25.0
+    nu_ref_MHz: 408.0
+    beta: 2.75
+
+# HI tracer properties
+hi_tracers:
+  bias:
+    model: polynomial
+    coefficients: [0.67, 0.18, 0.05]
+  density:
+    model: polynomial
+    coefficients: [0.00048, 0.00039, -0.000065]
+
+# Redshift binning strategy
+redshift_bins:
+  default_delta_z: 0.3
+  centers:
+    - 0.90
+    - 1.20
+    - 1.60
+    - 2.00
+
+# Metadata
+metadata:
+  reference: "CHIME Collaboration (2022) ApJS 261, 29; Bull et al. (2016)"
+  notes: |
+    4 parallel cylindrical parabolic reflectors, each 100m×20m (NOT 5 cylinders).
+    256 dual-polarization receivers per cylinder = 1024 total.
+    Each cylinder has 20m aperture, 5m focal length.
+    No moving parts - observes half sky each day as Earth rotates.
+  telescope_location: "Dominion Radio Astrophysical Observatory, Penticton, BC, Canada"
+  date_created: "2025-10-28"
+  date_corrected: "2025-10-28"
+  schema_version: "2.0"
