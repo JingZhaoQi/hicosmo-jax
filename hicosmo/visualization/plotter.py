@@ -20,7 +20,10 @@ Author: Jingzhao Qi
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any, Tuple
+from typing import Dict, List, Optional, Union, Any, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..samplers.inference import MCMC
 import numpy as np
 import matplotlib.pyplot as plt
 
