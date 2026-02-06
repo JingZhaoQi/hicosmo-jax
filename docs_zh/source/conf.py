@@ -60,5 +60,5 @@ html_css_files = ["lang_toggle.css"]
 html_js_files = ["lang_toggle.js"]
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", {}),
+    "python": ("https://docs.python.org/3", None),
 }
