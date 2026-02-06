@@ -28,7 +28,7 @@ sigma_sb = 5.670374419e-8  # W m^-2 K^-4
 a_rad = 7.5657e-16  # J m^-3 K^-4
 
 # Critical density factor
-# rho_crit = 3H^2/(8πG) 
+# rho_crit = 3H^2/(8πG)
 rho_crit_h2 = 2.77536627e11  # h^2 M_sun/Mpc^3
 
 # CMB temperature today
@@ -104,35 +104,41 @@ r_s_fid = 147.09  # Mpc, fiducial sound horizon at drag epoch
 
 # Default cosmological parameters (Planck 2018 + BAO)
 DEFAULT_COSMO = {
-    'H0': 67.66,       # Hubble constant in km/s/Mpc
-    'Omega_m': 0.3111,  # Total matter density
-    'Omega_b': 0.04897, # Baryon density
-    'Omega_c': 0.2621,  # Cold dark matter density
-    'sigma8': 0.8102,   # Matter fluctuation amplitude
-    'n_s': 0.9665,      # Scalar spectral index
-    'tau': 0.0561,      # Optical depth to reionization
+    "H0": 67.66,  # Hubble constant in km/s/Mpc
+    "Omega_m": 0.3111,  # Total matter density
+    "Omega_b": 0.04897,  # Baryon density
+    "Omega_c": 0.2621,  # Cold dark matter density
+    "sigma8": 0.8102,  # Matter fluctuation amplitude
+    "n_s": 0.9665,  # Scalar spectral index
+    "tau": 0.0561,  # Optical depth to reionization
 }
+
 
 # Unit conversions for convenience
 def Mpc_to_m(d_Mpc):
     """Convert distance from Mpc to meters."""
     return d_Mpc * Mpc
 
+
 def m_to_Mpc(d_m):
     """Convert distance from meters to Mpc."""
     return d_m / Mpc
+
 
 def H0_to_h(H0):
     """Convert H0 in km/s/Mpc to dimensionless h."""
     return H0 / 100.0
 
+
 def h_to_H0(h):
     """Convert dimensionless h to H0 in km/s/Mpc."""
     return h * 100.0
 
+
 def z_to_a(z):
     """Convert redshift to scale factor."""
     return 1.0 / (1.0 + z)
+
 
 def a_to_z(a):
     """Convert scale factor to redshift."""

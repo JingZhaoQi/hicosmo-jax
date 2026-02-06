@@ -87,8 +87,8 @@ DEFAULT_NUM_SAMPLES = 2000
 DEFAULT_NUM_CHAINS = 4
 
 # Warmup steps for different modes
-DEFAULT_WARMUP_STANDARD = 2000      # Without optimization
-DEFAULT_WARMUP_OPTIMIZED = 300      # With optimization
+DEFAULT_WARMUP_STANDARD = 2000  # Without optimization
+DEFAULT_WARMUP_OPTIMIZED = 300  # With optimization
 
 # ========== Optimization Defaults ==========
 

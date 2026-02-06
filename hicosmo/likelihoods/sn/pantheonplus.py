@@ -23,6 +23,7 @@ from ...models import LCDM
 
 logger = get_logger(__name__)
 
+
 def _get_default_data_path() -> Path:
     """
     Get default data path relative to package location.
@@ -76,16 +77,18 @@ class PantheonPlusLikelihood(Likelihood):
         parameter to be sampled alongside cosmology.
     """
 
-    def __init__(self,
-                 data_path: Optional[Union[str, Path]] = None,
-                 include_shoes: bool = False,
-                 include_systematics: bool = True,
-                 z_min: float = 0.01,
-                 z_max: Optional[float] = None,
-                 apply_z_cut: bool = True,
-                 marginalize_M_B: bool = True,
-                 cosmology_class: type = None,
-                 verbose: bool = False):
+    def __init__(
+        self,
+        data_path: Optional[Union[str, Path]] = None,
+        include_shoes: bool = False,
+        include_systematics: bool = True,
+        z_min: float = 0.01,
+        z_max: Optional[float] = None,
+        apply_z_cut: bool = True,
+        marginalize_M_B: bool = True,
+        cosmology_class: type = None,
+        verbose: bool = False,
+    ):
 
         # Resolve data path: use default if None, otherwise convert to Path
         if data_path is None:
@@ -117,9 +120,15 @@ class PantheonPlusLikelihood(Likelihood):
             if self.verbose:
                 logger.info(f"Cut redshift: z_min = {self.z_min}")
         if self.verbose:
-            logger.info(f"Redshift range: {self.redshifts.min():.3f} - {self.redshifts.max():.3f}")
-            logger.info(f"Systematics: {'included' if self.include_systematics else 'excluded'}")
-            logger.info(f"M_B treatment: {'marginalized' if self.marginalize_M_B else 'free parameter'}")
+            logger.info(
+                f"Redshift range: {self.redshifts.min():.3f} - {self.redshifts.max():.3f}"
+            )
+            logger.info(
+                f"Systematics: {'included' if self.include_systematics else 'excluded'}"
+            )
+            logger.info(
+                f"M_B treatment: {'marginalized' if self.marginalize_M_B else 'free parameter'}"
+            )
 
     def _load_data(self):
         """Load real PantheonPlus data from configured data_path."""
@@ -155,11 +164,26 @@ class PantheonPlusLikelihood(Likelihood):
 
         # Fall back to official release structure if simplified not found
         if not data_file.exists():
-            data_file = data_path / "Pantheon+_Data" / "4_DISTANCES_AND_COVAR" / "Pantheon+SH0ES.dat"
+            data_file = (
+                data_path
+                / "Pantheon+_Data"
+                / "4_DISTANCES_AND_COVAR"
+                / "Pantheon+SH0ES.dat"
+            )
             if self.include_systematics:
-                cov_file = data_path / "Pantheon+_Data" / "4_DISTANCES_AND_COVAR" / "Pantheon+SH0ES_STAT+SYS.cov"
+                cov_file = (
+                    data_path
+                    / "Pantheon+_Data"
+                    / "4_DISTANCES_AND_COVAR"
+                    / "Pantheon+SH0ES_STAT+SYS.cov"
+                )
             else:
-                cov_file = data_path / "Pantheon+_Data" / "4_DISTANCES_AND_COVAR" / "Pantheon+SH0ES_STATONLY.cov"
+                cov_file = (
+                    data_path
+                    / "Pantheon+_Data"
+                    / "4_DISTANCES_AND_COVAR"
+                    / "Pantheon+SH0ES_STATONLY.cov"
+                )
 
         if not data_file.exists():
             raise FileNotFoundError(
@@ -174,15 +198,15 @@ class PantheonPlusLikelihood(Likelihood):
             )
 
         # Load supernova data - following official cosmosis implementation
-        data = pd.read_csv(data_file, comment='#', sep=r'\s+')
+        data = pd.read_csv(data_file, comment="#", sep=r"\s+")
 
         # Use official column names exactly as in cosmosis code
-        z_hd_raw = data['zHD'].values  # Hubble flow redshift (pec-velocity corrected)
-        z_cmb_raw = data['zCMB'].values  # Provided for completeness
-        z_hel_raw = data['zHEL'].values  # Heliocentric redshift
-        m_b_corr_raw = data['m_b_corr'].values  # Corrected apparent magnitude
-        is_calibrator_raw = data['IS_CALIBRATOR'].values.astype(bool)
-        ceph_dist_raw = data['CEPH_DIST'].values
+        z_hd_raw = data["zHD"].values  # Hubble flow redshift (pec-velocity corrected)
+        z_cmb_raw = data["zCMB"].values  # Provided for completeness
+        z_hel_raw = data["zHEL"].values  # Heliocentric redshift
+        m_b_corr_raw = data["m_b_corr"].values  # Corrected apparent magnitude
+        is_calibrator_raw = data["IS_CALIBRATOR"].values.astype(bool)
+        ceph_dist_raw = data["CEPH_DIST"].values
 
         # Official data selection mask
         if self.include_shoes:
@@ -194,7 +218,7 @@ class PantheonPlusLikelihood(Likelihood):
 
         # Apply additional redshift cuts if requested
         if self.apply_z_cut and (self.z_min != 0.01 or self.z_max is not None):
-            z_mask = (z_hd_raw > self.z_min)
+            z_mask = z_hd_raw > self.z_min
             if self.z_max is not None:
                 z_mask = z_mask & (z_hd_raw <= self.z_max)
             self.ww = self.ww & z_mask
@@ -227,8 +251,13 @@ class PantheonPlusLikelihood(Likelihood):
         self.n_sne = len(self.redshifts)
 
         # Validate data consistency
-        assert len(self.redshifts) == len(self.m_obs), "Redshift and magnitude arrays must have same length"
-        assert self.covariance.shape == (self.n_sne, self.n_sne), "Covariance matrix dimensions inconsistent"
+        assert len(self.redshifts) == len(
+            self.m_obs
+        ), "Redshift and magnitude arrays must have same length"
+        assert self.covariance.shape == (
+            self.n_sne,
+            self.n_sne,
+        ), "Covariance matrix dimensions inconsistent"
 
     def _precompute_covariance(self):
         """Precompute covariance matrix inverse and determinant."""
@@ -241,11 +270,15 @@ class PantheonPlusLikelihood(Likelihood):
 
         if self.verbose:
             condition_number = jnp.linalg.cond(stable_cov)
-            logger.info(f"Covariance: {self.n_sne}×{self.n_sne}, condition number: {condition_number:.1e}")
+            logger.info(
+                f"Covariance: {self.n_sne}×{self.n_sne}, condition number: {condition_number:.1e}"
+            )
 
         self._initialize_jit_likelihood()
 
-    def log_likelihood(self, model: CosmologyBase, M_B: Optional[float] = None, **kwargs) -> float:
+    def log_likelihood(
+        self, model: CosmologyBase, M_B: Optional[float] = None, **kwargs
+    ) -> float:
         """
         Compute log-likelihood following official cosmosis implementation.
 
@@ -305,7 +338,7 @@ class PantheonPlusLikelihood(Likelihood):
             - +0.5 * log(1ᵀC⁻¹1) if M_B is marginalized
         """
         norm = -0.5 * float(self.log_det_cov)
-        if self.marginalize_M_B and hasattr(self, '_mb_aux'):
+        if self.marginalize_M_B and hasattr(self, "_mb_aux"):
             _, _, _, mb_log_den_const = self._mb_aux
             norm += 0.5 * float(mb_log_den_const)
         return norm
@@ -349,7 +382,7 @@ class PantheonPlusLikelihood(Likelihood):
         # Use .get() instead of .pop() to avoid modifying original dict
         M_B = None
         if not self.marginalize_M_B:
-            M_B = params.get('M_B', None)
+            M_B = params.get("M_B", None)
             if M_B is None:
                 raise ValueError(
                     "M_B must be provided when marginalize_M_B=False. "
@@ -357,7 +390,7 @@ class PantheonPlusLikelihood(Likelihood):
                 )
 
         # Filter out M_B from cosmology params (don't pass to cosmology model)
-        cosmo_params = {k: v for k, v in params.items() if k != 'M_B'}
+        cosmo_params = {k: v for k, v in params.items() if k != "M_B"}
 
         # Fast path: avoid constructing model when direct parameters are available
         if self._can_use_fast_params(cosmo_params):
@@ -382,15 +415,18 @@ class PantheonPlusLikelihood(Likelihood):
 
     def _can_use_fast_params(self, params: Dict[str, Any]) -> bool:
         """Check whether we can bypass model construction and use traced params directly."""
-        if not hasattr(self._cosmology_class, 'compute_grid_traced'):
+        if not hasattr(self._cosmology_class, "compute_grid_traced"):
             return False
         # Require explicit H0 to avoid missing derived conversions (h -> H0)
-        if 'H0' not in params:
+        if "H0" not in params:
             return False
         # If alternative bases are provided without H0, fall back to model
-        if 'h' in params and 'H0' not in params:
+        if "h" in params and "H0" not in params:
             return False
-        if any(k in params for k in ('omega_b_h2', 'omega_c_h2', 'omega_m_h2')) and 'H0' not in params:
+        if (
+            any(k in params for k in ("omega_b_h2", "omega_c_h2", "omega_m_h2"))
+            and "H0" not in params
+        ):
             return False
         return True
 
@@ -410,11 +446,13 @@ class PantheonPlusLikelihood(Likelihood):
             elif isinstance(v, jax.core.Tracer):
                 # JAX Tracer during MCMC - keep as-is, already traced
                 cosmo_params[k] = v
-            elif hasattr(v, 'shape'):
+            elif hasattr(v, "shape"):
                 # Array-like (jnp.ndarray, np.ndarray)
                 cosmo_params[k] = jnp.asarray(v, dtype=dtype)
-        cosmo_grid = self._cosmology_class.compute_grid_traced(self._z_grid, cosmo_params)
-        d_L_grid = cosmo_grid['d_L']
+        cosmo_grid = self._cosmology_class.compute_grid_traced(
+            self._z_grid, cosmo_params
+        )
+        d_L_grid = cosmo_grid["d_L"]
         d_L = jnp.interp(self.z_cmb, self._z_grid, d_L_grid)
         d_A = d_L / (1.0 + self.z_cmb) ** 2
         return 5.0 * jnp.log10((1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A) + 25.0
@@ -437,11 +475,15 @@ class PantheonPlusLikelihood(Likelihood):
         cov_inv = self.cov_inv
         log_det_cov = self.log_det_cov
         n_sne = self.n_sne
-        ones_vec_const, cov_inv_ones_const, mb_denominator_const, mb_log_den_const = self._mb_aux
+        ones_vec_const, cov_inv_ones_const, mb_denominator_const, mb_log_den_const = (
+            self._mb_aux
+        )
 
         # JIT compile fixed M_B likelihood
         # Returns -χ²/2 only (no normalization) - normalization via get_normalization_constant()
-        def _fixed_likelihood_impl(mu_theory: jnp.ndarray, M_B: jnp.ndarray) -> jnp.ndarray:
+        def _fixed_likelihood_impl(
+            mu_theory: jnp.ndarray, M_B: jnp.ndarray
+        ) -> jnp.ndarray:
             residual = m_obs - (mu_theory + M_B)
             chi2 = residual @ (cov_inv @ residual)
             return -0.5 * chi2
@@ -480,8 +522,10 @@ class PantheonPlusLikelihood(Likelihood):
     def _distance_modulus_from_model(self, model: CosmologyBase) -> jnp.ndarray:
         """Compute distance modulus vector using pure JAX traced cosmology."""
         cosmo_params = self._extract_cosmo_params(model)
-        cosmo_grid = self._cosmology_class.compute_grid_traced(self._z_grid, cosmo_params)
-        d_L_grid = cosmo_grid['d_L']
+        cosmo_grid = self._cosmology_class.compute_grid_traced(
+            self._z_grid, cosmo_params
+        )
+        d_L_grid = cosmo_grid["d_L"]
         d_L = jnp.interp(self.z_cmb, self._z_grid, d_L_grid)
         d_A = d_L / (1.0 + self.z_cmb) ** 2
         return 5.0 * jnp.log10((1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A) + 25.0
@@ -552,11 +596,14 @@ class PantheonPlusLikelihood(Likelihood):
     def get_info(self) -> Dict:
         """Get dataset information."""
         return {
-            'name': 'PantheonPlus',
-            'n_supernovae': self.n_sne,
-            'redshift_range': (float(self.redshifts.min()), float(self.redshifts.max())),
-            'include_systematics': self.include_systematics,
-            'data_type': 'PantheonPlusSH0ES' if self.include_shoes else 'PantheonPlus'
+            "name": "PantheonPlus",
+            "n_supernovae": self.n_sne,
+            "redshift_range": (
+                float(self.redshifts.min()),
+                float(self.redshifts.max()),
+            ),
+            "include_systematics": self.include_systematics,
+            "data_type": "PantheonPlusSH0ES" if self.include_shoes else "PantheonPlus",
         }
 
     def _compute_theory_pantheon(self, model: CosmologyBase) -> jnp.ndarray:
@@ -602,25 +649,30 @@ class PantheonPlusLikelihood(Likelihood):
         else:
             # M_B should be sampled - return as Parameter
             from ...parameters import Parameter
-            return NuisanceList([
-                Parameter(
-                    name='M_B',
-                    value=-19.23,  # Typical value for SNe Ia
-                    free=True,
-                    prior={'dist': 'uniform', 'min': -20.0, 'max': -18.0},
-                    latex_label=r'$\mathcal{M}_B$',
-                    description='SNe Ia absolute magnitude in B-band'
-                )
-            ])
+
+            return NuisanceList(
+                [
+                    Parameter(
+                        name="M_B",
+                        value=-19.23,  # Typical value for SNe Ia
+                        free=True,
+                        prior={"dist": "uniform", "min": -20.0, "max": -18.0},
+                        latex_label=r"$\mathcal{M}_B$",
+                        description="SNe Ia absolute magnitude in B-band",
+                    )
+                ]
+            )
 
     # __add__ and __radd__ inherited from Likelihood base class
 
     def __repr__(self):
         """String representation."""
         info = self.get_info()
-        return (f"PantheonPlus({info['n_supernovae']} SNe, "
-                f"z=[{info['redshift_range'][0]:.3f}, {info['redshift_range'][1]:.3f}], "
-                f"systematics={info['include_systematics']})")
+        return (
+            f"PantheonPlus({info['n_supernovae']} SNe, "
+            f"z=[{info['redshift_range'][0]:.3f}, {info['redshift_range'][1]:.3f}], "
+            f"systematics={info['include_systematics']})"
+        )
 
 
 # Convenience function

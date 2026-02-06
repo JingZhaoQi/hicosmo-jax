@@ -12,6 +12,7 @@ Design Principles:
 Author: HIcosmo Development Team
 License: MIT
 """
+
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Callable, Tuple
 import jax.numpy as jnp
@@ -39,12 +40,13 @@ class SamplerConfig:
         n_walkers: emcee-specific parameter (optional)
         moves: emcee-specific parameter (optional)
     """
+
     num_samples: int
     num_chains: int
     num_warmup: int
     seed: int = 42
     progress_bar: bool = True
-    chain_method: str = 'vectorized'  # 'vectorized', 'sequential', 'parallel'
+    chain_method: str = "vectorized"  # 'vectorized', 'sequential', 'parallel'
 
     # Optional sampler-specific parameters
     max_tree_depth: Optional[int] = None
@@ -66,6 +68,7 @@ class SamplerResults:
         sampler_name: Name of the sampler used ('numpyro', 'emcee', etc.)
         metadata: Additional sampler-specific metadata
     """
+
     samples: Dict[str, jnp.ndarray]
     diagnostics: Dict[str, Any]
     elapsed_time: float
@@ -100,7 +103,7 @@ class SamplerBackend(ABC):
         self,
         log_probability: Callable,
         parameters: Dict[str, Dict[str, Any]],
-        config: Dict[str, Any]
+        config: Dict[str, Any],
     ):
         """
         Initialize sampler backend.
@@ -178,26 +181,31 @@ class SamplerBackend(ABC):
         Returns:
             str: Sampler name (e.g., 'numpyro', 'emcee')
         """
-        return self.__class__.__name__.replace('Sampler', '').lower()
+        return self.__class__.__name__.replace("Sampler", "").lower()
 
 
 # Custom exception classes for better error handling
 
+
 class MCMCError(Exception):
     """Base class for MCMC sampling errors."""
+
     pass
 
 
 class InitializationError(MCMCError):
     """Raised when sampler initialization fails."""
+
     pass
 
 
 class ConvergenceError(MCMCError):
     """Raised when sampling fails to converge."""
+
     pass
 
 
 class LikelihoodError(MCMCError):
     """Raised when likelihood computation fails."""
+
     pass

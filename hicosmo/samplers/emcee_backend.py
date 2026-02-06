@@ -28,6 +28,7 @@ Reference:
 Author: HIcosmo Development Team
 License: MIT
 """
+
 import time
 import numpy as np
 import jax.numpy as jnp
@@ -35,8 +36,11 @@ from typing import Dict, Any, Optional
 import emcee
 
 from .base import (
-    SamplerBackend, SamplerConfig, SamplerResults,
-    InitializationError, ConvergenceError
+    SamplerBackend,
+    SamplerConfig,
+    SamplerResults,
+    InitializationError,
+    ConvergenceError,
 )
 from ..utils.logging import get_logger
 
@@ -89,40 +93,45 @@ class EmceeSampler(SamplerBackend):
         """
         bounds = {}
         for name, config in self.parameters.items():
-            prior = config.get('prior', {})
-            dist_type = str(prior.get('dist', 'uniform')).lower()
-            if dist_type in {'log_normal', 'truncated_normal', 'half_normal', 'half_cauchy'}:
+            prior = config.get("prior", {})
+            dist_type = str(prior.get("dist", "uniform")).lower()
+            if dist_type in {
+                "log_normal",
+                "truncated_normal",
+                "half_normal",
+                "half_cauchy",
+            }:
                 dist_type = {
-                    'log_normal': 'lognormal',
-                    'truncated_normal': 'truncnorm',
-                    'half_normal': 'halfnormal',
-                    'half_cauchy': 'halfcauchy',
+                    "log_normal": "lognormal",
+                    "truncated_normal": "truncnorm",
+                    "half_normal": "halfnormal",
+                    "half_cauchy": "halfcauchy",
                 }[dist_type]
 
-            if dist_type == 'uniform':
-                bounds[name] = (prior['min'], prior['max'])
-            elif dist_type == 'normal':
+            if dist_type == "uniform":
+                bounds[name] = (prior["min"], prior["max"])
+            elif dist_type == "normal":
                 # Use ±5σ as bounds for normal priors
-                mu = prior['loc']
-                sigma = prior['scale']
-                bounds[name] = (mu - 5*sigma, mu + 5*sigma)
-            elif dist_type == 'truncnorm':
-                low = prior.get('low', prior.get('min', -1e10))
-                high = prior.get('high', prior.get('max', 1e10))
+                mu = prior["loc"]
+                sigma = prior["scale"]
+                bounds[name] = (mu - 5 * sigma, mu + 5 * sigma)
+            elif dist_type == "truncnorm":
+                low = prior.get("low", prior.get("min", -1e10))
+                high = prior.get("high", prior.get("max", 1e10))
                 bounds[name] = (low, high)
-            elif dist_type == 'lognormal':
-                mu = prior['loc']
-                sigma = prior['scale']
+            elif dist_type == "lognormal":
+                mu = prior["loc"]
+                sigma = prior["scale"]
                 # Conservative bounds in log space
-                bounds[name] = (np.exp(mu - 5*sigma), np.exp(mu + 5*sigma))
-            elif dist_type == 'halfnormal':
-                scale = prior['scale']
+                bounds[name] = (np.exp(mu - 5 * sigma), np.exp(mu + 5 * sigma))
+            elif dist_type == "halfnormal":
+                scale = prior["scale"]
                 bounds[name] = (0.0, 5 * scale)
-            elif dist_type == 'halfcauchy':
-                scale = prior['scale']
+            elif dist_type == "halfcauchy":
+                scale = prior["scale"]
                 bounds[name] = (0.0, 25 * scale)
-            elif dist_type == 'exponential':
-                rate = prior['rate']
+            elif dist_type == "exponential":
+                rate = prior["rate"]
                 bounds[name] = (0.0, 10.0 / rate)
             else:
                 # Conservative wide bounds for unknown distributions
@@ -167,15 +176,14 @@ class EmceeSampler(SamplerBackend):
         """
         # Build parameter dictionary
         params_dict = {
-            self.param_names[i]: float(theta[i])
-            for i in range(len(self.param_names))
+            self.param_names[i]: float(theta[i]) for i in range(len(self.param_names))
         }
 
         try:
             log_L = self.log_probability(params_dict)
 
             # Convert JAX array to Python float
-            if hasattr(log_L, 'item'):
+            if hasattr(log_L, "item"):
                 log_L = log_L.item()
             else:
                 log_L = float(log_L)
@@ -211,11 +219,7 @@ class EmceeSampler(SamplerBackend):
 
         return lp + ll
 
-    def _initialize_walkers(
-        self,
-        n_walkers: int,
-        seed: int = 42
-    ) -> np.ndarray:
+    def _initialize_walkers(self, n_walkers: int, seed: int = 42) -> np.ndarray:
         """
         Initialize walker positions in parameter space.
 
@@ -287,9 +291,7 @@ class EmceeSampler(SamplerBackend):
                 logger.info(f"[emcee] Burn-in: {sampler_config.num_warmup} steps...")
 
             state = self.sampler.run_mcmc(
-                pos,
-                sampler_config.num_warmup,
-                progress=sampler_config.progress_bar
+                pos, sampler_config.num_warmup, progress=sampler_config.progress_bar
             )
             self.sampler.reset()
 
@@ -298,9 +300,7 @@ class EmceeSampler(SamplerBackend):
                 logger.info(f"[emcee] Sampling: {sampler_config.num_samples} steps...")
 
             state = self.sampler.run_mcmc(
-                state,
-                sampler_config.num_samples,
-                progress=sampler_config.progress_bar
+                state, sampler_config.num_samples, progress=sampler_config.progress_bar
             )
 
             elapsed_time = time.time() - start_time
@@ -326,7 +326,7 @@ class EmceeSampler(SamplerBackend):
 
         num_chains = sampler_config.num_chains
         # Select evenly spaced walkers as "chains"
-        selected_walkers = np.linspace(0, n_walkers-1, num_chains, dtype=int)
+        selected_walkers = np.linspace(0, n_walkers - 1, num_chains, dtype=int)
 
         for i, param_name in enumerate(self.param_names):
             # Extract samples from selected walkers
@@ -341,13 +341,13 @@ class EmceeSampler(SamplerBackend):
             samples=samples,
             diagnostics=diagnostics,
             elapsed_time=elapsed_time,
-            sampler_name='emcee',
+            sampler_name="emcee",
             metadata={
-                'num_warmup': sampler_config.num_warmup,
-                'num_samples': sampler_config.num_samples,
-                'n_walkers': n_walkers,
-                'n_dim': n_dim,
-            }
+                "num_warmup": sampler_config.num_warmup,
+                "num_samples": sampler_config.num_samples,
+                "n_walkers": n_walkers,
+                "n_dim": n_dim,
+            },
         )
 
         self.results = results
@@ -363,7 +363,7 @@ class EmceeSampler(SamplerBackend):
         initial_state: Optional[Any] = None,
         initial_samples: Optional[Dict[str, Any]] = None,
         initial_step: int = 0,
-        **_kwargs
+        **_kwargs,
     ) -> SamplerResults:
         """Run emcee sampling in chunks to enable checkpointing."""
         self.validate_config()
@@ -394,9 +394,7 @@ class EmceeSampler(SamplerBackend):
             if sampler_config.progress_bar:
                 logger.info(f"[emcee] Burn-in: {sampler_config.num_warmup} steps...")
             state = self.sampler.run_mcmc(
-                pos,
-                sampler_config.num_warmup,
-                progress=sampler_config.progress_bar
+                pos, sampler_config.num_warmup, progress=sampler_config.progress_bar
             )
             self.sampler.reset()
         else:
@@ -432,9 +430,7 @@ class EmceeSampler(SamplerBackend):
         while total_collected < target_total:
             chunk_start = time.time()
             state = self.sampler.run_mcmc(
-                state,
-                chunk_size,
-                progress=sampler_config.progress_bar
+                state, chunk_size, progress=sampler_config.progress_bar
             )
             chunk_elapsed = max(time.time() - chunk_start, 1e-6)
 
@@ -459,7 +455,9 @@ class EmceeSampler(SamplerBackend):
                     last_checkpoint_step = total_collected
 
             if checkpoint_callback and checkpoint_interval_steps:
-                if (total_collected - last_checkpoint_step) >= checkpoint_interval_steps:
+                if (
+                    total_collected - last_checkpoint_step
+                ) >= checkpoint_interval_steps:
                     checkpoint_callback(samples_accum, total_collected)
                     last_checkpoint_step = total_collected
                     last_checkpoint_time = time.time()
@@ -473,7 +471,9 @@ class EmceeSampler(SamplerBackend):
             if checkpoint_interval_seconds:
                 chunk_total = num_chains * chunk_size
                 samples_per_sec = max(1.0, chunk_total / chunk_elapsed)
-                target_total_interval = max(1, int(samples_per_sec * checkpoint_interval_seconds * 0.9))
+                target_total_interval = max(
+                    1, int(samples_per_sec * checkpoint_interval_seconds * 0.9)
+                )
                 target_per_chain = max(1, target_total_interval // num_chains)
                 chunk_size = min(remaining_per_chain, max(1, target_per_chain))
             elif checkpoint_interval_steps:
@@ -499,14 +499,14 @@ class EmceeSampler(SamplerBackend):
             samples=samples,
             diagnostics=diagnostics,
             elapsed_time=elapsed_time,
-            sampler_name='emcee',
+            sampler_name="emcee",
             metadata={
-                'num_warmup': sampler_config.num_warmup,
-                'num_samples': sampler_config.num_samples,
-                'n_walkers': n_walkers,
-                'n_dim': n_dim,
-                'chunked': True,
-            }
+                "num_warmup": sampler_config.num_warmup,
+                "num_samples": sampler_config.num_samples,
+                "n_walkers": n_walkers,
+                "n_dim": n_dim,
+                "chunked": True,
+            },
         )
 
         self.results = results
@@ -531,17 +531,17 @@ class EmceeSampler(SamplerBackend):
 
         # Acceptance fraction
         acceptance_fraction = self.sampler.acceptance_fraction
-        diagnostics['acceptance_rate'] = {
-            'mean': float(np.mean(acceptance_fraction)),
-            'std': float(np.std(acceptance_fraction)),
-            'min': float(np.min(acceptance_fraction)),
-            'max': float(np.max(acceptance_fraction)),
+        diagnostics["acceptance_rate"] = {
+            "mean": float(np.mean(acceptance_fraction)),
+            "std": float(np.std(acceptance_fraction)),
+            "min": float(np.min(acceptance_fraction)),
+            "max": float(np.max(acceptance_fraction)),
         }
 
         # Autocorrelation time (may fail if chain is too short)
         try:
             autocorr_time = self.sampler.get_autocorr_time(quiet=True)
-            diagnostics['autocorr_time'] = {
+            diagnostics["autocorr_time"] = {
                 self.param_names[i]: float(autocorr_time[i])
                 for i in range(len(self.param_names))
             }

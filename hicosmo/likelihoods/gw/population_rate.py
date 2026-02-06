@@ -41,7 +41,9 @@ class CosmologyAdapter:
     def _build_lookup(self):
         grid = jnp.geomspace(self.zmin, self.zmax, num=max(self.n_grid - 1, 2))
         z_grid = jnp.concatenate((jnp.asarray([self.zmin * 0.1]), grid))
-        dl_grid = jnp.asarray(self.cosmology.luminosity_distance(z_grid), dtype=jnp.float64)
+        dl_grid = jnp.asarray(
+            self.cosmology.luminosity_distance(z_grid), dtype=jnp.float64
+        )
         dl_grid = jnp.clip(dl_grid, 1e-12, None)
         self._log10_dl = jnp.log10(dl_grid)
         self._log10_z = jnp.log10(jnp.clip(z_grid, 1e-12, None))
@@ -94,7 +96,9 @@ def _highpass_filter_jnp(mass, mmin, delta_m):
     window_region = (mass > mmin) & (mass < mmin + delta_m)
     safe_mprime = jnp.where(window_region, mprime, 1.0)
     term = delta_m / safe_mprime + delta_m / (safe_mprime - delta_m)
-    effe_prime = jnp.exp(jnp.nan_to_num(term, nan=jnp.inf, posinf=jnp.inf, neginf=-jnp.inf))
+    effe_prime = jnp.exp(
+        jnp.nan_to_num(term, nan=jnp.inf, posinf=jnp.inf, neginf=-jnp.inf)
+    )
     window = 1.0 / (effe_prime + 1.0)
     window = jnp.where(mass <= mmin, 0.0, window)
     window = jnp.where(mass >= mmin + delta_m, 1.0, window)
@@ -136,7 +140,9 @@ class _PowerLawDistribution:
         if abs(self.alpha + 1.0) < 1e-9:
             self._log_norm = jnp.log(self.mmax / self.mmin)
         else:
-            norm_val = (self.mmax**(self.alpha + 1.0) - self.mmin**(self.alpha + 1.0)) / (self.alpha + 1.0)
+            norm_val = (
+                self.mmax ** (self.alpha + 1.0) - self.mmin ** (self.alpha + 1.0)
+            ) / (self.alpha + 1.0)
             self._log_norm = jnp.log(norm_val)
 
     def _in_support(self, m):
@@ -160,8 +166,8 @@ class _PowerLawDistribution:
         if abs(self.alpha + 1.0) < 1e-9:
             cdf = jnp.log(m / self.mmin) / jnp.log(self.mmax / self.mmin)
         else:
-            num = m**(self.alpha + 1.0) - self.mmin**(self.alpha + 1.0)
-            den = self.mmax**(self.alpha + 1.0) - self.mmin**(self.alpha + 1.0)
+            num = m ** (self.alpha + 1.0) - self.mmin ** (self.alpha + 1.0)
+            den = self.mmax ** (self.alpha + 1.0) - self.mmin ** (self.alpha + 1.0)
             cdf = num / den
         cdf = jnp.clip(cdf, 0.0, 1.0)
         cdf = jnp.where(m <= self.mmin, 0.0, cdf)
@@ -177,7 +183,9 @@ class _TruncatedGaussian:
         self.mmax = float(mmax)
         a = (self.mmin - self.mu) / self.sigma
         b = (self.mmax - self.mu) / self.sigma
-        self._log_norm = jnp.log(jnp.sqrt(2.0 * jnp.pi) * self.sigma * (norm.cdf(b) - norm.cdf(a)))
+        self._log_norm = jnp.log(
+            jnp.sqrt(2.0 * jnp.pi) * self.sigma * (norm.cdf(b) - norm.cdf(a))
+        )
 
     def _in_support(self, m):
         return (m >= self.mmin) & (m <= self.mmax)
@@ -201,7 +209,15 @@ class _TruncatedGaussian:
 
 
 class _PowerLawGaussianDistribution:
-    def __init__(self, alpha: float, mmin: float, mmax: float, mu_g: float, sigma_g: float, lambda_peak: float):
+    def __init__(
+        self,
+        alpha: float,
+        mmin: float,
+        mmax: float,
+        mu_g: float,
+        sigma_g: float,
+        lambda_peak: float,
+    ):
         self.mmin = float(mmin)
         self.mmax = float(mmax)
         self.lambda_peak = float(lambda_peak)
@@ -242,7 +258,9 @@ class _LowpassSmoothedDistribution:
             window = _highpass_filter_jnp(grid, self.bottom, self.delta_m)
             integral_before = trapezoid(base_pdf, grid)
             integral_now = trapezoid(base_pdf * window, grid)
-            self.norm = jnp.asarray(1.0 - integral_before + integral_now, dtype=jnp.float64)
+            self.norm = jnp.asarray(
+                1.0 - integral_before + integral_now, dtype=jnp.float64
+            )
             self.integral_now = jnp.asarray(integral_now, dtype=jnp.float64)
             self.base_cdf_edge = self.base.cdf_jnp(self.bottom + self.delta_m)
 
@@ -280,7 +298,9 @@ class _LowpassSmoothedDistribution:
             left=0.0,
             right=self.cdf_numeric[-1],
         )
-        tail = (self.integral_now + self.base.cdf_jnp(m) - self.base_cdf_edge) / self.norm
+        tail = (
+            self.integral_now + self.base.cdf_jnp(m) - self.base_cdf_edge
+        ) / self.norm
         cdf_val = jnp.where(
             m <= self.bottom,
             0.0,
@@ -293,7 +313,14 @@ class MassPriorEvaluator:
     """Pure JAX implementation of icarogw's PowerLawPeak + low-pass pairing."""
 
     population_parameters = [
-        'alpha', 'beta', 'mmin', 'mmax', 'delta_m', 'mu_g', 'sigma_g', 'lambda_peak'
+        "alpha",
+        "beta",
+        "mmin",
+        "mmax",
+        "delta_m",
+        "mu_g",
+        "sigma_g",
+        "lambda_peak",
     ]
 
     def __init__(self):
@@ -306,45 +333,43 @@ class MassPriorEvaluator:
         if missing:
             raise ValueError(f"Missing mass-prior parameters: {missing}")
         self.params = {k: float(params[k]) for k in self.population_parameters}
-        alpha = self.params['alpha']
-        beta = self.params['beta']
-        mmin = self.params['mmin']
-        mmax = self.params['mmax']
-        delta_m = self.params['delta_m']
-        mu_g = self.params['mu_g']
-        sigma_g = self.params['sigma_g']
-        lambda_peak = self.params['lambda_peak']
+        alpha = self.params["alpha"]
+        beta = self.params["beta"]
+        mmin = self.params["mmin"]
+        mmax = self.params["mmax"]
+        delta_m = self.params["delta_m"]
+        mu_g = self.params["mu_g"]
+        sigma_g = self.params["sigma_g"]
+        lambda_peak = self.params["lambda_peak"]
 
-        m1_dist = _PowerLawGaussianDistribution(alpha, mmin, mmax, mu_g, sigma_g, lambda_peak)
+        m1_dist = _PowerLawGaussianDistribution(
+            alpha, mmin, mmax, mu_g, sigma_g, lambda_peak
+        )
         m2_dist = _PowerLawDistribution(mmin, mmax, beta)
         self._m1_lowpass = _LowpassSmoothedDistribution(m1_dist, delta_m)
         self._m2_lowpass = _LowpassSmoothedDistribution(m2_dist, delta_m)
 
     def log_prob(self, m1_source, m2_source):
         if self._m1_lowpass is None or self._m2_lowpass is None:
-            raise RuntimeError('MassPriorEvaluator.update() must be called before log_prob().')
+            raise RuntimeError(
+                "MassPriorEvaluator.update() must be called before log_prob()."
+            )
         m1 = jnp.asarray(m1_source)
         m2 = jnp.asarray(m2_source)
         log_p1 = self._m1_lowpass.log_pdf_jnp(m1)
         log_p2 = self._m2_lowpass.log_pdf_jnp(m2)
         log_cdf = self._m2_lowpass.log_cdf_jnp(m1)
         log_prob = log_p1 + log_p2 - log_cdf
-        mmin = self.params['mmin']
-        mmax = self.params['mmax']
-        valid = (
-            (m1 >= mmin)
-            & (m1 <= mmax)
-            & (m2 >= mmin)
-            & (m2 <= mmax)
-            & (m2 <= m1)
-        )
+        mmin = self.params["mmin"]
+        mmax = self.params["mmax"]
+        valid = (m1 >= mmin) & (m1 <= mmax) & (m2 >= mmin) & (m2 <= mmax) & (m2 <= m1)
         return jnp.where(valid, log_prob, -jnp.inf)
 
 
 class MadauRateEvaluator:
     """Exact JAX translation of icarogw's md_rate."""
 
-    population_parameters = ['gamma', 'kappa', 'zp']
+    population_parameters = ["gamma", "kappa", "zp"]
 
     def __init__(self):
         self.params: dict[str, float] = {}
@@ -357,11 +382,13 @@ class MadauRateEvaluator:
 
     def log_rate(self, z):
         if not self.params:
-            raise RuntimeError('MadauRateEvaluator.update() must be called before log_rate().')
+            raise RuntimeError(
+                "MadauRateEvaluator.update() must be called before log_rate()."
+            )
         z = jnp.asarray(z)
-        gamma = self.params['gamma']
-        kappa = self.params['kappa']
-        zp = self.params['zp']
+        gamma = self.params["gamma"]
+        kappa = self.params["kappa"]
+        zp = self.params["zp"]
         log_norm = jnp.log1p((1.0 + zp) ** (-gamma - kappa))
         log_num = gamma * jnp.log1p(z)
         ratio = (1.0 + z) / (1.0 + zp)
@@ -370,23 +397,39 @@ class MadauRateEvaluator:
 
 
 class GWPopulationRateModel:
-    def __init__(self, mass_prior=None, rate_evolution=None, scale_free=True, zmax=10.0, grid_size=6000):
+    def __init__(
+        self,
+        mass_prior=None,
+        rate_evolution=None,
+        scale_free=True,
+        zmax=10.0,
+        grid_size=6000,
+    ):
         self.mass_prior = mass_prior or MassPriorEvaluator()
         self.rate_evolution = rate_evolution or MadauRateEvaluator()
         self.scale_free = scale_free
         self.zmax = zmax
         self.grid_size = grid_size
         self.population_parameters = [
-            'alpha', 'beta', 'mmin', 'mmax', 'delta_m', 'mu_g', 'sigma_g', 'lambda_peak',
-            'gamma', 'kappa', 'zp'
+            "alpha",
+            "beta",
+            "mmin",
+            "mmax",
+            "delta_m",
+            "mu_g",
+            "sigma_g",
+            "lambda_peak",
+            "gamma",
+            "kappa",
+            "zp",
         ]
         if not scale_free:
-            self.population_parameters.append('R0')
+            self.population_parameters.append("R0")
         self.R0 = 1.0
         self._population_only_parameters = (
             list(self.mass_prior.population_parameters)
             + list(self.rate_evolution.population_parameters)
-            + ([] if scale_free else ['R0'])
+            + ([] if scale_free else ["R0"])
         )
         self._cached_population: dict[str, Any] = {}
         self.cosmology: Optional[CosmologyAdapter] = None
@@ -403,8 +446,7 @@ class GWPopulationRateModel:
         missing = [name for name in required if not hasattr(cosmology, name)]
         if missing:
             raise ValueError(
-                "Cosmology is missing required methods: "
-                + ", ".join(missing)
+                "Cosmology is missing required methods: " + ", ".join(missing)
             )
         self.cosmology = cosmology
 
@@ -416,8 +458,10 @@ class GWPopulationRateModel:
         self.mass_prior.update(**params)
         self.rate_evolution.update(**params)
         if not self.scale_free:
-            self.R0 = _safe_float(params.get('R0', 1.0))
-        self._cached_population = {k: params[k] for k in self._population_only_parameters}
+            self.R0 = _safe_float(params.get("R0", 1.0))
+        self._cached_population = {
+            k: params[k] for k in self._population_only_parameters
+        }
 
     @property
     def population_only_parameters(self) -> list[str]:
@@ -436,7 +480,9 @@ class GWPopulationRateModel:
         log_rate = self.rate_evolution.log_rate(z)
         log_dVc = jnp.log(self.cosmology.dVc_dz(z))
         log_jac = jnp.log(detector2source_jacobian(z, self.cosmology))
-        log_weights = log_mass + log_rate + log_dVc - jnp.log1p(z) - jnp.log(prior) - log_jac
+        log_weights = (
+            log_mass + log_rate + log_dVc - jnp.log1p(z) - jnp.log(prior) - log_jac
+        )
         if not self.scale_free:
             log_weights = log_weights + jnp.log(self.R0)
         return log_weights
@@ -444,19 +490,21 @@ class GWPopulationRateModel:
     def log_rate_injections(self, prior, luminosity_distance, mass_1, mass_2):
         return self.log_rate_PE(prior, luminosity_distance, mass_1, mass_2)
 
-    def expected_detections(self, prior, luminosity_distance, mass_1, mass_2, ntotal, Tobs):
+    def expected_detections(
+        self, prior, luminosity_distance, mass_1, mass_2, ntotal, Tobs
+    ):
         log_w = self.log_rate_injections(prior, luminosity_distance, mass_1, mass_2)
         pseudo_rate = jnp.exp(jnp.logaddexp.reduce(log_w)) / ntotal
         return pseudo_rate * Tobs
 
 
 __all__ = [
-    'CosmologyAdapter',
-    'detector2source',
-    'detector2source_jacobian',
-    'detector2source_jacobian_q',
-    'detector2source_jacobian_single_mass',
-    'MassPriorEvaluator',
-    'MadauRateEvaluator',
-    'GWPopulationRateModel',
+    "CosmologyAdapter",
+    "detector2source",
+    "detector2source_jacobian",
+    "detector2source_jacobian_q",
+    "detector2source_jacobian_single_mass",
+    "MassPriorEvaluator",
+    "MadauRateEvaluator",
+    "GWPopulationRateModel",
 ]

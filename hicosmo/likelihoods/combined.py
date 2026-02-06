@@ -108,7 +108,9 @@ class CombinedLikelihood(Likelihood):
         return requirements
 
     def theory(self, **kwargs) -> jnp.ndarray:
-        raise NotImplementedError("CombinedLikelihood does not define a single theory vector.")
+        raise NotImplementedError(
+            "CombinedLikelihood does not define a single theory vector."
+        )
 
     @property
     def nuisance_parameters(self):
@@ -130,7 +132,7 @@ class CombinedLikelihood(Likelihood):
         """String representation."""
         lik_names = []
         for lik in self._likelihoods:
-            name = getattr(lik, '__class__', type(lik)).__name__
+            name = getattr(lik, "__class__", type(lik)).__name__
             lik_names.append(name)
         return f"CombinedLikelihood({' + '.join(lik_names)})"
 

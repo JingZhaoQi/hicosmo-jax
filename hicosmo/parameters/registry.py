@@ -75,7 +75,7 @@ class ParameterRegistry:
         latex_label: Optional[str] = None,
         description: Optional[str] = None,
         bounds: Optional[tuple] = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Add a parameter to the registry.
@@ -123,7 +123,7 @@ class ParameterRegistry:
             latex_label=latex_label,
             description=description,
             bounds=bounds,
-            **kwargs
+            **kwargs,
         )
 
         self._params[name] = param
@@ -286,7 +286,7 @@ class ParameterRegistry:
         return [name for name, param in self._params.items() if param.is_fixed()]
 
     @classmethod
-    def from_defaults(cls, preset: str = 'planck2018') -> 'ParameterRegistry':
+    def from_defaults(cls, preset: str = "planck2018") -> "ParameterRegistry":
         """
         Create a parameter registry from preset cosmological parameters.
 
@@ -329,29 +329,27 @@ class ParameterRegistry:
         # Add all preset parameters as fixed (with priors so they can be set_free later)
         for name, config in defaults.items():
             # Create uniform prior from bounds for flexibility
-            bounds = config.get('bounds')
+            bounds = config.get("bounds")
             prior = None
             if bounds is not None:
-                prior = {
-                    'dist': 'uniform',
-                    'min': bounds[0],
-                    'max': bounds[1]
-                }
+                prior = {"dist": "uniform", "min": bounds[0], "max": bounds[1]}
 
             registry.add(
                 name,
-                value=config['value'],
+                value=config["value"],
                 free=False,  # Start as fixed (users call set_free() later)
                 prior=prior,  # Add prior so set_free() works
-                latex_label=config.get('latex'),
-                description=config.get('description'),
-                bounds=bounds
+                latex_label=config.get("latex"),
+                description=config.get("description"),
+                bounds=bounds,
             )
 
         return registry
 
     @classmethod
-    def from_cosmological_parameters(cls, cosmo_params, name: str = "cosmo_params") -> 'ParameterRegistry':
+    def from_cosmological_parameters(
+        cls, cosmo_params, name: str = "cosmo_params"
+    ) -> "ParameterRegistry":
         """
         Create a ParameterRegistry from CosmologicalParameters.
 
@@ -376,7 +374,7 @@ class ParameterRegistry:
             prior = None
             if spec and spec.min_val is not None and spec.max_val is not None:
                 bounds = (spec.min_val, spec.max_val)
-                prior = {'dist': 'uniform', 'min': spec.min_val, 'max': spec.max_val}
+                prior = {"dist": "uniform", "min": spec.min_val, "max": spec.max_val}
 
             registry.add(
                 param_name,
@@ -424,7 +422,7 @@ class ParameterRegistry:
         interface is established.
         """
         # Phase 1.2 implementation: check if likelihood has nuisance_parameters
-        if not hasattr(likelihood, 'nuisance_parameters'):
+        if not hasattr(likelihood, "nuisance_parameters"):
             # Silently skip if old-style likelihood without this interface
             return
 
@@ -477,12 +475,14 @@ class ParameterRegistry:
             Dictionary with all parameters.
         """
         return {
-            'name': self.name,
-            'parameters': {name: param.to_dict() for name, param in self._params.items()}
+            "name": self.name,
+            "parameters": {
+                name: param.to_dict() for name, param in self._params.items()
+            },
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ParameterRegistry':
+    def from_dict(cls, data: Dict[str, Any]) -> "ParameterRegistry":
         """
         Create registry from dictionary representation.
 
@@ -496,8 +496,8 @@ class ParameterRegistry:
         ParameterRegistry
             Registry instance.
         """
-        registry = cls(name=data.get('name', 'default'))
-        for name, param_data in data['parameters'].items():
+        registry = cls(name=data.get("name", "default"))
+        for name, param_data in data["parameters"].items():
             param = Parameter.from_dict(param_data)
             registry._params[name] = param
         return registry

@@ -63,10 +63,10 @@ class Likelihood(ABC):
 
     # Category identifier for data registry lookup
     _data_category: Optional[str] = None
-    
-    def __init__(self, name: Optional[str] = None,
-                 data_path: Optional[str] = None,
-                 **kwargs):
+
+    def __init__(
+        self, name: Optional[str] = None, data_path: Optional[str] = None, **kwargs
+    ):
         """
         Initialize the likelihood.
 
@@ -81,7 +81,7 @@ class Likelihood(ABC):
         self._initialized = False
         self._nuisance_params = {}
         self._requirements = {}
-        
+
     def initialize(self) -> None:
         """
         Initialize the likelihood by loading data and covariance matrix.
@@ -89,12 +89,12 @@ class Likelihood(ABC):
         """
         if self._initialized:
             return
-            
+
         self._load_data()
         self._setup_covariance()
         self._initialize_nuisance()
         self._initialized = True
-    
+
     def _load_data(self) -> None:
         """
         Load observational data.
@@ -133,7 +133,7 @@ class Likelihood(ABC):
             Dictionary of required quantities
         """
         return {}
-    
+
     def get_nuisance_params(self) -> Dict[str, Dict[str, Any]]:
         """
         Return the nuisance parameters for this likelihood (legacy interface).
@@ -194,7 +194,9 @@ class Likelihood(ABC):
 
     def _get_cosmology_class(self):
         """Return associated cosmology class if present."""
-        return getattr(self, "_cosmology_class", None) or getattr(self, "cosmology_class", None)
+        return getattr(self, "_cosmology_class", None) or getattr(
+            self, "cosmology_class", None
+        )
 
     def _prepare_params_for_jax(
         self,
@@ -289,7 +291,9 @@ class Likelihood(ABC):
         # Filter to cosmology constructor signature when nuisance parameters present.
         try:
             sig = inspect.signature(cosmo_class.__init__)
-            valid = {k: v for k, v in params.items() if k in sig.parameters and k != "self"}
+            valid = {
+                k: v for k, v in params.items() if k in sig.parameters and k != "self"
+            }
             model = cosmo_class(**valid)
         except (TypeError, ValueError):
             # Signature filtering failed, pass all params
@@ -405,33 +409,34 @@ class Likelihood(ABC):
         raise NotImplementedError(
             f"{self.__class__.__name__} must implement either theory() or logp()"
         )
-    
+
     @jit
-    def chi2(self, theory_vec: jnp.ndarray, data_vec: jnp.ndarray, 
-             inv_cov: jnp.ndarray) -> float:
+    def chi2(
+        self, theory_vec: jnp.ndarray, data_vec: jnp.ndarray, inv_cov: jnp.ndarray
+    ) -> float:
         """
         Compute chi-squared statistic.
-        
+
         Args:
             theory_vec: Theoretical predictions
             data_vec: Observational data
             inv_cov: Inverse covariance matrix
-            
+
         Returns:
             Chi-squared value
         """
         residual = data_vec - theory_vec
         return jnp.dot(residual, jnp.dot(inv_cov, residual))
-    
+
     def logp(self, **params_values) -> float:
         """
         Compute log-likelihood.
-        
+
         This is the main method called by the sampler.
-        
+
         Args:
             **params_values: Dictionary of all parameters (cosmological + nuisance)
-            
+
         Returns:
             Log-likelihood value
         """
@@ -440,16 +445,16 @@ class Likelihood(ABC):
         theory_vec = self.theory(**params_values)
         chi2_val = self.chi2(theory_vec, self.data_vec, self.inv_cov)
         return -0.5 * chi2_val
-    
+
     def logp_grad(self, **params_values) -> Tuple[float, Dict[str, float]]:
         """
         Compute log-likelihood and its gradient.
-        
+
         This method uses JAX's automatic differentiation.
-        
+
         Args:
             **params_values: Dictionary of all parameters
-            
+
         Returns:
             Tuple of (log-likelihood, gradient dictionary)
         """
@@ -461,37 +466,33 @@ class Likelihood(ABC):
 
         logp_val, grad_array = jax.value_and_grad(logp_func)(param_array)
         return logp_val, {n: grad_array[i] for i, n in enumerate(param_names)}
-    
+
     @classmethod
-    def from_yaml(cls, yaml_file: str) -> 'Likelihood':
+    def from_yaml(cls, yaml_file: str) -> "Likelihood":
         """
         Create likelihood instance from YAML configuration file.
-        
+
         Args:
             yaml_file: Path to YAML configuration file
-            
+
         Returns:
             Likelihood instance
         """
-        with open(yaml_file, 'r') as f:
+        with open(yaml_file, "r") as f:
             config = yaml.safe_load(f)
         return cls(**config)
-    
+
     def to_yaml(self, yaml_file: str) -> None:
         """
         Save likelihood configuration to YAML file.
-        
+
         Args:
             yaml_file: Path to output YAML file
         """
-        config = {
-            'name': self.name,
-            'data_path': self.data_path,
-            **self.config
-        }
-        with open(yaml_file, 'w') as f:
+        config = {"name": self.name, "data_path": self.data_path, **self.config}
+        with open(yaml_file, "w") as f:
             yaml.dump(config, f, default_flow_style=False)
-    
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name='{self.name}')"
 
@@ -620,6 +621,7 @@ class Likelihood(ABC):
         >>> MCMC(params, joint, chain_name='joint').run(...)
         """
         from .combined import CombinedLikelihood
+
         return CombinedLikelihood([self, other])
 
     def __radd__(self, other):
@@ -633,13 +635,13 @@ class GaussianLikelihood(Likelihood):
     """
     Base class for Gaussian likelihoods with simple chi2 computation.
     """
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.data_vec = None
         self.cov = None
         self.inv_cov = None
-        
+
     def _setup_covariance(self) -> None:
         """
         Setup covariance matrix and compute its inverse.
@@ -647,10 +649,10 @@ class GaussianLikelihood(Likelihood):
         """
         if self.cov is None:
             raise ValueError("Covariance matrix not loaded")
-        
+
         # Convert to JAX array
         self.cov = jnp.array(self.cov)
-        
+
         # Compute inverse (with regularization for numerical stability)
         try:
             self.inv_cov = jnp.linalg.inv(self.cov)
@@ -658,31 +660,33 @@ class GaussianLikelihood(Likelihood):
             # Add small regularization
             eps = 1e-10
             self.inv_cov = jnp.linalg.inv(self.cov + eps * jnp.eye(len(self.cov)))
-    
+
     def validate_data(self) -> bool:
         """
         Validate loaded data and covariance matrix.
-        
+
         Returns:
             True if data is valid, raises ValueError otherwise
         """
         if self.data_vec is None:
             raise ValueError("Data vector not loaded")
-        
+
         if self.cov is None:
             raise ValueError("Covariance matrix not loaded")
-        
+
         n_data = len(self.data_vec)
         if self.cov.shape != (n_data, n_data):
-            raise ValueError(f"Covariance shape {self.cov.shape} doesn't match data length {n_data}")
-        
+            raise ValueError(
+                f"Covariance shape {self.cov.shape} doesn't match data length {n_data}"
+            )
+
         # Check if covariance is symmetric
         if not jnp.allclose(self.cov, self.cov.T):
             raise ValueError("Covariance matrix is not symmetric")
-        
+
         # Check if covariance is positive definite
         eigenvals = jnp.linalg.eigvalsh(self.cov)
         if jnp.any(eigenvals <= 0):
             raise ValueError("Covariance matrix is not positive definite")
-        
+
         return True

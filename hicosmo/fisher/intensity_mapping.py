@@ -34,7 +34,7 @@ from ..utils.jax_tools import (
 # Model registry
 # -----------------------------------------------------------------------------
 
-SURVEY_CONFIG_DIR = Path(__file__).resolve().parent / 'surveys'
+SURVEY_CONFIG_DIR = Path(__file__).resolve().parent / "surveys"
 logger = get_logger(__name__)
 
 
@@ -43,7 +43,7 @@ def _safe_inverse(
     rcond: float = 1e-12,
     regularize: float = 0.0,
     name: str = "matrix",
-    warn: bool = True
+    warn: bool = True,
 ) -> jnp.ndarray:
     """Safely invert a matrix with optional regularization and pseudo-inverse fallback."""
     mat = jnp.asarray(matrix)
@@ -52,7 +52,12 @@ def _safe_inverse(
     if warn:
         cond = jnp.linalg.cond(mat)
         if cond > (1.0 / rcond):
-            logger.warning("Ill-conditioned %s (cond=%s); using pseudo-inverse (rcond=%s).", name, cond, rcond)
+            logger.warning(
+                "Ill-conditioned %s (cond=%s); using pseudo-inverse (rcond=%s).",
+                name,
+                cond,
+                rcond,
+            )
     return jnp.linalg.pinv(mat, rcond=rcond)
 
 
@@ -74,17 +79,21 @@ def _integrate_fisher_matrix(
 # -----------------------------------------------------------------------------
 
 
-def _build_redshift_function(cfg: Optional[Mapping[str, float]], default: float = 0.0) -> Callable[[jnp.ndarray], jnp.ndarray]:
+def _build_redshift_function(
+    cfg: Optional[Mapping[str, float]], default: float = 0.0
+) -> Callable[[jnp.ndarray], jnp.ndarray]:
     """Return ``f(z)`` defined by *cfg*."""
     if cfg is None:
-        return lambda z: jnp.full_like(jnp.asarray(z, dtype=float), default, dtype=float)
+        return lambda z: jnp.full_like(
+            jnp.asarray(z, dtype=float), default, dtype=float
+        )
 
-    kind = cfg.get('kind', 'constant').lower()
-    if kind == 'constant':
-        value = float(cfg.get('value', default))
+    kind = cfg.get("kind", "constant").lower()
+    if kind == "constant":
+        value = float(cfg.get("value", default))
         return lambda z: jnp.full_like(jnp.asarray(z, dtype=float), value, dtype=float)
-    if kind == 'polynomial':
-        coeffs = [float(c) for c in cfg.get('coefficients', [])]
+    if kind == "polynomial":
+        coeffs = [float(c) for c in cfg.get("coefficients", [])]
         if not coeffs:
             raise ValueError('Polynomial model requires "coefficients" entries')
 
@@ -96,51 +105,51 @@ def _build_redshift_function(cfg: Optional[Mapping[str, float]], default: float 
             return acc
 
         return poly
-    if kind == 'table':
-        table = cfg.get('values')
+    if kind == "table":
+        table = cfg.get("values")
         if not table:
             raise ValueError('Tabulated model requires "values" list with {z, value}')
-        z_nodes = jnp.array([float(entry['z']) for entry in table])
-        v_nodes = jnp.array([float(entry['value']) for entry in table])
+        z_nodes = jnp.array([float(entry["z"]) for entry in table])
+        v_nodes = jnp.array([float(entry["value"]) for entry in table])
 
         def interp(z: jnp.ndarray) -> jnp.ndarray:
             z = jnp.asarray(z, dtype=float)
             return jnp.interp(z, z_nodes, v_nodes)
 
         return interp
-    raise ValueError(f'Unknown redshift model kind: {kind}')
+    raise ValueError(f"Unknown redshift model kind: {kind}")
 
 
 @dataclass
 class SkyTemperatureModel:
-    kind: str = 'none'
+    kind: str = "none"
     value: float = 0.0
     T_ref: float = 60.0
     nu_ref_MHz: float = 300.0
     beta: float = 2.55
 
     @classmethod
-    def from_dict(cls, data: Optional[Mapping[str, float]]) -> 'SkyTemperatureModel':
+    def from_dict(cls, data: Optional[Mapping[str, float]]) -> "SkyTemperatureModel":
         if data is None:
-            return cls(kind='none')
+            return cls(kind="none")
         return cls(
-            kind=data.get('kind', 'power_law'),
-            value=float(data.get('value', 0.0)),
-            T_ref=float(data.get('T_ref_K', 60.0)),
-            nu_ref_MHz=float(data.get('nu_ref_MHz', 300.0)),
-            beta=float(data.get('beta', 2.55)),
+            kind=data.get("kind", "power_law"),
+            value=float(data.get("value", 0.0)),
+            T_ref=float(data.get("T_ref_K", 60.0)),
+            nu_ref_MHz=float(data.get("nu_ref_MHz", 300.0)),
+            beta=float(data.get("beta", 2.55)),
         )
 
     def __call__(self, z: jnp.ndarray | float) -> jnp.ndarray:
         z = jnp.asarray(z, dtype=float)
-        if self.kind == 'none':
+        if self.kind == "none":
             return jnp.zeros_like(z)
-        if self.kind == 'constant':
+        if self.kind == "constant":
             return jnp.full_like(z, self.value)
-        if self.kind == 'power_law':
-            nu_MHz = (1420.405751 / (1.0 + z))
+        if self.kind == "power_law":
+            nu_MHz = 1420.405751 / (1.0 + z)
             return self.T_ref * (self.nu_ref_MHz / nu_MHz) ** self.beta
-        raise ValueError(f'Unknown sky temperature model kind: {self.kind}')
+        raise ValueError(f"Unknown sky temperature model kind: {self.kind}")
 
 
 # -----------------------------------------------------------------------------
@@ -160,20 +169,27 @@ class InstrumentConfig:
     sky_temperature: SkyTemperatureModel
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, float]) -> 'InstrumentConfig':
-        required = ['ndish', 'dish_diameter_m', 'nbeam', 'survey_area_deg2', 'total_time_hours', 'channel_width_hz']
+    def from_dict(cls, data: Mapping[str, float]) -> "InstrumentConfig":
+        required = [
+            "ndish",
+            "dish_diameter_m",
+            "nbeam",
+            "survey_area_deg2",
+            "total_time_hours",
+            "channel_width_hz",
+        ]
         for key in required:
             if key not in data:
                 raise ValueError(f'Missing instrument field "{key}"')
         return cls(
-            ndish=int(data['ndish']),
-            dish_diameter_m=float(data['dish_diameter_m']),
-            nbeam=int(data['nbeam']),
-            survey_area_deg2=float(data['survey_area_deg2']),
-            total_time_hours=float(data['total_time_hours']),
-            channel_width_hz=float(data['channel_width_hz']),
-            system_temperature_K=float(data.get('system_temperature_K', 0.0)),
-            sky_temperature=SkyTemperatureModel.from_dict(data.get('sky_temperature')),
+            ndish=int(data["ndish"]),
+            dish_diameter_m=float(data["dish_diameter_m"]),
+            nbeam=int(data["nbeam"]),
+            survey_area_deg2=float(data["survey_area_deg2"]),
+            total_time_hours=float(data["total_time_hours"]),
+            channel_width_hz=float(data["channel_width_hz"]),
+            system_temperature_K=float(data.get("system_temperature_K", 0.0)),
+            sky_temperature=SkyTemperatureModel.from_dict(data.get("sky_temperature")),
         )
 
     @property
@@ -191,10 +207,14 @@ class RedshiftBin:
     delta_z: float
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, float], default_delta_z: float) -> 'RedshiftBin':
-        if 'z' not in data:
+    def from_dict(
+        cls, data: Mapping[str, float], default_delta_z: float
+    ) -> "RedshiftBin":
+        if "z" not in data:
             raise ValueError('Each redshift bin requires a "z" entry')
-        return cls(z=float(data['z']), delta_z=float(data.get('delta_z', default_delta_z)))
+        return cls(
+            z=float(data["z"]), delta_z=float(data.get("delta_z", default_delta_z))
+        )
 
 
 @dataclass
@@ -204,105 +224,126 @@ class IntensityMappingSurvey:
     redshift_bins: List[RedshiftBin]
     bias_fn: Callable[[jnp.ndarray], jnp.ndarray]
     omega_hi_fn: Callable[[jnp.ndarray], jnp.ndarray]
-    description: str = ''
+    description: str = ""
     # Deprecated fields (for backward compatibility with Schema v1.0)
     model: Optional[str] = None
     reference: Optional[Dict[str, float]] = None
     priors: Optional[Dict[str, float]] = None
 
     @classmethod
-    def from_file(cls, filename: Path | str) -> 'IntensityMappingSurvey':
-        with open(filename, 'r', encoding='utf-8') as handle:
+    def from_file(cls, filename: Path | str) -> "IntensityMappingSurvey":
+        with open(filename, "r", encoding="utf-8") as handle:
             data = yaml.safe_load(handle)
-        if 'name' not in data:
+        if "name" not in data:
             raise ValueError('Survey configuration must contain "name" field')
 
         # Check schema version to determine how to parse
-        metadata = data.get('metadata', {})
-        schema_version = metadata.get('schema_version', '1.0')
+        metadata = data.get("metadata", {})
+        schema_version = metadata.get("schema_version", "1.0")
 
-        if schema_version == '2.0':
+        if schema_version == "2.0":
             # Schema v2.0: Nested structure (instrument, observing, noise separate)
             # Merge fields from different sections for InstrumentConfig
             instrument_data = {}
 
             # From instrument section
-            if 'instrument' in data:
-                inst = data['instrument']
-                telescope_type = inst.get('telescope_type', 'single_dish')
+            if "instrument" in data:
+                inst = data["instrument"]
+                telescope_type = inst.get("telescope_type", "single_dish")
 
                 # Map different telescope types to unified parameters
-                if telescope_type in ('single_dish', 'interferometer_autocorr'):
+                if telescope_type in ("single_dish", "interferometer_autocorr"):
                     # Direct mapping (both use same parameter structure)
-                    instrument_data.update({
-                        'ndish': inst.get('ndish'),
-                        'dish_diameter_m': inst.get('dish_diameter_m'),
-                        'nbeam': inst.get('nbeam'),
-                    })
-                elif telescope_type == 'cylinder_array':
+                    instrument_data.update(
+                        {
+                            "ndish": inst.get("ndish"),
+                            "dish_diameter_m": inst.get("dish_diameter_m"),
+                            "nbeam": inst.get("nbeam"),
+                        }
+                    )
+                elif telescope_type == "cylinder_array":
                     # Map cylinder parameters to equivalent single-dish parameters
                     # ncylinders → ndish
                     # cylinder_length_m → dish_diameter_m (effective aperture)
                     # nfeeds → total feeds (distribute to nbeam)
-                    ncylinders = inst.get('ncylinders', 1)
-                    nfeeds_total = inst.get('nfeeds', 1)
-                    instrument_data.update({
-                        'ndish': ncylinders,
-                        'dish_diameter_m': inst.get('cylinder_length_m', inst.get('cylinder_width_m', 1.0)),
-                        'nbeam': nfeeds_total // ncylinders if ncylinders > 0 else 1,
-                    })
+                    ncylinders = inst.get("ncylinders", 1)
+                    nfeeds_total = inst.get("nfeeds", 1)
+                    instrument_data.update(
+                        {
+                            "ndish": ncylinders,
+                            "dish_diameter_m": inst.get(
+                                "cylinder_length_m", inst.get("cylinder_width_m", 1.0)
+                            ),
+                            "nbeam": (
+                                nfeeds_total // ncylinders if ncylinders > 0 else 1
+                            ),
+                        }
+                    )
                 else:
                     raise ValueError(f"Unknown telescope_type: {telescope_type}")
 
             # From observing section
-            if 'observing' in data:
-                observing = data['observing']
-                instrument_data['survey_area_deg2'] = observing.get('survey_area_deg2')
-                instrument_data['total_time_hours'] = observing.get('total_time_hours')
+            if "observing" in data:
+                observing = data["observing"]
+                instrument_data["survey_area_deg2"] = observing.get("survey_area_deg2")
+                instrument_data["total_time_hours"] = observing.get("total_time_hours")
 
                 # Handle channel_width - can be in MHz or Hz
-                if 'channel_width_hz' in observing:
-                    instrument_data['channel_width_hz'] = observing['channel_width_hz']
-                elif 'channel_width_MHz' in observing:
-                    instrument_data['channel_width_hz'] = observing['channel_width_MHz'] * 1e6
+                if "channel_width_hz" in observing:
+                    instrument_data["channel_width_hz"] = observing["channel_width_hz"]
+                elif "channel_width_MHz" in observing:
+                    instrument_data["channel_width_hz"] = (
+                        observing["channel_width_MHz"] * 1e6
+                    )
 
             # From noise section
-            if 'noise' in data:
-                noise = data['noise']
-                instrument_data['system_temperature_K'] = noise.get('system_temperature_K', 0.0)
-                instrument_data['sky_temperature'] = noise.get('sky_temperature')
+            if "noise" in data:
+                noise = data["noise"]
+                instrument_data["system_temperature_K"] = noise.get(
+                    "system_temperature_K", 0.0
+                )
+                instrument_data["sky_temperature"] = noise.get("sky_temperature")
 
             instrument_cfg = InstrumentConfig.from_dict(instrument_data)
 
             # Parse redshift bins (Schema v2.0 format)
-            redshift_bins_data = data.get('redshift_bins', {})
-            default_delta_z = float(redshift_bins_data.get('default_delta_z', 0.1))
-            centers = redshift_bins_data.get('centers', [])
+            redshift_bins_data = data.get("redshift_bins", {})
+            default_delta_z = float(redshift_bins_data.get("default_delta_z", 0.1))
+            centers = redshift_bins_data.get("centers", [])
             bins = [RedshiftBin(z=float(z), delta_z=default_delta_z) for z in centers]
 
             # Parse HI tracers (Schema v2.0 format)
-            hi_tracers = data.get('hi_tracers', {})
-            bias_fn = _build_redshift_function(hi_tracers.get('bias'), default=1.0)
-            omega_hi_fn = _build_redshift_function(hi_tracers.get('density'), default=4.8e-4)
+            hi_tracers = data.get("hi_tracers", {})
+            bias_fn = _build_redshift_function(hi_tracers.get("bias"), default=1.0)
+            omega_hi_fn = _build_redshift_function(
+                hi_tracers.get("density"), default=4.8e-4
+            )
 
             # Schema v2.0 should NOT have model/reference/priors
             reference = {}
             priors = {}
-            model = 'lcdm'  # Default, should be overridden by explicit cosmology parameter
+            model = (
+                "lcdm"  # Default, should be overridden by explicit cosmology parameter
+            )
 
         else:
             # Schema v1.0: Flat structure (backward compatibility)
-            instrument_cfg = InstrumentConfig.from_dict(data['instrument'])
-            default_delta_z = float(data.get('default_delta_z', 0.1))
-            bins = [RedshiftBin.from_dict(entry, default_delta_z) for entry in data['redshift_bins']]
-            bias_fn = _build_redshift_function(data.get('hi_bias'), default=1.0)
-            omega_hi_fn = _build_redshift_function(data.get('hi_density'), default=4.8e-4)
-            reference = {k: float(v) for k, v in data.get('reference', {}).items()}
-            priors = {k: float(v) for k, v in data.get('priors', {}).items()}
-            model = data.get('model', 'lcdm')
+            instrument_cfg = InstrumentConfig.from_dict(data["instrument"])
+            default_delta_z = float(data.get("default_delta_z", 0.1))
+            bins = [
+                RedshiftBin.from_dict(entry, default_delta_z)
+                for entry in data["redshift_bins"]
+            ]
+            bias_fn = _build_redshift_function(data.get("hi_bias"), default=1.0)
+            omega_hi_fn = _build_redshift_function(
+                data.get("hi_density"), default=4.8e-4
+            )
+            reference = {k: float(v) for k, v in data.get("reference", {}).items()}
+            priors = {k: float(v) for k, v in data.get("priors", {}).items()}
+            model = data.get("model", "lcdm")
 
         return cls(
-            name=data['name'],
+            name=data["name"],
             model=model,
             reference=reference,
             instrument=instrument_cfg,
@@ -310,7 +351,7 @@ class IntensityMappingSurvey:
             bias_fn=bias_fn,
             omega_hi_fn=omega_hi_fn,
             priors=priors,
-            description=data.get('description', ''),
+            description=data.get("description", ""),
         )
 
 
@@ -347,47 +388,47 @@ class GrowthScenario:
 
     # GR fiducial values
     GR_FIDUCIAL = {
-        'gamma0': 0.55,
-        'gamma1': 0.0,
-        'eta0': 0.0,
-        'eta1': 0.0,
+        "gamma0": 0.55,
+        "gamma1": 0.0,
+        "eta0": 0.0,
+        "eta1": 0.0,
     }
 
     # Scenario definitions (Bull 2016 Table 4)
     SCENARIOS = {
-        'gr': {
-            'free_params': [],
-            'fixed_params': {'gamma0': 0.55, 'gamma1': 0.0, 'eta0': 0.0, 'eta1': 0.0},
-            'description': 'General Relativity (no free growth parameters)',
+        "gr": {
+            "free_params": [],
+            "fixed_params": {"gamma0": 0.55, "gamma1": 0.0, "eta0": 0.0, "eta1": 0.0},
+            "description": "General Relativity (no free growth parameters)",
         },
-        'gamma0_free': {
-            'free_params': ['gamma0'],
-            'fixed_params': {'gamma1': 0.0, 'eta0': 0.0, 'eta1': 0.0},
-            'description': 'γ₀ free, others fixed at GR values',
+        "gamma0_free": {
+            "free_params": ["gamma0"],
+            "fixed_params": {"gamma1": 0.0, "eta0": 0.0, "eta1": 0.0},
+            "description": "γ₀ free, others fixed at GR values",
         },
-        'gamma1_free': {
-            'free_params': ['gamma1'],
-            'fixed_params': {'gamma0': 0.55, 'eta0': 0.0, 'eta1': 0.0},
-            'description': 'γ₁ free, others fixed at GR values',
+        "gamma1_free": {
+            "free_params": ["gamma1"],
+            "fixed_params": {"gamma0": 0.55, "eta0": 0.0, "eta1": 0.0},
+            "description": "γ₁ free, others fixed at GR values",
         },
-        'eta0_free': {
-            'free_params': ['eta0'],
-            'fixed_params': {'gamma0': 0.55, 'gamma1': 0.0, 'eta1': 0.0},
-            'description': 'η₀ free, others fixed at GR values',
+        "eta0_free": {
+            "free_params": ["eta0"],
+            "fixed_params": {"gamma0": 0.55, "gamma1": 0.0, "eta1": 0.0},
+            "description": "η₀ free, others fixed at GR values",
         },
-        'eta1_free': {
-            'free_params': ['eta1'],
-            'fixed_params': {'gamma0': 0.55, 'gamma1': 0.0, 'eta0': 0.0},
-            'description': 'η₁ free, others fixed at GR values',
+        "eta1_free": {
+            "free_params": ["eta1"],
+            "fixed_params": {"gamma0": 0.55, "gamma1": 0.0, "eta0": 0.0},
+            "description": "η₁ free, others fixed at GR values",
         },
-        'all_free': {
-            'free_params': ['gamma0', 'gamma1', 'eta0', 'eta1'],
-            'fixed_params': {},
-            'description': 'All growth parameters free (most general)',
+        "all_free": {
+            "free_params": ["gamma0", "gamma1", "eta0", "eta1"],
+            "fixed_params": {},
+            "description": "All growth parameters free (most general)",
         },
     }
 
-    def __init__(self, scenario: str = 'gamma0_free'):
+    def __init__(self, scenario: str = "gamma0_free"):
         """Initialize growth scenario.
 
         Parameters
@@ -396,7 +437,7 @@ class GrowthScenario:
             Scenario name (default: 'gamma0_free')
         """
         if scenario not in self.SCENARIOS:
-            available = ', '.join(sorted(self.SCENARIOS.keys()))
+            available = ", ".join(sorted(self.SCENARIOS.keys()))
             raise ValueError(
                 f'Unknown growth scenario "{scenario}". Available: {available}'
             )
@@ -404,9 +445,9 @@ class GrowthScenario:
         self.scenario = scenario
         config = self.SCENARIOS[scenario]
 
-        self.free_params = config['free_params']
-        self.fixed_params = config['fixed_params']
-        self.description = config['description']
+        self.free_params = config["free_params"]
+        self.fixed_params = config["fixed_params"]
+        self.description = config["description"]
 
         # Build fiducial values (combine fixed + GR defaults for free params)
         self.fiducial_values = self.GR_FIDUCIAL.copy()
@@ -440,7 +481,7 @@ class GrowthScenario:
             else:
                 raise ValueError(
                     f'Parameter "{param_name}" is not in the growth model. '
-                    f'Valid: {list(self.fiducial_values.keys())}'
+                    f"Valid: {list(self.fiducial_values.keys())}"
                 )
 
         return params
@@ -451,7 +492,7 @@ class GrowthScenario:
 
     def __repr__(self) -> str:
         """String representation."""
-        free_str = ', '.join(self.free_params) if self.free_params else 'none'
+        free_str = ", ".join(self.free_params) if self.free_params else "none"
         return (
             f'GrowthScenario(scenario="{self.scenario}", '
             f'free=[{free_str}], description="{self.description}")'
@@ -492,7 +533,7 @@ class GrowthModel:
         gamma0: float = 0.55,
         gamma1: float = 0.0,
         eta0: float = 0.0,
-        eta1: float = 0.0
+        eta1: float = 0.0,
     ) -> None:
         self.cosmology = cosmology
         self.gamma0 = gamma0
@@ -523,7 +564,9 @@ class GrowthModel:
     def omega_m(self, z: jnp.ndarray | float) -> jnp.ndarray:
         """Matter density parameter Ω_m(z)."""
         z = jnp.asarray(z, dtype=float)
-        numerator = jnp.asarray(self.cosmology.params['Omega_m'], dtype=float) * (1.0 + z) ** 3
+        numerator = (
+            jnp.asarray(self.cosmology.params["Omega_m"], dtype=float) * (1.0 + z) ** 3
+        )
         Ez = jnp.asarray(self.cosmology.E_z(z))
         return numerator / Ez**2
 
@@ -542,7 +585,7 @@ class GrowthModel:
         gamma_a = self.gamma_of_a(a)
         eta_a = self.eta_of_a(a)
 
-        return omega_m_z ** gamma_a * (1.0 + eta_a)
+        return omega_m_z**gamma_a * (1.0 + eta_a)
 
     def growth_factor(self, z: jnp.ndarray | float) -> jnp.ndarray:
         z = jnp.asarray(z, dtype=float)
@@ -576,8 +619,12 @@ class GrowthModel:
         Or equivalently: ∂σ₈/∂σ₈,0 = D(z)
         """
         # Try sigma8_0 first (Bull 2016 convention), fall back to sigma8
-        sigma8_0 = jnp.asarray(self.cosmology.params.get('sigma8_0',
-                         self.cosmology.params.get('sigma8', 0.834)), dtype=float)
+        sigma8_0 = jnp.asarray(
+            self.cosmology.params.get(
+                "sigma8_0", self.cosmology.params.get("sigma8", 0.834)
+            ),
+            dtype=float,
+        )
         return sigma8_0 * self.growth_factor(z)
 
     def f_sigma8(self, z: float) -> jnp.ndarray:
@@ -597,12 +644,14 @@ class GrowthModel:
 class LinearPowerSpectrum:
     def __init__(self, cosmology) -> None:
         self.cosmology = cosmology
-        self.h = jnp.asarray(cosmology.params['H0'], dtype=float) / 100.0
-        self.n_s = jnp.asarray(cosmology.params.get('n_s', 0.962), dtype=float)
-        self.sigma8 = jnp.asarray(cosmology.params.get('sigma8', 0.834), dtype=float)
-        self.omega_m = jnp.asarray(cosmology.params['Omega_m'], dtype=float)
-        self.omega_b = jnp.asarray(cosmology.params.get('Omega_b', 0.049), dtype=float)
-        self.theta_cmb = jnp.asarray(cosmology.params.get('T_cmb', 2.7255), dtype=float) / 2.7
+        self.h = jnp.asarray(cosmology.params["H0"], dtype=float) / 100.0
+        self.n_s = jnp.asarray(cosmology.params.get("n_s", 0.962), dtype=float)
+        self.sigma8 = jnp.asarray(cosmology.params.get("sigma8", 0.834), dtype=float)
+        self.omega_m = jnp.asarray(cosmology.params["Omega_m"], dtype=float)
+        self.omega_b = jnp.asarray(cosmology.params.get("Omega_b", 0.049), dtype=float)
+        self.theta_cmb = (
+            jnp.asarray(cosmology.params.get("T_cmb", 2.7255), dtype=float) / 2.7
+        )
         self._normalisation = self._normalise()
 
     def _transfer(self, k: jnp.ndarray) -> jnp.ndarray:
@@ -614,11 +663,11 @@ class LinearPowerSpectrum:
         q = k / (13.41 * h) * theta_cmb**2
         beta_c = 1.0 / (1.0 + 0.944 / (1.0 + (458.0 * omega_m_h2) ** 0.708))
         L0 = jnp.log(jnp.e + 1.8 * beta_c * q)
-        C0 = 14.4 + 325.0 / (1.0 + 60.5 * q ** 1.08)
+        C0 = 14.4 + 325.0 / (1.0 + 60.5 * q**1.08)
         return L0 / (L0 + C0 * q**2)
 
     def _unnormalised(self, k: jnp.ndarray) -> jnp.ndarray:
-        return (k ** self.n_s) * self._transfer(k) ** 2
+        return (k**self.n_s) * self._transfer(k) ** 2
 
     def _normalise(self) -> jnp.ndarray:
         R8 = 8.0  # h^-1 Mpc
@@ -636,11 +685,11 @@ class LinearPowerSpectrum:
             q = k / (13.41 * h) * theta_cmb**2
             beta_c = 1.0 / (1.0 + 0.944 / (1.0 + (458.0 * omega_m_h2) ** 0.708))
             L0 = jnp.log(jnp.e + 1.8 * beta_c * q)
-            C0 = 14.4 + 325.0 / (1.0 + 60.5 * q ** 1.08)
+            C0 = 14.4 + 325.0 / (1.0 + 60.5 * q**1.08)
             return L0 / (L0 + C0 * q**2)
 
         def unnormalised(k: jnp.ndarray) -> jnp.ndarray:
-            return (k ** n_s) * transfer(k) ** 2
+            return (k**n_s) * transfer(k) ** 2
 
         def window(x: jnp.ndarray) -> jnp.ndarray:
             x = jnp.asarray(x)
@@ -669,15 +718,12 @@ class LinearPowerSpectrum:
 
 
 def _beam_fwhm_m(z: float, instrument: InstrumentConfig) -> jnp.ndarray:
-    wavelength = (299792458.0 / (1420.405751e6 / (1.0 + z)))
+    wavelength = 299792458.0 / (1420.405751e6 / (1.0 + z))
     return 1.22 * wavelength / instrument.dish_diameter_m
 
 
 def _survey_volume_params(
-    z_c: float,
-    delta_z: float,
-    instrument: InstrumentConfig,
-    cosmology
+    z_c: float, delta_z: float, instrument: InstrumentConfig, cosmology
 ) -> jnp.ndarray:
     z_min = jnp.maximum(0.0, z_c - delta_z / 2.0)
     z_max = z_c + delta_z / 2.0
@@ -691,11 +737,15 @@ def _survey_volume_params(
     return instrument.solid_angle * shell
 
 
-def _survey_volume(bin_cfg: RedshiftBin, instrument: InstrumentConfig, cosmology) -> jnp.ndarray:
+def _survey_volume(
+    bin_cfg: RedshiftBin, instrument: InstrumentConfig, cosmology
+) -> jnp.ndarray:
     return _survey_volume_params(bin_cfg.z, bin_cfg.delta_z, instrument, cosmology)
 
 
-def _pixel_volume(z: float, theta_b: float, instrument: InstrumentConfig, cosmology) -> jnp.ndarray:
+def _pixel_volume(
+    z: float, theta_b: float, instrument: InstrumentConfig, cosmology
+) -> jnp.ndarray:
     dz_pix = (1.0 + z) ** 2 * instrument.channel_width_hz / 1420.405751e6
     dchi_dz = c_km_s / jnp.asarray(cosmology.H_z(z))
     chi = jnp.asarray(cosmology.comoving_distance(z))
@@ -703,17 +753,25 @@ def _pixel_volume(z: float, theta_b: float, instrument: InstrumentConfig, cosmol
     return omega_pix * dchi_dz * chi**2 * dz_pix
 
 
-def _noise_temperature(z: float, theta_b: float, instrument: InstrumentConfig) -> jnp.ndarray:
+def _noise_temperature(
+    z: float, theta_b: float, instrument: InstrumentConfig
+) -> jnp.ndarray:
     t_sky = instrument.sky_temperature(z)
     t_sys = instrument.system_temperature_K + t_sky
     omega_pix = 1.13 * theta_b**2
-    t_pix = instrument.total_time_seconds * (omega_pix / instrument.solid_angle) * instrument.ndish * instrument.nbeam
+    t_pix = (
+        instrument.total_time_seconds
+        * (omega_pix / instrument.solid_angle)
+        * instrument.ndish
+        * instrument.nbeam
+    )
     return t_sys / jnp.sqrt(instrument.channel_width_hz * t_pix)
 
 
 @dataclass
 class FisherResult:
     """Low-level Fisher result for observable constraints (internal use)."""
+
     z: jnp.ndarray
     covariance_blocks: jnp.ndarray
     sigma_ln_fsigma8: jnp.ndarray
@@ -778,11 +836,11 @@ class FisherForecastResult:
     def to_dict(self) -> Dict:
         """Convert to dictionary (compatible with old API)."""
         return {
-            'params': self.params,
-            'errors': jnp.array([self.errors[p] for p in self.params]),
-            'fisher': self.fisher_matrix,
-            'covariance': self.covariance,
-            'correlation': self.correlation,
+            "params": self.params,
+            "errors": jnp.array([self.errors[p] for p in self.params]),
+            "fisher": self.fisher_matrix,
+            "covariance": self.covariance,
+            "correlation": self.correlation,
         }
 
     def get_latex_labels(self) -> List[str]:
@@ -922,40 +980,41 @@ class IntensityMappingFisher:
 
         # Compute parameter forecast using existing method
         result_dict = fisher_calculator.parameter_forecast(
-            params=params,
-            marginalize_over=marginalize_over
+            params=params, marginalize_over=marginalize_over
         )
 
         # Build user-friendly result object
         errors_dict = {
-            param: float(result_dict['errors'][i])
-            for i, param in enumerate(result_dict['params'])
+            param: float(result_dict["errors"][i])
+            for i, param in enumerate(result_dict["params"])
         }
 
         # Compute correlation matrix
-        cov = result_dict['covariance']
+        cov = result_dict["covariance"]
         std_devs = jnp.sqrt(jnp.diag(cov))
         correlation = cov / jnp.outer(std_devs, std_devs)
 
         # Get cosmology summary
         cosmology_summary = {
-            'model': type(cosmology).__name__,
-            **{k: float(v) if isinstance(v, numbers.Real) else v
-               for k, v in cosmology.params.items()}
+            "model": type(cosmology).__name__,
+            **{
+                k: float(v) if isinstance(v, numbers.Real) else v
+                for k, v in cosmology.params.items()
+            },
         }
 
         # Extract LaTeX labels from cosmology model's get_parameters()
         latex_labels = {}
-        if hasattr(cosmology, 'get_parameters'):
+        if hasattr(cosmology, "get_parameters"):
             for p in cosmology.get_parameters():
-                if hasattr(p, 'latex_label') and p.latex_label:
+                if hasattr(p, "latex_label") and p.latex_label:
                     latex_labels[p.name] = p.latex_label
 
         return FisherForecastResult(
-            params=list(result_dict['params']),
+            params=list(result_dict["params"]),
             errors=errors_dict,
-            fisher_matrix=result_dict['fisher'],
-            covariance=result_dict['covariance'],
+            fisher_matrix=result_dict["fisher"],
+            covariance=result_dict["covariance"],
             correlation=correlation,
             survey_name=survey.name,
             cosmology_summary=cosmology_summary,
@@ -1015,7 +1074,7 @@ class IntensityMappingFisher:
         - Bull et al. (2015), ApJ 803, 21
         """
         Ez = jnp.asarray(self.cosmology.E_z(z))
-        h = jnp.asarray(self.cosmology.params['H0']) / 100.0
+        h = jnp.asarray(self.cosmology.params["H0"]) / 100.0
         omega_hi = jnp.asarray(self.survey.omega_hi_fn(z))
 
         # Standard 21cm formula: T_b in mK
@@ -1028,18 +1087,28 @@ class IntensityMappingFisher:
         self,
         z: jnp.ndarray,
         delta_z: jnp.ndarray,
-    ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    ) -> Tuple[
+        jnp.ndarray,
+        jnp.ndarray,
+        jnp.ndarray,
+        jnp.ndarray,
+        jnp.ndarray,
+        jnp.ndarray,
+        jnp.ndarray,
+    ]:
         theta_b = _beam_fwhm_m(z, self.survey.instrument)
-        volume = _survey_volume_params(z, delta_z, self.survey.instrument, self.cosmology)
+        volume = _survey_volume_params(
+            z, delta_z, self.survey.instrument, self.cosmology
+        )
         sigma_pix = _noise_temperature(z, theta_b, self.survey.instrument)
         V_pix = _pixel_volume(z, theta_b, self.survey.instrument, self.cosmology)
 
         kmin = (2.0 * jnp.pi) / volume ** (1.0 / 3.0)
-        ns = jnp.asarray(self.cosmology.params.get('n_s', 0.962))
+        ns = jnp.asarray(self.cosmology.params.get("n_s", 0.962))
         kmax = 0.14 * (1.0 + z) ** (2.0 / (2.0 + ns))
         k_grid = jnp.linspace(kmin, kmax, 256)
         mu_grid = jnp.linspace(-1.0, 1.0, 200)
-        kk, mu = jnp.meshgrid(k_grid, mu_grid, indexing='ij')
+        kk, mu = jnp.meshgrid(k_grid, mu_grid, indexing="ij")
 
         bias = jnp.asarray(self.survey.bias_fn(z))
         f_growth = jnp.asarray(self.growth.growth_rate(z))
@@ -1054,7 +1123,7 @@ class IntensityMappingFisher:
 
         # FIXED: P_m already includes σ8² normalization via growth_factor²
         # Do NOT multiply by sigma8_z² again (Bug Fix #1)
-        P_signal = (T_b**2) * (bias ** 2) * (1.0 + beta * mu**2) ** 2 * P_m[:, None]
+        P_signal = (T_b**2) * (bias**2) * (1.0 + beta * mu**2) ** 2 * P_m[:, None]
         chi = jnp.asarray(self.cosmology.comoving_distance(z))
         one_minus_mu2 = 1.0 - mu**2
         k_perp = kk * jnp.sqrt(one_minus_mu2)
@@ -1069,8 +1138,16 @@ class IntensityMappingFisher:
         # FIXED: Correct bias derivative formula (Bug Fix #2)
         # P ∝ b² × (1 + βμ²)², so ∂ln(P)/∂ln(b) = 2/(1 + βμ²)
         dlnP_dlnbs = 2.0 / (1.0 + beta * mu**2)
-        dlnP_dlnDA = -2.0 + 4.0 * mu**2 * one_minus_mu2 * beta / (1.0 + beta * mu**2) - one_minus_mu2 * dlogP_dlogk[:, None]
-        dlnP_dlnH = 1.0 + 4.0 * mu**2 * one_minus_mu2 * beta / (1.0 + beta * mu**2) + mu**2 * dlogP_dlogk[:, None]
+        dlnP_dlnDA = (
+            -2.0
+            + 4.0 * mu**2 * one_minus_mu2 * beta / (1.0 + beta * mu**2)
+            - one_minus_mu2 * dlogP_dlogk[:, None]
+        )
+        dlnP_dlnH = (
+            1.0
+            + 4.0 * mu**2 * one_minus_mu2 * beta / (1.0 + beta * mu**2)
+            + mu**2 * dlogP_dlogk[:, None]
+        )
 
         weights = (kk**2) * V_eff / (8.0 * jnp.pi**2)
         derivatives = jnp.stack([dlnP_dlnfs, dlnP_dlnbs, dlnP_dlnDA, dlnP_dlnH], axis=0)
@@ -1078,19 +1155,23 @@ class IntensityMappingFisher:
 
         return fisher, bias, beta, f_sigma8, sigma8_z, volume, sigma_pix
 
-    def fisher_per_bin(self, bin_cfg: RedshiftBin) -> Tuple[jnp.ndarray, Dict[str, float]]:
-        fisher, bias, beta, f_sigma8, sigma8_z, volume, sigma_pix = self._fisher_per_bin_terms(
-            jnp.asarray(bin_cfg.z, dtype=float),
-            jnp.asarray(bin_cfg.delta_z, dtype=float),
+    def fisher_per_bin(
+        self, bin_cfg: RedshiftBin
+    ) -> Tuple[jnp.ndarray, Dict[str, float]]:
+        fisher, bias, beta, f_sigma8, sigma8_z, volume, sigma_pix = (
+            self._fisher_per_bin_terms(
+                jnp.asarray(bin_cfg.z, dtype=float),
+                jnp.asarray(bin_cfg.delta_z, dtype=float),
+            )
         )
         cov = _safe_inverse(fisher, name="bin fisher")
         return cov, {
-            'bias': bias,
-            'beta': beta,
-            'f_sigma8': f_sigma8,
-            'sigma8_z': sigma8_z,
-            'volume': volume,
-            'sigma_pix': sigma_pix,
+            "bias": bias,
+            "beta": beta,
+            "f_sigma8": f_sigma8,
+            "sigma8_z": sigma8_z,
+            "volume": volume,
+            "sigma_pix": sigma_pix,
         }
 
     def compute_observable_constraints(self) -> FisherResult:
@@ -1115,7 +1196,9 @@ class IntensityMappingFisher:
         """
         z = jnp.array([b.z for b in self.survey.redshift_bins], dtype=float)
         delta_z = jnp.array([b.delta_z for b in self.survey.redshift_bins], dtype=float)
-        fisher_stack, _, _, _, _, _, _ = jax.vmap(self._fisher_per_bin_terms)(z, delta_z)
+        fisher_stack, _, _, _, _, _, _ = jax.vmap(self._fisher_per_bin_terms)(
+            z, delta_z
+        )
         covs_arr = jax.vmap(lambda m: jnp.linalg.pinv(m, rcond=1e-12))(fisher_stack)
         errors = jnp.sqrt(jnp.diagonal(covs_arr, axis1=1, axis2=2))
         return FisherResult(
@@ -1123,7 +1206,7 @@ class IntensityMappingFisher:
             covariance_blocks=covs_arr,
             sigma_ln_fsigma8=errors[:, 0],
             sigma_ln_DA=errors[:, 2],  # Index 2 now (0=fσ8, 1=bσ8, 2=DA, 3=H)
-            sigma_ln_H=errors[:, 3],   # Index 3 now
+            sigma_ln_H=errors[:, 3],  # Index 3 now
         )
 
     # ------------------------------------------------------------------
@@ -1169,7 +1252,7 @@ class IntensityMappingFisher:
 
         return jnp.array(values)
 
-    def _clone(self, param_updates: Mapping[str, float]) -> 'IntensityMappingFisher':
+    def _clone(self, param_updates: Mapping[str, float]) -> "IntensityMappingFisher":
         """Clone this Fisher calculator with updated cosmological parameters.
 
         Parameters
@@ -1184,11 +1267,11 @@ class IntensityMappingFisher:
         """
         # Get current cosmology parameters (base parameters only)
         params = {}
-        if hasattr(self.cosmology, 'params'):
+        if hasattr(self.cosmology, "params"):
             current = self.cosmology.params
-            if hasattr(current, '_given'):
+            if hasattr(current, "_given"):
                 params = dict(current._given)
-            elif hasattr(current, 'get_all_parameters'):
+            elif hasattr(current, "get_all_parameters"):
                 params = dict(current.get_all_parameters())
             else:
                 try:
@@ -1209,7 +1292,7 @@ class IntensityMappingFisher:
         params: Sequence[str],
         step_fraction: float = 1e-3,
         marginalize_bias: bool = True,
-        verbose: bool = False
+        verbose: bool = False,
     ) -> Tuple[jnp.ndarray, jnp.ndarray]:
         """
         Compute derivative matrix for parameter forecast.
@@ -1234,22 +1317,36 @@ class IntensityMappingFisher:
         derivatives = []
 
         for name in params:
-            if name == 'gamma':
+            if name == "gamma":
                 eps = step_fraction
-                plus = IntensityMappingFisher(self.survey, self.cosmology, gamma=self.gamma + eps)
-                minus = IntensityMappingFisher(self.survey, self.cosmology, gamma=self.gamma - eps)
-                deriv = (plus.observable_vector() - minus.observable_vector()) / (2.0 * eps)
+                plus = IntensityMappingFisher(
+                    self.survey, self.cosmology, gamma=self.gamma + eps
+                )
+                minus = IntensityMappingFisher(
+                    self.survey, self.cosmology, gamma=self.gamma - eps
+                )
+                deriv = (plus.observable_vector() - minus.observable_vector()) / (
+                    2.0 * eps
+                )
             else:
                 # Get base value from cosmology parameters (NEW API)
                 if name not in self.cosmology.params:
-                    raise ValueError(f"Parameter '{name}' not found in cosmology.params. "
-                                   f"Available: {list(self.cosmology.params.keys())}")
+                    raise ValueError(
+                        f"Parameter '{name}' not found in cosmology.params. "
+                        f"Available: {list(self.cosmology.params.keys())}"
+                    )
                 base_value = float(self.cosmology.params[name])
                 # For parameters near zero, use absolute step instead of relative
-                eps = step_fraction * abs(base_value) if abs(base_value) > 1e-10 else step_fraction
+                eps = (
+                    step_fraction * abs(base_value)
+                    if abs(base_value) > 1e-10
+                    else step_fraction
+                )
                 plus = self._clone({name: base_value + eps})
                 minus = self._clone({name: base_value - eps})
-                deriv = (plus.observable_vector() - minus.observable_vector()) / (2.0 * eps)
+                deriv = (plus.observable_vector() - minus.observable_vector()) / (
+                    2.0 * eps
+                )
             derivatives.append(deriv)
 
         derivative_matrix = jnp.column_stack(derivatives)
@@ -1263,7 +1360,9 @@ class IntensityMappingFisher:
             keep_indices = []
             for i in range(n_bins):
                 base = i * 4
-                keep_indices.extend([base + 0, base + 2, base + 3])  # Skip base+1 (bias)
+                keep_indices.extend(
+                    [base + 0, base + 2, base + 3]
+                )  # Skip base+1 (bias)
 
             keep_idx = jnp.array(keep_indices)
             derivative_matrix = derivative_matrix[keep_idx, :]
@@ -1271,7 +1370,9 @@ class IntensityMappingFisher:
 
             if verbose:
                 logger.info("\n✓ Derivative matrix marginalization:")
-                logger.info("  Removed bias derivatives, shape: %s", derivative_matrix.shape)
+                logger.info(
+                    "  Removed bias derivatives, shape: %s", derivative_matrix.shape
+                )
 
         return derivative_matrix, base_vector
 
@@ -1279,7 +1380,7 @@ class IntensityMappingFisher:
         self,
         params: Sequence[str],
         marginalize_over: Optional[Sequence[str]] = None,
-        verbose: bool = False
+        verbose: bool = False,
     ) -> Dict[str, jnp.ndarray]:
         """
         Compute parameter forecast constraints from Fisher matrix.
@@ -1354,11 +1455,15 @@ class IntensityMappingFisher:
                 # Marginalize over bias (index 1 in the 4-element observable vector)
                 # Keep indices [0, 2, 3] corresponding to (fσ8, DA, H)
                 keep_indices = [0, 2, 3]
-                cov_3x3 = cov_4x4[jnp.ix_(jnp.array(keep_indices), jnp.array(keep_indices))]
+                cov_3x3 = cov_4x4[
+                    jnp.ix_(jnp.array(keep_indices), jnp.array(keep_indices))
+                ]
 
                 # Place into marginalized covariance matrix
                 start = idx * 3
-                cov_marginalized = cov_marginalized.at[start:start + 3, start:start + 3].set(cov_3x3)
+                cov_marginalized = cov_marginalized.at[
+                    start : start + 3, start : start + 3
+                ].set(cov_3x3)
 
                 if idx == 0 and verbose:
                     log("\nBin %s marginalization example:", idx)
@@ -1372,11 +1477,16 @@ class IntensityMappingFisher:
         else:
             # Fallback: no marginalization if block_dim != 4
             if verbose:
-                log("⚠ Block dimension is %s, not 4. Skipping bias marginalization.", block_dim)
+                log(
+                    "⚠ Block dimension is %s, not 4. Skipping bias marginalization.",
+                    block_dim,
+                )
             cov_total = jnp.zeros((n_bins * block_dim, n_bins * block_dim))
             for idx in range(n_bins):
                 start = idx * block_dim
-                cov_total = cov_total.at[start:start + block_dim, start:start + block_dim].set(cov_block[idx])
+                cov_total = cov_total.at[
+                    start : start + block_dim, start : start + block_dim
+                ].set(cov_block[idx])
 
         # Print covariance properties (only if verbose)
         if verbose:
@@ -1391,7 +1501,9 @@ class IntensityMappingFisher:
         cov_inv = _safe_inverse(cov_total, rcond=1e-12, name="covariance", warn=verbose)
 
         # Compute derivatives for ALL parameters (including those to marginalize)
-        derivative_matrix, base_vector = self.derivative_matrix(all_params, verbose=verbose)
+        derivative_matrix, base_vector = self.derivative_matrix(
+            all_params, verbose=verbose
+        )
 
         # Print derivative matrix properties (only if verbose)
         if verbose:
@@ -1401,7 +1513,10 @@ class IntensityMappingFisher:
             log("Derivative matrix shape: %s", derivative_matrix.shape)
             log("Derivative matrix norm: %.6e", jnp.linalg.norm(derivative_matrix))
             log("Base observable vector (first 5): %s", base_vector[:5])
-            log("Derivative matrix sample (first 3x3):\n%s", derivative_matrix[:3, :min(3, len(all_params))])
+            log(
+                "Derivative matrix sample (first 3x3):\n%s",
+                derivative_matrix[:3, : min(3, len(all_params))],
+            )
 
         # Compute full Fisher matrix
         fisher_full = derivative_matrix.T @ cov_inv @ derivative_matrix
@@ -1427,18 +1542,29 @@ class IntensityMappingFisher:
             keep_indices = [i for i, p in enumerate(all_params) if p in params]
 
             # True marginalization: Fisher → Covariance → Extract → Fisher
-            cov_full = _safe_inverse(fisher_full, rcond=1e-12, name="fisher", warn=verbose)
-            cov_subset = cov_full[jnp.ix_(jnp.array(keep_indices), jnp.array(keep_indices))]
-            fisher_params = _safe_inverse(cov_subset, rcond=1e-12, name="marginalized covariance", warn=verbose)
+            cov_full = _safe_inverse(
+                fisher_full, rcond=1e-12, name="fisher", warn=verbose
+            )
+            cov_subset = cov_full[
+                jnp.ix_(jnp.array(keep_indices), jnp.array(keep_indices))
+            ]
+            fisher_params = _safe_inverse(
+                cov_subset, rcond=1e-12, name="marginalized covariance", warn=verbose
+            )
 
             if verbose:
                 log("Marginalized Fisher matrix shape: %s", fisher_params.shape)
-                log("Marginalized Fisher condition number: %.6e", jnp.linalg.cond(fisher_params))
+                log(
+                    "Marginalized Fisher condition number: %.6e",
+                    jnp.linalg.cond(fisher_params),
+                )
                 log("✓ Marginalization complete")
         else:
             fisher_params = fisher_full
 
-        cov_params = _safe_inverse(fisher_params, rcond=1e-12, name="parameter fisher", warn=verbose)
+        cov_params = _safe_inverse(
+            fisher_params, rcond=1e-12, name="parameter fisher", warn=verbose
+        )
         errors = jnp.sqrt(jnp.diag(cov_params))
 
         # Print final errors (only if verbose)
@@ -1452,11 +1578,11 @@ class IntensityMappingFisher:
             log("%s\n", "=" * 60)
 
         return {
-            'params': list(params),
-            'fisher': fisher_params,
-            'covariance': cov_params,
-            'errors': errors,
-            'baseline_observables': base_vector,
+            "params": list(params),
+            "fisher": fisher_params,
+            "covariance": cov_params,
+            "errors": errors,
+            "baseline_observables": base_vector,
         }
 
 
@@ -1469,27 +1595,29 @@ def list_available_surveys(directory: Path | None = None) -> List[str]:
     directory = directory or SURVEY_CONFIG_DIR
     if not directory.exists():
         return []
-    return sorted(path.stem for path in directory.glob('*.yaml'))
+    return sorted(path.stem for path in directory.glob("*.yaml"))
 
 
 def load_survey(name_or_path: str) -> IntensityMappingSurvey:
     path = Path(name_or_path)
     if path.exists():
         return IntensityMappingSurvey.from_file(path)
-    candidate = SURVEY_CONFIG_DIR / f'{name_or_path}.yaml'
+    candidate = SURVEY_CONFIG_DIR / f"{name_or_path}.yaml"
     if candidate.exists():
         return IntensityMappingSurvey.from_file(candidate)
-    available = ', '.join(list_available_surveys())
-    raise FileNotFoundError(f'Survey configuration "{name_or_path}" not found. Available: {available}')
+    available = ", ".join(list_available_surveys())
+    raise FileNotFoundError(
+        f'Survey configuration "{name_or_path}" not found. Available: {available}'
+    )
 
 
 def run_forecast(
     survey_name: str,
     model_name: Optional[str] = None,
-    parameters: Sequence[str] = ('H0', 'Omega_m', 'w0', 'wa', 'gamma'),
+    parameters: Sequence[str] = ("H0", "Omega_m", "w0", "wa", "gamma"),
     gamma: float = 0.55,
     cosmology: Optional[object] = None,
-    ) -> Dict[str, jnp.ndarray]:
+) -> Dict[str, jnp.ndarray]:
     """Convenience wrapper for a one-shot Fisher forecast.
 
     Parameters
@@ -1541,7 +1669,7 @@ def run_forecast(
     # Parameter-space Fisher
     param_result = calculator.parameter_forecast(parameters)
     return {
-        'survey': survey,
-        'fisher_result': fisher_result,
-        'parameter_result': param_result,
+        "survey": survey,
+        "fisher_result": fisher_result,
+        "parameter_result": param_result,
     }

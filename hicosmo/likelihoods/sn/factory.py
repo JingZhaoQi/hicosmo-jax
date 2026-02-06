@@ -128,6 +128,7 @@ def available_sn_datasets() -> List[str]:
     # Add discovered datasets from data directory
     try:
         from ...data_registry import DataRegistry
+
         registry = DataRegistry()
         discovered = set(registry.sn())
         all_datasets = registered | discovered
@@ -185,9 +186,7 @@ def SN_likelihood(
         elif mb_mode in {"marginalize", "marginalized", "auto", "analytic"}:
             options["marginalize_M_B"] = True
         else:
-            raise ValueError(
-                "M_B must be 'free', 'marginalize', or a float value."
-            )
+            raise ValueError("M_B must be 'free', 'marginalize', or a float value.")
         return builder(**options)
 
     if M_B is None:

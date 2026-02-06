@@ -44,10 +44,12 @@ def _init_cosmology_map():
     if _COSMOLOGY_MAP:
         return
     from .models import LCDM
-    _COSMOLOGY_MAP = {'LCDM': LCDM, 'lcdm': LCDM}
+
+    _COSMOLOGY_MAP = {"LCDM": LCDM, "lcdm": LCDM}
     try:
         from .models import wCDM, CPL
-        _COSMOLOGY_MAP.update({'wCDM': wCDM, 'wcdm': wCDM, 'CPL': CPL, 'cpl': CPL})
+
+        _COSMOLOGY_MAP.update({"wCDM": wCDM, "wcdm": wCDM, "CPL": CPL, "cpl": CPL})
     except ImportError:
         pass
 
@@ -58,25 +60,30 @@ def _init_likelihood_map():
     if _LIKELIHOOD_MAP:
         return
     from .likelihoods import (
-        SN_likelihood, BAO_likelihood, H0LiCOWLikelihood,
-        Planck2018DistancePriorsLikelihood, SH0ESLikelihood, TDCOSMOLikelihood,
+        SN_likelihood,
+        BAO_likelihood,
+        H0LiCOWLikelihood,
+        Planck2018DistancePriorsLikelihood,
+        SH0ESLikelihood,
+        TDCOSMOLikelihood,
     )
+
     _LIKELIHOOD_MAP = {
         # Supernovae
-        'sn': lambda c: SN_likelihood(c, "pantheon+", M_B="marginalize"),
-        'sn_shoes': lambda c: SN_likelihood(c, "pantheon+shoes", M_B="marginalize"),
+        "sn": lambda c: SN_likelihood(c, "pantheon+", M_B="marginalize"),
+        "sn_shoes": lambda c: SN_likelihood(c, "pantheon+shoes", M_B="marginalize"),
         # BAO
-        'bao': lambda c: BAO_likelihood(c, "desi2024"),
-        'bao_sdss': lambda c: BAO_likelihood(c, "sdss_dr16"),
+        "bao": lambda c: BAO_likelihood(c, "desi2024"),
+        "bao_sdss": lambda c: BAO_likelihood(c, "sdss_dr16"),
         # Strong lensing
-        'h0licow': lambda c: H0LiCOWLikelihood(),
-        'tdcosmo': lambda c: TDCOSMOLikelihood(),
+        "h0licow": lambda c: H0LiCOWLikelihood(),
+        "tdcosmo": lambda c: TDCOSMOLikelihood(),
         # CMB
-        'planck': lambda c: Planck2018DistancePriorsLikelihood(),
-        'cmb': lambda c: Planck2018DistancePriorsLikelihood(),
+        "planck": lambda c: Planck2018DistancePriorsLikelihood(),
+        "cmb": lambda c: Planck2018DistancePriorsLikelihood(),
         # H0
-        'shoes': lambda c: SH0ESLikelihood(),
-        'sh0es': lambda c: SH0ESLikelihood(),
+        "shoes": lambda c: SH0ESLikelihood(),
+        "sh0es": lambda c: SH0ESLikelihood(),
     }
 
 
@@ -84,16 +91,17 @@ def _init_likelihood_map():
 # Main API
 # ============================================================================
 
+
 def hicosmo(
     cosmology: Union[Type[CosmologyBase], str],
     likelihood: Union[Any, List[Any], str],
     free_params: List[str],
-    preset: str = 'planck2018',
+    preset: str = "planck2018",
     num_samples: int = 8000,
     num_chains: int = 4,
     chain_name: Optional[str] = None,
-    sampler: str = 'numpyro',
-    **mcmc_kwargs
+    sampler: str = "numpyro",
+    **mcmc_kwargs,
 ) -> MCMC:
     """
     Create cosmological parameter inference with zero configuration.
@@ -139,9 +147,15 @@ def hicosmo(
     _init_likelihood_map()
 
     # 1. Resolve cosmology class
-    cosmo_cls = _COSMOLOGY_MAP.get(cosmology, cosmology) if isinstance(cosmology, str) else cosmology
+    cosmo_cls = (
+        _COSMOLOGY_MAP.get(cosmology, cosmology)
+        if isinstance(cosmology, str)
+        else cosmology
+    )
     if isinstance(cosmo_cls, str):
-        raise ValueError(f"Unknown cosmology '{cosmology}'. Available: {list(_COSMOLOGY_MAP.keys())}")
+        raise ValueError(
+            f"Unknown cosmology '{cosmology}'. Available: {list(_COSMOLOGY_MAP.keys())}"
+        )
 
     # 2. Resolve and combine likelihoods (use existing CombinedLikelihood!)
     like_list = [likelihood] if not isinstance(likelihood, list) else likelihood
@@ -149,11 +163,13 @@ def hicosmo(
     for like in like_list:
         if isinstance(like, str):
             if like not in _LIKELIHOOD_MAP:
-                raise ValueError(f"Unknown likelihood '{like}'. Available: {list(_LIKELIHOOD_MAP.keys())}")
+                raise ValueError(
+                    f"Unknown likelihood '{like}'. Available: {list(_LIKELIHOOD_MAP.keys())}"
+                )
             resolved.append(_LIKELIHOOD_MAP[like](cosmo_cls))
         else:
             # Set cosmology_class if not set
-            if hasattr(like, 'cosmology_class') and like.cosmology_class is None:
+            if hasattr(like, "cosmology_class") and like.cosmology_class is None:
                 like.cosmology_class = cosmo_cls
             resolved.append(like)
 
@@ -164,11 +180,16 @@ def hicosmo(
     registry = ParameterRegistry.from_defaults(preset)
 
     # Merge model-specific parameters (e.g., w for wCDM)
-    if hasattr(cosmo_cls, 'get_parameters'):
+    if hasattr(cosmo_cls, "get_parameters"):
         for param in cosmo_cls.get_parameters():
             if param.name not in registry:
-                registry.add(param.name, value=param.value, free=param.free,
-                           prior=param.prior, latex_label=param.latex_label)
+                registry.add(
+                    param.name,
+                    value=param.value,
+                    free=param.free,
+                    prior=param.prior,
+                    latex_label=param.latex_label,
+                )
 
     # Add nuisance parameters from likelihood
     registry.add_from_likelihood(combined)
@@ -178,10 +199,10 @@ def hicosmo(
 
     # 4. Create MCMC (let MCMC handle nuisance collection, parameter mapping, etc.)
     mcmc_config = registry.to_dict()
-    mcmc_config['mcmc'] = {
-        'num_samples': num_samples,
-        'num_chains': num_chains,
-        **mcmc_kwargs
+    mcmc_config["mcmc"] = {
+        "num_samples": num_samples,
+        "num_chains": num_chains,
+        **mcmc_kwargs,
     }
 
     return MCMC(mcmc_config, combined, chain_name=chain_name, sampler=sampler)
@@ -190,6 +211,7 @@ def hicosmo(
 # ============================================================================
 # Helper functions
 # ============================================================================
+
 
 def list_likelihoods() -> List[str]:
     """List available likelihood strings."""
@@ -203,4 +225,4 @@ def list_cosmologies() -> List[str]:
     return list(set(_COSMOLOGY_MAP.values()))
 
 
-__all__ = ['hicosmo', 'list_likelihoods', 'list_cosmologies']
+__all__ = ["hicosmo", "list_likelihoods", "list_cosmologies"]

@@ -335,6 +335,7 @@ def list_all_datasets(refresh: bool = False):
     >>> bao = BAO_likelihood(LCDM, datasets['bao'][0])
     """
     from ..data_registry import list_all_datasets as _list_all
+
     return _list_all(refresh=refresh)
 
 
@@ -378,4 +379,5 @@ def show_available_datasets(category=None):
     >>> show_available_datasets('bao')
     """
     from ..data_registry import show_available_datasets as _show
+
     _show(category=category)

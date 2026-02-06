@@ -50,12 +50,16 @@ def _build_prior_transform(free_params: Dict[str, Any]):
     return names, prior_transform
 
 
-def run_nested(loglike_func, free_params: Dict[str, Any], options: Dict[str, Any]) -> NestedResults:
+def run_nested(
+    loglike_func, free_params: Dict[str, Any], options: Dict[str, Any]
+) -> NestedResults:
     try:
         import dynesty
         from dynesty.utils import resample_equal
     except ImportError as exc:
-        raise ImportError("Dynesty is required for nested sampling. Install via pip install dynesty") from exc
+        raise ImportError(
+            "Dynesty is required for nested sampling. Install via pip install dynesty"
+        ) from exc
 
     names, prior_transform = _build_prior_transform(free_params)
 
@@ -101,7 +105,9 @@ def run_nested(loglike_func, free_params: Dict[str, Any], options: Dict[str, Any
     )
 
 
-def save_nested_results(results: NestedResults, filename: str, format: str = "npz") -> None:
+def save_nested_results(
+    results: NestedResults, filename: str, format: str = "npz"
+) -> None:
     path = Path(filename)
     path.parent.mkdir(parents=True, exist_ok=True)
 

@@ -211,9 +211,7 @@ def information_criteria(
 
     aic_value = aic(log_likelihood_max, num_params)
     bic_value = (
-        bic(log_likelihood_max, num_params, num_data)
-        if num_data is not None
-        else None
+        bic(log_likelihood_max, num_params, num_data) if num_data is not None else None
     )
 
     log_evidence = None
@@ -275,7 +273,9 @@ def _coerce_samples(
     raise TypeError("Unsupported samples type")
 
 
-def _load_chain_with_metadata(path: Path) -> Tuple[Dict[str, np.ndarray], Dict[str, Any]]:
+def _load_chain_with_metadata(
+    path: Path,
+) -> Tuple[Dict[str, np.ndarray], Dict[str, Any]]:
     import h5py
 
     if not path.suffix:
@@ -305,7 +305,11 @@ def _load_chain_with_metadata(path: Path) -> Tuple[Dict[str, np.ndarray], Dict[s
             if "data" in f and "data_info" in f["data"]:
                 try:
                     data_bytes = f["data"]["data_info"][()]
-                    data_str = data_bytes.decode("utf-8") if isinstance(data_bytes, bytes) else str(data_bytes)
+                    data_str = (
+                        data_bytes.decode("utf-8")
+                        if isinstance(data_bytes, bytes)
+                        else str(data_bytes)
+                    )
                     metadata["data_info"] = json.loads(data_str)
                 except Exception:
                     logger.warning("Failed to parse data_info in %s", path)
@@ -357,9 +361,13 @@ def _resolve_log_likelihoods(
             "log_likelihood_fn required when log_likelihoods not present in samples"
         )
 
-    names = _infer_param_names(parameter_config, samples_dict, param_names, inferred_key)
+    names = _infer_param_names(
+        parameter_config, samples_dict, param_names, inferred_key
+    )
     if not names:
-        raise ValueError("No parameter names available for log_likelihood_fn evaluation")
+        raise ValueError(
+            "No parameter names available for log_likelihood_fn evaluation"
+        )
     missing = [name for name in names if name not in samples_dict]
     if missing:
         raise ValueError(f"Missing samples for parameters: {missing}")

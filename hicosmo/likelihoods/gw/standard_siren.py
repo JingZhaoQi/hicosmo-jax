@@ -72,7 +72,9 @@ def _build_pe_prior_from_mode(
     raise ValueError(f"Unknown pe_prior_mode: {mode}")
 
 
-def _parse_prior_expression(expr: Union[str, bytes], samples: np.ndarray) -> Optional[np.ndarray]:
+def _parse_prior_expression(
+    expr: Union[str, bytes], samples: np.ndarray
+) -> Optional[np.ndarray]:
     if expr is None:
         return None
     if isinstance(expr, (bytes, np.bytes_)):
@@ -192,9 +194,11 @@ def _build_joint_pe_prior(
 
     return prior_pdf
 
+
 # ============================================================================
 # Phase 1: Data Containers
 # ============================================================================
+
 
 @dataclass
 class GWEventData:
@@ -209,6 +213,7 @@ class GWEventData:
         prior_samples: Optional sampling prior evaluated at posterior samples
         has_em_counterpart: Whether EM counterpart is confirmed
     """
+
     name: str
     posterior_samples: np.ndarray
     weights: Optional[np.ndarray] = None
@@ -228,7 +233,9 @@ class GWEventData:
     def __post_init__(self):
         """Validate and normalize weights."""
         if self.mass_frame not in {"detector", "source"}:
-            raise ValueError(f"mass_frame must be 'detector' or 'source', got {self.mass_frame}")
+            raise ValueError(
+                f"mass_frame must be 'detector' or 'source', got {self.mass_frame}"
+            )
         if self.weights is None:
             n_samples = len(self.posterior_samples)
             self.weights = np.ones(n_samples) / n_samples
@@ -263,11 +270,12 @@ class GWInjectionSet:
         V_T: Sensitive volume-time (Gpc^3 yr)
         T_obs: Observation time (years)
     """
+
     injections: np.ndarray  # [d_L, z, m1, m2, ...]
-    weights: np.ndarray     # Sampling prior (NOT final weights!)
-    n_total: int           # Total injections
-    V_T: float             # Sensitive volume-time
-    T_obs: float           # Observation duration
+    weights: np.ndarray  # Sampling prior (NOT final weights!)
+    n_total: int  # Total injections
+    V_T: float  # Sensitive volume-time
+    T_obs: float  # Observation duration
     snr: Optional[np.ndarray] = None
     snr_threshold: float = 0.0
     ifar: Optional[np.ndarray] = None
@@ -277,11 +285,13 @@ class GWInjectionSet:
     def __post_init__(self):
         """Validate that sampling prior与注入条目数量一致。"""
         if self.mass_frame not in {"detector", "source"}:
-            raise ValueError(f"mass_frame must be 'detector' or 'source', got {self.mass_frame}")
+            raise ValueError(
+                f"mass_frame must be 'detector' or 'source', got {self.mass_frame}"
+            )
         if isinstance(self.injections, dict):
             lengths = {len(np.asarray(val)) for val in self.injections.values()}
             if len(lengths) != 1:
-                raise ValueError('Injection dict 字段长度必须一致')
+                raise ValueError("Injection dict 字段长度必须一致")
             inj_len = lengths.pop()
         else:
             inj_len = len(self.injections)
@@ -429,7 +439,9 @@ class GWGalaxyCatalog:
         if z_max is None:
             z_max = float(np.max(z))
         z_grid = np.linspace(0.0, z_max, nbins, dtype=np.float64)
-        pixels = _compute_healpix_pixels(ra.reshape(1, -1), dec.reshape(1, -1), nside).reshape(-1)
+        pixels = _compute_healpix_pixels(
+            ra.reshape(1, -1), dec.reshape(1, -1), nside
+        ).reshape(-1)
         npix = 12 * nside * nside
         density = cls._build_density_table(
             pixels,
@@ -491,7 +503,9 @@ class GWGalaxyCatalog:
             kernels = norm * np.exp(-0.5 * np.square(diff * inv_sigma))
             density[pix] = kernels.sum(axis=0)
 
-        min_positive = np.min(density[density > 0.0]) if np.any(density > 0.0) else 1e-40
+        min_positive = (
+            np.min(density[density > 0.0]) if np.any(density > 0.0) else 1e-40
+        )
         density[density <= 0.0] = min_positive
         return density
 
@@ -499,7 +513,9 @@ class GWGalaxyCatalog:
         values = self._interp_density(z, pixel_indices)
         return jnp.log(values)
 
-    def _interp_density(self, z: jnp.ndarray, pixel_indices: jnp.ndarray) -> jnp.ndarray:
+    def _interp_density(
+        self, z: jnp.ndarray, pixel_indices: jnp.ndarray
+    ) -> jnp.ndarray:
         z = jnp.asarray(z, dtype=jnp.float64)
         pixels = jnp.asarray(pixel_indices, dtype=jnp.int32)
         npix = self.density_table.shape[0]
@@ -533,6 +549,7 @@ class GWCatalogData:
         injections: Selection effects data (optional)
         selection_function: Custom selection function (optional)
     """
+
     events: List[GWEventData]
     injections: Optional[GWInjectionSet] = None
     selection_function: Optional[Callable] = None
@@ -571,42 +588,52 @@ class PosteriorSamples:
         try:
             arr = jnp.asarray(values, dtype=jnp.float64)
         except Exception as exc:  # pragma: no cover - defensive
-            raise ValueError(f"事件 {event_name} 字段 {field} 无法转换为数值数组") from exc
+            raise ValueError(
+                f"事件 {event_name} 字段 {field} 无法转换为数值数组"
+            ) from exc
         if arr.ndim != 1:
             raise ValueError(f"事件 {event_name} 字段 {field} 需要为一维数组")
         return arr
 
     @classmethod
-    def from_event(cls, event: GWEventData) -> 'PosteriorSamples':
+    def from_event(cls, event: GWEventData) -> "PosteriorSamples":
         samples = event.posterior_samples
         mass_frame = event.mass_frame
 
         if isinstance(samples, dict):
-            d_l_raw = samples.get('luminosity_distance', samples.get('distance'))
-            if 'mass_1_det' in samples or 'mass_2_det' in samples:
-                m1_raw = samples.get('mass_1_det')
-                m2_raw = samples.get('mass_2_det')
-                mass_frame = 'detector'
-            elif 'mass_1_source' in samples or 'mass_2_source' in samples:
-                m1_raw = samples.get('mass_1_source')
-                m2_raw = samples.get('mass_2_source')
-                mass_frame = 'source'
+            d_l_raw = samples.get("luminosity_distance", samples.get("distance"))
+            if "mass_1_det" in samples or "mass_2_det" in samples:
+                m1_raw = samples.get("mass_1_det")
+                m2_raw = samples.get("mass_2_det")
+                mass_frame = "detector"
+            elif "mass_1_source" in samples or "mass_2_source" in samples:
+                m1_raw = samples.get("mass_1_source")
+                m2_raw = samples.get("mass_2_source")
+                mass_frame = "source"
             else:
-                m1_raw = samples.get('mass_1')
-                m2_raw = samples.get('mass_2')
-            ra_raw = samples.get('right_ascension')
-            dec_raw = samples.get('declination')
+                m1_raw = samples.get("mass_1")
+                m2_raw = samples.get("mass_2")
+            ra_raw = samples.get("right_ascension")
+            dec_raw = samples.get("declination")
             if d_l_raw is None or m1_raw is None or m2_raw is None:
                 raise ValueError(
                     f"事件 {event.name} posterior dict 缺少必需字段 'luminosity_distance'/'mass_1_det'/'mass_2_det'"
                 )
-            d_l = cls._as_device_array(d_l_raw, 'luminosity_distance', event.name)
-            m1_det = cls._as_device_array(m1_raw, 'mass_1_det', event.name)
-            m2_det = cls._as_device_array(m2_raw, 'mass_2_det', event.name)
+            d_l = cls._as_device_array(d_l_raw, "luminosity_distance", event.name)
+            m1_det = cls._as_device_array(m1_raw, "mass_1_det", event.name)
+            m2_det = cls._as_device_array(m2_raw, "mass_2_det", event.name)
             if (ra_raw is None) != (dec_raw is None):
                 raise ValueError(f"事件 {event.name} sky 坐标必须同时提供 RA 和 Dec")
-            ra_arr = cls._as_device_array(ra_raw, 'right_ascension', event.name) if ra_raw is not None else None
-            dec_arr = cls._as_device_array(dec_raw, 'declination', event.name) if dec_raw is not None else None
+            ra_arr = (
+                cls._as_device_array(ra_raw, "right_ascension", event.name)
+                if ra_raw is not None
+                else None
+            )
+            dec_arr = (
+                cls._as_device_array(dec_raw, "declination", event.name)
+                if dec_raw is not None
+                else None
+            )
         else:
             arr = jnp.asarray(samples, dtype=jnp.float64)
             if arr.ndim != 2 or arr.shape[1] < 4:
@@ -622,15 +649,15 @@ class PosteriorSamples:
             m2_det = m2_src * factor
             ra_arr = None
             dec_arr = None
-            mass_frame = 'detector'
+            mass_frame = "detector"
 
         if d_l.shape != m1_det.shape or d_l.shape != m2_det.shape:
-            raise ValueError(f'事件 {event.name} posterior 样本长度不一致')
+            raise ValueError(f"事件 {event.name} posterior 样本长度不一致")
 
         prior = event.prior_samples
         if prior is None:
             prior = jnp.power(d_l, 2.0)
-        prior = cls._as_device_array(prior, 'prior', event.name)
+        prior = cls._as_device_array(prior, "prior", event.name)
 
         if prior.shape != d_l.shape:
             raise ValueError(
@@ -661,7 +688,7 @@ class PosteriorCatalog:
         galaxy_catalog: Optional[GWGalaxyCatalog] = None,
     ) -> None:
         if not events:
-            raise ValueError('posterior catalog 至少包含一个事件')
+            raise ValueError("posterior catalog 至少包含一个事件")
 
         samples = [PosteriorSamples.from_event(ev) for ev in events]
         self.event_names = [ev.name for ev in events]
@@ -669,9 +696,13 @@ class PosteriorCatalog:
         if len(mass_frames) != 1:
             raise ValueError(f"posterior catalog 包含混合 mass_frame: {mass_frames}")
         self.mass_frame = mass_frames.pop()
-        target = int(nparallel) if nparallel is not None else max(s.n_samples for s in samples)
+        target = (
+            int(nparallel)
+            if nparallel is not None
+            else max(s.n_samples for s in samples)
+        )
         if target <= 0:
-            raise ValueError('posterior catalog target 样本数必须大于 0')
+            raise ValueError("posterior catalog target 样本数必须大于 0")
 
         self.nparallel = target
         self.n_events = len(samples)
@@ -693,7 +724,7 @@ class PosteriorCatalog:
 
         for idx, sample in enumerate(samples):
             if sample.n_samples == 0:
-                raise ValueError(f'事件 {self.event_names[idx]} 不包含 posterior 样本')
+                raise ValueError(f"事件 {self.event_names[idx]} 不包含 posterior 样本")
             n_take = int(min(target, sample.n_samples))
             key = keys[idx]
             perm = jrandom.permutation(key, sample.n_samples)
@@ -704,13 +735,15 @@ class PosteriorCatalog:
                 pad = target - n_take
                 if pad == 0:
                     return taken
-                return jnp.pad(taken, (0, pad), mode='edge')
+                return jnp.pad(taken, (0, pad), mode="edge")
 
             mass1_rows.append(_select(sample.mass_1_det))
             mass2_rows.append(_select(sample.mass_2_det))
             distance_rows.append(_select(sample.luminosity_distance))
             prior_rows.append(_select(sample.prior))
-            mask_rows.append(jnp.pad(jnp.ones((n_take,), dtype=bool), (0, target - n_take)))
+            mask_rows.append(
+                jnp.pad(jnp.ones((n_take,), dtype=bool), (0, target - n_take))
+            )
             Ns.append(float(n_take))
 
             if needs_pixels:
@@ -746,7 +779,9 @@ class PosteriorCatalog:
         if needs_pixels:
             ra_matrix = np.stack([np.asarray(row) for row in ra_rows], axis=0)
             dec_matrix = np.stack([np.asarray(row) for row in dec_rows], axis=0)
-            pixels = _compute_healpix_pixels(ra_matrix, dec_matrix, galaxy_catalog.nside)
+            pixels = _compute_healpix_pixels(
+                ra_matrix, dec_matrix, galaxy_catalog.nside
+            )
             self.pixel_indices = jnp.asarray(pixels, dtype=jnp.int32)
 
     def update_weights(
@@ -785,11 +820,11 @@ class PosteriorCatalog:
         needs_z = galaxy_catalog is not None or self.em_redshift_mask is not None
         if needs_z:
             if cosmology is None:
-                raise ValueError('使用红移先验时需要传入 cosmology 实例')
+                raise ValueError("使用红移先验时需要传入 cosmology 实例")
             z_samples = cosmology.dl_to_z(self.luminosity_distance)
             if galaxy_catalog is not None:
                 if self.pixel_indices is None:
-                    raise ValueError('Posterior catalog 缺少像素索引，无法应用星系先验')
+                    raise ValueError("Posterior catalog 缺少像素索引，无法应用星系先验")
                 log_prior = galaxy_catalog.log_density(
                     z_samples.reshape(-1),
                     self.pixel_indices.reshape(-1),
@@ -818,7 +853,9 @@ class PosteriorCatalog:
         neff = jnp.where(valid, jnp.square(self.sum_weights) / safe, 0.0)
         return neff
 
-    def variance_correction(self, neff: jnp.ndarray, return_jnp: bool = False) -> jnp.ndarray | float:
+    def variance_correction(
+        self, neff: jnp.ndarray, return_jnp: bool = False
+    ) -> jnp.ndarray | float:
         Ns = self.Ns_array
         neff = jnp.asarray(neff, dtype=jnp.float64)
         term = jnp.where(
@@ -849,10 +886,11 @@ class InjectionSampler:
 
     def __init__(self, injections: GWInjectionSet):
         if injections is None:
-            raise ValueError('GW 分析必须提供注入数据以评估选择效应')
+            raise ValueError("GW 分析必须提供注入数据以评估选择效应")
 
         data = injections.injections
         if isinstance(data, dict):
+
             def _extract(field: str, alt: Optional[str] = None):
                 if field in data:
                     return data[field]
@@ -860,28 +898,30 @@ class InjectionSampler:
                     return data[alt]
                 return None
 
-            d_l_raw = _extract('luminosity_distance', 'distance')
-            m1_raw = _extract('mass_1_det', 'mass_1')
-            m2_raw = _extract('mass_2_det', 'mass_2')
+            d_l_raw = _extract("luminosity_distance", "distance")
+            m1_raw = _extract("mass_1_det", "mass_1")
+            m2_raw = _extract("mass_2_det", "mass_2")
             if d_l_raw is None or m1_raw is None or m2_raw is None:
-                raise ValueError('注入 dict 缺少 luminosity_distance/mass_1/mass_2 字段')
+                raise ValueError(
+                    "注入 dict 缺少 luminosity_distance/mass_1/mass_2 字段"
+                )
             d_l = jnp.asarray(d_l_raw, dtype=jnp.float64)
             m1 = jnp.asarray(m1_raw, dtype=jnp.float64)
             m2 = jnp.asarray(m2_raw, dtype=jnp.float64)
         else:
             arr = jnp.asarray(data, dtype=jnp.float64)
             if arr.ndim != 2 or arr.shape[1] < 4:
-                raise ValueError('注入数组必须包含 [d_L, z, m1_det, m2_det] 四列')
+                raise ValueError("注入数组必须包含 [d_L, z, m1_det, m2_det] 四列")
             d_l = arr[:, 0]
             m1 = arr[:, 2]
             m2 = arr[:, 3]
 
         if d_l.shape != m1.shape or d_l.shape != m2.shape:
-            raise ValueError('注入样本字段长度必须一致')
+            raise ValueError("注入样本字段长度必须一致")
 
         prior = jnp.asarray(injections.weights, dtype=jnp.float64)
         if prior.shape != d_l.shape:
-            raise ValueError('注入 prior 与样本数量不一致')
+            raise ValueError("注入 prior 与样本数量不一致")
 
         self._distance = d_l
         self._mass_1_det = m1
@@ -925,12 +965,12 @@ class InjectionSampler:
             mask = jnp.logical_and(mask, self._snr >= self.snr_threshold)
         if self.ifar_threshold > 0.0:
             if self._ifar is None:
-                raise ValueError('设置 ifar_threshold 但注入数据缺少 IFAR')
+                raise ValueError("设置 ifar_threshold 但注入数据缺少 IFAR")
             mask = jnp.logical_and(mask, self._ifar >= self.ifar_threshold)
 
         indices = jnp.asarray(jnp.nonzero(mask, size=None)[0])
         if indices.shape[0] == 0:
-            raise ValueError('注入筛选后没有检测到的注入事件，无法评估选择效应')
+            raise ValueError("注入筛选后没有检测到的注入事件，无法评估选择效应")
 
         self.distance = jnp.take(self._distance, indices, axis=0)
         self.mass_1_det = jnp.take(self._mass_1_det, indices, axis=0)
@@ -938,9 +978,15 @@ class InjectionSampler:
         self.prior = jnp.take(self._prior, indices, axis=0)
         self._valid_indices = indices
 
-    def update_weights(self, rate_model, *, cosmology=None, pop_params: Optional[Dict[str, float]] = None) -> None:
+    def update_weights(
+        self,
+        rate_model,
+        *,
+        cosmology=None,
+        pop_params: Optional[Dict[str, float]] = None,
+    ) -> None:
         if self.prior is None or self.distance is None:
-            raise RuntimeError('请先调用 apply_threshold() 以初始化注入样本')
+            raise RuntimeError("请先调用 apply_threshold() 以初始化注入样本")
 
         if cosmology is not None or pop_params is not None:
             try:
@@ -971,14 +1017,14 @@ class InjectionSampler:
         logsum = jsp.special.logsumexp(logw)
         logsum_sq = jsp.special.logsumexp(2.0 * logw)
         mean = jnp.exp(logsum) / self.ntotal
-        second = jnp.exp(logsum_sq) / (self.ntotal ** 2)
-        var = second - (mean ** 2) / self.ntotal
+        second = jnp.exp(logsum_sq) / (self.ntotal**2)
+        var = second - (mean**2) / self.ntotal
         tiny = jnp.finfo(jnp.float64).tiny
         var = jnp.where(var <= 0.0, tiny, var)
         self.log_weights = logw
         self._pseudo_rate_jax = mean
         self._second_moment_jax = jnp.maximum(second, tiny)
-        neff_val = (mean ** 2) / var
+        neff_val = (mean**2) / var
         self._neff_jax = neff_val
         self.pseudo_rate = _safe_float(mean)
         self._second_moment = _safe_float(self._second_moment_jax)
@@ -1004,6 +1050,7 @@ class InjectionSampler:
 # Phase 1: JAX Utilities (Data Processing Only)
 # ============================================================================
 
+
 @jit
 def effective_sample_size(weights: jnp.ndarray) -> float:
     """
@@ -1017,13 +1064,15 @@ def effective_sample_size(weights: jnp.ndarray) -> float:
     Returns:
         Effective number of independent samples
     """
-    return jnp.sum(weights)**2 / jnp.sum(weights**2)
+    return jnp.sum(weights) ** 2 / jnp.sum(weights**2)
 
 
 @jit
-def gaussian_log_pdf(x: jnp.ndarray, mu: jnp.ndarray, sigma: jnp.ndarray) -> jnp.ndarray:
+def gaussian_log_pdf(
+    x: jnp.ndarray, mu: jnp.ndarray, sigma: jnp.ndarray
+) -> jnp.ndarray:
     """Gaussian log probability density."""
-    return -0.5 * jnp.log(2 * jnp.pi * sigma**2) - 0.5 * ((x - mu) / sigma)**2
+    return -0.5 * jnp.log(2 * jnp.pi * sigma**2) - 0.5 * ((x - mu) / sigma) ** 2
 
 
 def poisson_log_pmf(k: int, lam: float) -> float:
@@ -1036,13 +1085,19 @@ def poisson_log_pmf(k: int, lam: float) -> float:
 def _safe_float(value: Any) -> Any:
     try:
         return float(value)
-    except (TypeError, ValueError, jax.errors.TracerIntegerConversionError, jax.errors.ConcretizationTypeError):
+    except (
+        TypeError,
+        ValueError,
+        jax.errors.TracerIntegerConversionError,
+        jax.errors.ConcretizationTypeError,
+    ):
         return value
 
 
 # ============================================================================
 # Phase 2: GW Rate Model (Combination Layer)
 # ============================================================================
+
 
 class GWRateModel:
     """
@@ -1074,7 +1129,7 @@ class GWRateModel:
         self,
         mass_prior: MassPrior,
         rate_evolution: RateEvolution,
-        scale_free: bool = True
+        scale_free: bool = True,
     ):
         self.mass_prior = mass_prior
         self.rate_evolution = rate_evolution
@@ -1083,7 +1138,7 @@ class GWRateModel:
         rate_params = list(getattr(self.rate_evolution, "parameter_names", ()))
         self.population_parameters = mass_params + rate_params
         if not scale_free:
-            self.population_parameters.append('R0')
+            self.population_parameters.append("R0")
 
     def log_rate_PE(
         self,
@@ -1151,7 +1206,9 @@ class GWRateModel:
             m2_source = m2_detector
             jacobian_mass = 1.0
         else:
-            raise ValueError(f"mass_frame must be 'detector' or 'source', got {mass_frame}")
+            raise ValueError(
+                f"mass_frame must be 'detector' or 'source', got {mass_frame}"
+            )
 
         # Step 3: Mass prior evaluation
         log_p_mass = self.mass_prior.log_prob(m1_source, m2_source, **pop_params)
@@ -1182,12 +1239,12 @@ class GWRateModel:
         #
         # This is the exact formula from icarogw.rates.CBC_vanilla_rate.log_rate_PE
         log_weights = (
-            log_p_mass          # Mass prior p(m1, m2)
-            + log_R_z           # Rate evolution R(z)
-            + log_dVc_dz        # Differential comoving volume
-            - jnp.log1p(z)      # Time dilation factor 1/(1+z)
-            - log_pe_prior      # PE prior (typically d_L²)
-            - log_jacobian      # Detector<->source frame Jacobian
+            log_p_mass  # Mass prior p(m1, m2)
+            + log_R_z  # Rate evolution R(z)
+            + log_dVc_dz  # Differential comoving volume
+            - jnp.log1p(z)  # Time dilation factor 1/(1+z)
+            - log_pe_prior  # PE prior (typically d_L²)
+            - log_jacobian  # Detector<->source frame Jacobian
         )
         if not self.scale_free:
             R0 = pop_params.get("R0", 1.0)
@@ -1222,7 +1279,7 @@ class GWRateModel:
         m1: jnp.ndarray,
         m2: jnp.ndarray,
         cosmology,
-        pop_params: Dict[str, float]
+        pop_params: Dict[str, float],
     ) -> jnp.ndarray:
         """
         Compute differential merger rate density.
@@ -1268,16 +1325,16 @@ class GWRateModel:
         injections: GWInjectionSet,
         cosmology,
         pop_params: Dict[str, float],
-        scale_free: bool = False
+        scale_free: bool = False,
     ) -> float:
         """
         Calculate expected detections N_exp(θ) using correct physics formula.
-        
+
         This implementation uses the SAME formula as log_rate_PE to ensure consistency.
-        
+
         Formula:
             N_exp = T_obs × (Σ exp(log_weights)) / N_total
-            
+
         where log_weights contains:
             - log p(m1, m2): mass distribution
             - log R(z): rate evolution
@@ -1285,13 +1342,13 @@ class GWRateModel:
             - log(1+z): time dilation
             - log π_inj: injection sampling prior
             - log |J_d→s|: Jacobian (detector → source frame)
-        
+
         Args:
             injections: GW injection campaign data
             cosmology: Cosmology model
             pop_params: Population parameters
             scale_free: If True, return Vdet [Gpc³]; if False, return N_exp
-        
+
         Returns:
             Expected number of detections or explorable volume
         """
@@ -1299,10 +1356,10 @@ class GWRateModel:
         d_L_inj = injections.injections[:, 0]
         m1_det_inj = injections.injections[:, 2]
         m2_det_inj = injections.injections[:, 3]
-        
+
         # Step 2: Compute redshift from luminosity distance
         z_inj = cosmology.dl_to_z(d_L_inj)
-        
+
         # Step 3: Transform to source frame masses
         mass_frame = getattr(injections, "mass_frame", "detector")
         if mass_frame == "detector":
@@ -1314,53 +1371,56 @@ class GWRateModel:
             m2_source_inj = m2_det_inj
             jacobian_mass = 1.0
         else:
-            raise ValueError(f"mass_frame must be 'detector' or 'source', got {mass_frame}")
-        
+            raise ValueError(
+                f"mass_frame must be 'detector' or 'source', got {mass_frame}"
+            )
+
         # Step 4: Calculate mass distribution log p(m1, m2)
         log_p_mass = self.mass_prior.log_prob(
             m1_source_inj, m2_source_inj, **pop_params
         )
-        
+
         # Step 5: Calculate rate evolution log R(z)
         log_R_z = self.rate_evolution.log_rate(z_inj, **pop_params)
-        
+
         # Step 6: Calculate dVc/dz
         dVc_dz = cosmology.dVc_dz(z_inj)  # Units: Gpc³
         log_dVc_dz = jnp.log(dVc_dz)
-        
+
         # Step 7: Calculate Jacobian |J_d→s| = (1+z)² × ddL/dz (or ddL/dz for source-frame masses)
         ddL_dz = cosmology.ddL_dz(z_inj)
         jacobian = jacobian_mass * ddL_dz
         log_jacobian = jnp.log(jacobian)
-        
+
         # Step 8: Injection prior (sampling prior)
         pe_prior_inj = injections.weights
         log_pe_prior = jnp.log(pe_prior_inj + 1e-300)  # Avoid log(0)
-        
+
         # Step 9: Combine all terms (SAME as log_rate_PE formula)
         log_weights = (
-            log_p_mass          # p(m1, m2)
-            + log_R_z           # R(z)
-            + log_dVc_dz        # dVc/dz
+            log_p_mass  # p(m1, m2)
+            + log_R_z  # R(z)
+            + log_dVc_dz  # dVc/dz
             - jnp.log1p(z_inj)  # 1/(1+z) time dilation
-            - log_pe_prior      # 1/π_inj
-            - log_jacobian      # 1/|J|
+            - log_pe_prior  # 1/π_inj
+            - log_jacobian  # 1/|J|
         )
         if not self.scale_free:
             R0 = pop_params.get("R0", 1.0)
             log_weights = log_weights + jnp.log(R0)
-        
+
         # Step 10: Numerically stable summation
         import jax.scipy.special
+
         log_sum = jax.scipy.special.logsumexp(log_weights)
         sum_weights = jnp.exp(log_sum)
-        
+
         # Step 11: Pseudo-rate
         pseudo_rate = sum_weights / injections.n_total
-        
+
         # Step 12: Expected detections
         N_exp = pseudo_rate * injections.T_obs
-        
+
         return float(N_exp)
 
 
@@ -1406,7 +1466,7 @@ class _LegacyGWStandardSirenLikelihood(Likelihood):
         mass_prior: Optional[MassPrior] = None,
         rate_evolution: Optional[RateEvolution] = None,
         use_galaxy_catalog: bool = False,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None:
         """
         Initialize GW standard siren likelihood.
@@ -1420,7 +1480,9 @@ class _LegacyGWStandardSirenLikelihood(Likelihood):
             mass_prior: Binary mass distribution (Phase 2)
             rate_evolution: Merger rate R(z) (Phase 2)
         """
-        super().__init__(name=name or "gw_standard_siren", data_path=data_path, **kwargs)
+        super().__init__(
+            name=name or "gw_standard_siren", data_path=data_path, **kwargs
+        )
 
         self.catalog = catalog
         self.apply_selection_bias = apply_selection_bias
@@ -1502,13 +1564,11 @@ class _LegacyGWStandardSirenLikelihood(Likelihood):
             if not data_file.exists():
                 raise FileNotFoundError(f"GW catalog not found: {self.data_path}")
 
-            with open(data_file, 'rb') as f:
+            with open(data_file, "rb") as f:
                 self.catalog = pickle.load(f)
 
         if self.catalog is None:
-            raise ValueError(
-                "No GW catalog provided. Pass 'catalog' or 'data_path'."
-            )
+            raise ValueError("No GW catalog provided. Pass 'catalog' or 'data_path'.")
 
         self._n_events = self.catalog.n_events
 
@@ -1517,6 +1577,7 @@ class _LegacyGWStandardSirenLikelihood(Likelihood):
             ess = float(effective_sample_size(jnp.array(event.weights)))
             if ess < self.min_eff_samples:
                 import warnings
+
                 warnings.warn(
                     f"{event.name} has low ESS: {ess:.1f} < {self.min_eff_samples}"
                 )
@@ -1539,14 +1600,10 @@ class _LegacyGWStandardSirenLikelihood(Likelihood):
             # Pad to max_samples
             n_pad = max_samples - event.n_samples
             if n_pad > 0:
-                samples_padded = np.vstack([
-                    samples,
-                    np.zeros((n_pad, samples.shape[1]))
-                ])
-                weights_padded = np.concatenate([
-                    weights,
-                    np.zeros(n_pad)
-                ])
+                samples_padded = np.vstack(
+                    [samples, np.zeros((n_pad, samples.shape[1]))]
+                )
+                weights_padded = np.concatenate([weights, np.zeros(n_pad)])
             else:
                 samples_padded = samples
                 weights_padded = weights
@@ -1568,17 +1625,16 @@ class _LegacyGWStandardSirenLikelihood(Likelihood):
         GW sirens primarily constrain H0 via d_L(z).
         """
         # Extract redshift range from posteriors
-        all_z = np.concatenate([
-            event.posterior_samples[:, 1]
-            for event in self.catalog.events
-        ])
+        all_z = np.concatenate(
+            [event.posterior_samples[:, 1] for event in self.catalog.events]
+        )
         z_min = float(np.min(all_z))
         z_max = float(np.max(all_z))
 
         return {
-            'luminosity_distance': {
-                'z_range': (z_min, z_max),
-                'description': 'GW distance ladder'
+            "luminosity_distance": {
+                "z_range": (z_min, z_max),
+                "description": "GW distance ladder",
             }
         }
 
@@ -1663,15 +1719,14 @@ class _LegacyGWStandardSirenLikelihood(Likelihood):
             pe_prior = d_L_obs**2
 
             # Extract population parameters from kwargs
-            pop_params = kwargs.get('pop_params', None)
+            pop_params = kwargs.get("pop_params", None)
             if pop_params is None and len(kwargs) > 0:
                 pop_params = kwargs
 
             # Calculate importance sampling weights using CORRECTED log_rate_PE method
             # Now includes: dVc/dz, Jacobian, log(1+z), and z recalculation!
             log_weights = self.rate_model.log_rate_PE(
-                d_L_obs, m1_detector, m2_detector,
-                pe_prior, cosmology, pop_params
+                d_L_obs, m1_detector, m2_detector, pe_prior, cosmology, pop_params
             )
 
             # Marginalize over PE samples: L_event = (1/N_PE) * Σ exp(log_weights)
@@ -1685,7 +1740,7 @@ class _LegacyGWStandardSirenLikelihood(Likelihood):
         if self.apply_selection_bias and self.catalog.injections is not None:
             # Extract population parameters from kwargs
             # Support both {'pop_params': {...}} and direct {key: value, ...}
-            pop_params = kwargs.get('pop_params', None)
+            pop_params = kwargs.get("pop_params", None)
             if pop_params is None and len(kwargs) > 0:
                 # If pop_params not provided but kwargs has parameters,
                 # use kwargs directly as pop_params
@@ -1701,7 +1756,9 @@ class _LegacyGWStandardSirenLikelihood(Likelihood):
 
         return float(log_L_total)
 
-    def _compute_expected_detections(self, cosmology, pop_params: Optional[Dict[str, float]] = None) -> float:
+    def _compute_expected_detections(
+        self, cosmology, pop_params: Optional[Dict[str, float]] = None
+    ) -> float:
         """
         Compute expected number of detections using full rate model.
 
@@ -1721,31 +1778,28 @@ class _LegacyGWStandardSirenLikelihood(Likelihood):
         # Use default population parameters if not provided
         if pop_params is None:
             pop_params = {
-                'alpha': -2.35,  # Salpeter-like
-                'beta': 1.0,
-                'mmin': 5.0,
-                'mmax': 100.0,
-                'gamma': 2.7,
-                'kappa': 2.9,
-                'zp': 2.47
+                "alpha": -2.35,  # Salpeter-like
+                "beta": 1.0,
+                "mmin": 5.0,
+                "mmax": 100.0,
+                "gamma": 2.7,
+                "kappa": 2.9,
+                "zp": 2.47,
             }
 
         # Phase 3: Use full rate model for expected detections
         N_exp = self.rate_model.expected_detections(
-            self.catalog.injections,
-            cosmology,
-            pop_params
+            self.catalog.injections, cosmology, pop_params
         )
 
         return float(N_exp)
 
     def get_derived_params(self, cosmology) -> Dict[str, float]:
         """Derived parameters from this likelihood."""
-        derived = {'n_gw_events': self._n_events}
+        derived = {"n_gw_events": self._n_events}
         if hasattr(cosmology, "params") and "H0" in cosmology.params:
-            derived['H0_gw'] = float(cosmology.params['H0'])
+            derived["H0_gw"] = float(cosmology.params["H0"])
         return derived
-
 
 
 class GWStandardSirenLikelihood(Likelihood):
@@ -1772,7 +1826,9 @@ class GWStandardSirenLikelihood(Likelihood):
         population_params: Optional[Dict[str, float]] = None,
         **kwargs: Any,
     ) -> None:
-        super().__init__(name=name or "gw_standard_siren", data_path=data_path, **kwargs)
+        super().__init__(
+            name=name or "gw_standard_siren", data_path=data_path, **kwargs
+        )
         self.catalog = catalog
         self.apply_selection_bias = bool(apply_selection_bias)
         self.nparallel = nparallel
@@ -1785,7 +1841,9 @@ class GWStandardSirenLikelihood(Likelihood):
         self.population = population
         self._mass_prior_override = mass_prior
         self._rate_evolution_override = rate_evolution
-        self._population_prior_overrides = dict(population_params) if population_params else None
+        self._population_prior_overrides = (
+            dict(population_params) if population_params else None
+        )
         self._population_params_cached: Optional[Dict[str, float]] = None
 
         self.cosmology_model = cosmology_model or LCDM
@@ -1866,37 +1924,118 @@ class GWStandardSirenLikelihood(Likelihood):
         """Build prior specs for population parameters (can be overridden)."""
         if (self.population or "").lower() == "bbh":
             specs = {
-                "alpha": {"prior": {"dist": "uniform", "min": 1.5, "max": 12.0}, "ref": 3.78},
-                "alpha_1": {"prior": {"dist": "uniform", "min": 1.0, "max": 12.0}, "ref": 3.0},
-                "alpha_2": {"prior": {"dist": "uniform", "min": 1.0, "max": 12.0}, "ref": 6.0},
-                "beta": {"prior": {"dist": "uniform", "min": -4.0, "max": 12.0}, "ref": 0.81},
-                "mmin": {"prior": {"dist": "uniform", "min": 2.0, "max": 10.0}, "ref": 4.98},
-                "mmax": {"prior": {"dist": "uniform", "min": 50.0, "max": 200.0}, "ref": 112.5},
+                "alpha": {
+                    "prior": {"dist": "uniform", "min": 1.5, "max": 12.0},
+                    "ref": 3.78,
+                },
+                "alpha_1": {
+                    "prior": {"dist": "uniform", "min": 1.0, "max": 12.0},
+                    "ref": 3.0,
+                },
+                "alpha_2": {
+                    "prior": {"dist": "uniform", "min": 1.0, "max": 12.0},
+                    "ref": 6.0,
+                },
+                "beta": {
+                    "prior": {"dist": "uniform", "min": -4.0, "max": 12.0},
+                    "ref": 0.81,
+                },
+                "mmin": {
+                    "prior": {"dist": "uniform", "min": 2.0, "max": 10.0},
+                    "ref": 4.98,
+                },
+                "mmax": {
+                    "prior": {"dist": "uniform", "min": 50.0, "max": 200.0},
+                    "ref": 112.5,
+                },
                 "b": {"prior": {"dist": "uniform", "min": 0.0, "max": 1.0}, "ref": 0.5},
-                "delta_m": {"prior": {"dist": "uniform", "min": 0.0, "max": 10.0}, "ref": 4.8},
-                "mu_g": {"prior": {"dist": "uniform", "min": 20.0, "max": 50.0}, "ref": 32.27},
-                "sigma_g": {"prior": {"dist": "uniform", "min": 0.4, "max": 10.0}, "ref": 3.88},
-                "lambda_peak": {"prior": {"dist": "uniform", "min": 0.0, "max": 1.0}, "ref": 0.03},
-                "gamma": {"prior": {"dist": "uniform", "min": 0.0, "max": 12.0}, "ref": 4.59},
-                "kappa": {"prior": {"dist": "uniform", "min": 0.0, "max": 12.0}, "ref": 2.86},
-                "zp": {"prior": {"dist": "uniform", "min": 0.0, "max": 4.0}, "ref": 2.47},
+                "delta_m": {
+                    "prior": {"dist": "uniform", "min": 0.0, "max": 10.0},
+                    "ref": 4.8,
+                },
+                "mu_g": {
+                    "prior": {"dist": "uniform", "min": 20.0, "max": 50.0},
+                    "ref": 32.27,
+                },
+                "sigma_g": {
+                    "prior": {"dist": "uniform", "min": 0.4, "max": 10.0},
+                    "ref": 3.88,
+                },
+                "lambda_peak": {
+                    "prior": {"dist": "uniform", "min": 0.0, "max": 1.0},
+                    "ref": 0.03,
+                },
+                "gamma": {
+                    "prior": {"dist": "uniform", "min": 0.0, "max": 12.0},
+                    "ref": 4.59,
+                },
+                "kappa": {
+                    "prior": {"dist": "uniform", "min": 0.0, "max": 12.0},
+                    "ref": 2.86,
+                },
+                "zp": {
+                    "prior": {"dist": "uniform", "min": 0.0, "max": 4.0},
+                    "ref": 2.47,
+                },
             }
         else:
             specs = {
-                "alpha": {"prior": {"dist": "uniform", "min": 0.0, "max": 8.0}, "ref": 3.0},
-                "beta": {"prior": {"dist": "uniform", "min": 0.0, "max": 8.0}, "ref": 1.0},
-                "mmin": {"prior": {"dist": "uniform", "min": 2.0, "max": 10.0}, "ref": 5.0},
-                "mmax": {"prior": {"dist": "uniform", "min": 20.0, "max": 150.0}, "ref": 80.0},
-                "delta_m": {"prior": {"dist": "uniform", "min": 0.0, "max": 10.0}, "ref": 2.0},
-                "mu_g": {"prior": {"dist": "uniform", "min": 20.0, "max": 50.0}, "ref": 32.0},
-                "sigma_g": {"prior": {"dist": "uniform", "min": 1.0, "max": 10.0}, "ref": 4.0},
-                "lambda_peak": {"prior": {"dist": "uniform", "min": 0.0, "max": 0.5}, "ref": 0.03},
-                "gamma": {"prior": {"dist": "uniform", "min": 0.0, "max": 10.0}, "ref": 4.0},
-                "kappa": {"prior": {"dist": "uniform", "min": 0.0, "max": 10.0}, "ref": 3.0},
-                "zp": {"prior": {"dist": "uniform", "min": 0.1, "max": 6.0}, "ref": 2.0},
-                "mminns": {"prior": {"dist": "uniform", "min": 0.5, "max": 2.0}, "ref": 1.0},
-                "mmaxns": {"prior": {"dist": "uniform", "min": 2.0, "max": 4.0}, "ref": 3.0},
-                "alphans": {"prior": {"dist": "uniform", "min": -2.0, "max": 4.0}, "ref": 0.0},
+                "alpha": {
+                    "prior": {"dist": "uniform", "min": 0.0, "max": 8.0},
+                    "ref": 3.0,
+                },
+                "beta": {
+                    "prior": {"dist": "uniform", "min": 0.0, "max": 8.0},
+                    "ref": 1.0,
+                },
+                "mmin": {
+                    "prior": {"dist": "uniform", "min": 2.0, "max": 10.0},
+                    "ref": 5.0,
+                },
+                "mmax": {
+                    "prior": {"dist": "uniform", "min": 20.0, "max": 150.0},
+                    "ref": 80.0,
+                },
+                "delta_m": {
+                    "prior": {"dist": "uniform", "min": 0.0, "max": 10.0},
+                    "ref": 2.0,
+                },
+                "mu_g": {
+                    "prior": {"dist": "uniform", "min": 20.0, "max": 50.0},
+                    "ref": 32.0,
+                },
+                "sigma_g": {
+                    "prior": {"dist": "uniform", "min": 1.0, "max": 10.0},
+                    "ref": 4.0,
+                },
+                "lambda_peak": {
+                    "prior": {"dist": "uniform", "min": 0.0, "max": 0.5},
+                    "ref": 0.03,
+                },
+                "gamma": {
+                    "prior": {"dist": "uniform", "min": 0.0, "max": 10.0},
+                    "ref": 4.0,
+                },
+                "kappa": {
+                    "prior": {"dist": "uniform", "min": 0.0, "max": 10.0},
+                    "ref": 3.0,
+                },
+                "zp": {
+                    "prior": {"dist": "uniform", "min": 0.1, "max": 6.0},
+                    "ref": 2.0,
+                },
+                "mminns": {
+                    "prior": {"dist": "uniform", "min": 0.5, "max": 2.0},
+                    "ref": 1.0,
+                },
+                "mmaxns": {
+                    "prior": {"dist": "uniform", "min": 2.0, "max": 4.0},
+                    "ref": 3.0,
+                },
+                "alphans": {
+                    "prior": {"dist": "uniform", "min": -2.0, "max": 4.0},
+                    "ref": 0.0,
+                },
             }
 
         if self._population_prior_overrides:
@@ -1907,7 +2046,10 @@ class GWStandardSirenLikelihood(Likelihood):
                     specs[name] = {"value": value, "free": False}
 
         if not self.scale_free and "R0" not in specs:
-            specs["R0"] = {"prior": {"dist": "uniform", "min": 0.0, "max": 200.0}, "ref": 30.0}
+            specs["R0"] = {
+                "prior": {"dist": "uniform", "min": 0.0, "max": 200.0},
+                "ref": 30.0,
+            }
         # Filter to only those parameters used by the current model.
         active = set(self._rate_model.population_parameters)
         return {name: spec for name, spec in specs.items() if name in active}
@@ -1925,8 +2067,7 @@ class GWStandardSirenLikelihood(Likelihood):
     def _setup_covariance(self) -> None:
         if not isinstance(self.catalog, GWCatalogData):
             raise TypeError(
-                "catalog must be a GWCatalogData object; got "
-                f"{type(self.catalog)}"
+                "catalog must be a GWCatalogData object; got " f"{type(self.catalog)}"
             )
 
         if not self.catalog.events:
@@ -1938,7 +2079,7 @@ class GWStandardSirenLikelihood(Likelihood):
         galaxy_catalog = None
         if self.use_galaxy_catalog:
             if self.catalog.galaxy_catalog is None:
-                raise ValueError('use_galaxy_catalog=True 但 catalog 中没有星系数据')
+                raise ValueError("use_galaxy_catalog=True 但 catalog 中没有星系数据")
             galaxy_catalog = self.catalog.galaxy_catalog
         self._galaxy_catalog = galaxy_catalog
         self._posterior_catalog = PosteriorCatalog(
@@ -1967,7 +2108,9 @@ class GWStandardSirenLikelihood(Likelihood):
             rate_evolution=rate_evolution,
             scale_free=self.scale_free,
         )
-        self.parameters = {name: None for name in self._rate_model.population_parameters}
+        self.parameters = {
+            name: None for name in self._rate_model.population_parameters
+        }
 
     def _initialize_nuisance(self) -> None:
         # No additional nuisance parameters
@@ -1975,9 +2118,9 @@ class GWStandardSirenLikelihood(Likelihood):
 
     def get_requirements(self) -> Dict[str, Any]:
         return {
-            'luminosity_distance': {
-                'z_range': (0.0, self.zmax),
-                'description': 'Required to evaluate GW sirens'
+            "luminosity_distance": {
+                "z_range": (0.0, self.zmax),
+                "description": "Required to evaluate GW sirens",
             }
         }
 
@@ -1996,10 +2139,14 @@ class GWStandardSirenLikelihood(Likelihood):
     # ------------------------------------------------------------------
 
     def log_likelihood(self, cosmology, **kwargs) -> float | jnp.ndarray:
-        return_jnp = self._contains_jax_values(kwargs) or self._cosmology_has_jax(cosmology)
+        return_jnp = self._contains_jax_values(kwargs) or self._cosmology_has_jax(
+            cosmology
+        )
         return self._log_likelihood_core(cosmology, return_jnp=return_jnp, **kwargs)
 
-    def log_likelihood_traced(self, cosmo_params: Dict[str, Any], **kwargs) -> jnp.ndarray:
+    def log_likelihood_traced(
+        self, cosmo_params: Dict[str, Any], **kwargs
+    ) -> jnp.ndarray:
         cosmology = self.cosmology_model(**cosmo_params)
         return self._log_likelihood_core(cosmology, return_jnp=True, **kwargs)
 
@@ -2023,7 +2170,7 @@ class GWStandardSirenLikelihood(Likelihood):
     def _prepare_population_parameters(self, cosmology, kwargs) -> Dict[str, float]:
         pop_params: Dict[str, float] = {}
         pop_params.update(self._population_default_values())
-        pop_params.update(kwargs.pop('pop_params', {}))
+        pop_params.update(kwargs.pop("pop_params", {}))
         for name in self._rate_model.population_parameters:
             if name in kwargs:
                 pop_params[name] = kwargs[name]
@@ -2038,7 +2185,9 @@ class GWStandardSirenLikelihood(Likelihood):
                 pop_params["zp"] = alias
 
         missing = [
-            key for key in self._rate_model.population_parameters if key not in pop_params
+            key
+            for key in self._rate_model.population_parameters
+            if key not in pop_params
         ]
         if missing:
             raise ValueError(
@@ -2061,9 +2210,9 @@ class GWStandardSirenLikelihood(Likelihood):
 
     def _log_likelihood_core(self, cosmology, *, return_jnp: bool, **kwargs):
         if self._posterior_catalog is None:
-            raise RuntimeError('JAX backend 尚未初始化')
+            raise RuntimeError("JAX backend 尚未初始化")
         if self.apply_selection_bias and self._injections is None:
-            raise RuntimeError('未初始化注入数据，无法评估选择效应')
+            raise RuntimeError("未初始化注入数据，无法评估选择效应")
 
         pop_params = self._prepare_population_parameters(cosmology, kwargs)
 
@@ -2079,7 +2228,9 @@ class GWStandardSirenLikelihood(Likelihood):
         if self.likelihood_variance_thr is None:
             if self.neffPE is not None:
                 neff_pe_thr = jnp.asarray(float(self.neffPE), dtype=jnp.float64)
-                invalid_mask = jnp.logical_or(invalid_mask, jnp.any(neff_pe < neff_pe_thr))
+                invalid_mask = jnp.logical_or(
+                    invalid_mask, jnp.any(neff_pe < neff_pe_thr)
+                )
 
         sum_weights = self._posterior_catalog.sum_weights
         invalid_mask = jnp.logical_or(invalid_mask, jnp.any(sum_weights <= 0.0))
@@ -2097,7 +2248,9 @@ class GWStandardSirenLikelihood(Likelihood):
                 self._injections.effective_injections_number_jax(), dtype=jnp.float64
             )
             invalid_mask = jnp.logical_or(invalid_mask, neff_inj <= 0.0)
-            n_events = jnp.asarray(float(self._posterior_catalog.n_events), dtype=jnp.float64)
+            n_events = jnp.asarray(
+                float(self._posterior_catalog.n_events), dtype=jnp.float64
+            )
             ntotal = self._injections.ntotal_device
 
             if self.likelihood_variance_thr is None:
@@ -2110,18 +2263,22 @@ class GWStandardSirenLikelihood(Likelihood):
             variance_corr = self._posterior_catalog.variance_correction(
                 neff_pe, return_jnp=True
             )
-            likelihood_variance = (
-                (jnp.square(n_events) / neff_inj) * (1.0 - neff_inj / ntotal) + variance_corr
-            )
+            likelihood_variance = (jnp.square(n_events) / neff_inj) * (
+                1.0 - neff_inj / ntotal
+            ) + variance_corr
 
             if self.likelihood_variance_thr is not None:
-                thr = jnp.asarray(float(self.likelihood_variance_thr), dtype=jnp.float64)
+                thr = jnp.asarray(
+                    float(self.likelihood_variance_thr), dtype=jnp.float64
+                )
                 invalid_mask = jnp.logical_or(invalid_mask, likelihood_variance > thr)
 
             if self.scale_free:
                 pseudo_rate = self._injections.pseudo_rate_device()
                 invalid_mask = jnp.logical_or(invalid_mask, pseudo_rate <= 0.0)
-                log_likeli = jnp.sum(jnp.log(sum_weights)) - n_events * jnp.log(pseudo_rate)
+                log_likeli = jnp.sum(jnp.log(sum_weights)) - n_events * jnp.log(
+                    pseudo_rate
+                )
             else:
                 Nexp = self._injections.expected_number_detections_jax()
                 invalid_mask = jnp.logical_or(invalid_mask, Nexp <= 0.0)
@@ -2142,6 +2299,7 @@ class GWStandardSirenLikelihood(Likelihood):
 # ============================================================================
 # Utility Functions
 # ============================================================================
+
 
 def load_gwtc3_events(
     data_path: Union[str, Path],
@@ -2204,6 +2362,7 @@ def load_gwtc3_events(
         names = list(events)
 
     gw_events: List[GWEventData] = []
+
     def _scalar(value: Any) -> Optional[float]:
         if value is None:
             return None
@@ -2253,7 +2412,9 @@ def load_gwtc3_events(
         if event_selector is not None and not event_selector(name, entry):
             continue
 
-        snr_val = _scalar(entry.get("snr") or entry.get("snr_network") or entry.get("network_snr"))
+        snr_val = _scalar(
+            entry.get("snr") or entry.get("snr_network") or entry.get("network_snr")
+        )
         ifar_val = _scalar(entry.get("ifar") or entry.get("IFAR"))
         if snr_threshold is not None:
             if snr_val is None:
@@ -2295,7 +2456,9 @@ def load_gwtc3_events(
             )
 
         posterior = {
-            "luminosity_distance": entry.get("luminosity_distance", entry.get("distance")),
+            "luminosity_distance": entry.get(
+                "luminosity_distance", entry.get("distance")
+            ),
         }
         if "mass_1_det" in entry:
             posterior["mass_1_det"] = entry.get("mass_1_det")
@@ -2310,6 +2473,7 @@ def load_gwtc3_events(
             posterior["mass_2_source"] = entry.get("mass_2_source")
         else:
             posterior["mass_2"] = entry.get("mass_2")
+
         def _first_non_none(*vals):
             for val in vals:
                 if val is not None:
@@ -2326,8 +2490,14 @@ def load_gwtc3_events(
             posterior.get("mass_2_source"),
             posterior.get("mass_2"),
         )
-        if posterior.get("luminosity_distance") is None or m1_check is None or m2_check is None:
-            raise ValueError(f"事件 {name} posterior 缺少 luminosity_distance/mass_1/mass_2")
+        if (
+            posterior.get("luminosity_distance") is None
+            or m1_check is None
+            or m2_check is None
+        ):
+            raise ValueError(
+                f"事件 {name} posterior 缺少 luminosity_distance/mass_1/mass_2"
+            )
 
         if "right_ascension" in entry and "declination" in entry:
             posterior["right_ascension"] = entry["right_ascension"]
@@ -2434,6 +2604,7 @@ def load_gw_event_hdf5(
             m1 = _get_ds("m1_detector_frame_Msun", "mass_1", "mass_1_source")
             m2 = _get_ds("m2_detector_frame_Msun", "mass_2", "mass_2_source")
         else:
+
             def _get(*keys):
                 for key in keys:
                     if key in group:
@@ -2465,12 +2636,17 @@ def load_gw_event_hdf5(
             else:
                 frame = "detector"
 
-        if pe_prior_mode is None or str(pe_prior_mode).lower() in {"auto", "pesummary", "official"}:
+        if pe_prior_mode is None or str(pe_prior_mode).lower() in {
+            "auto",
+            "pesummary",
+            "official",
+        }:
             if isinstance(posterior_parent, h5py.Group):
                 prior_group = None
                 if "priors/samples" in posterior_parent:
                     prior_group = posterior_parent["priors/samples"]
                 if prior_group is not None:
+
                     def _get_prior(*keys):
                         for key in keys:
                             if key in prior_group:
@@ -2483,7 +2659,9 @@ def load_gw_event_hdf5(
                     else:
                         prior_m1 = _get_prior("mass_1", "mass_1_detector_frame_Msun")
                         prior_m2 = _get_prior("mass_2", "mass_2_detector_frame_Msun")
-                    prior_dl = _get_prior("luminosity_distance", "luminosity_distance_Mpc")
+                    prior_dl = _get_prior(
+                        "luminosity_distance", "luminosity_distance_Mpc"
+                    )
                     prior_dict = {
                         "mass_1": prior_m1,
                         "mass_2": prior_m2,
@@ -2510,7 +2688,9 @@ def load_gw_event_hdf5(
                             prior_expr = posterior_parent[key][0]
                             break
                 if prior_expr is not None:
-                    prior_samples = _parse_prior_expression(prior_expr, np.asarray(d_l, dtype=np.float64))
+                    prior_samples = _parse_prior_expression(
+                        prior_expr, np.asarray(d_l, dtype=np.float64)
+                    )
 
         if prior_samples is None:
             prior_samples = _build_pe_prior_from_mode(
@@ -2542,6 +2722,7 @@ def load_gw_event_hdf5(
         has_em_counterpart=em_redshift is not None,
     )
 
+
 def load_gw_injections(
     injections_path: Union[str, Path],
     *,
@@ -2571,12 +2752,16 @@ def load_gw_injections(
             with path.open("rb") as handle:
                 return pickle.load(handle)
         except Exception:
+
             class _Fallback:
                 pass
 
             class _FallbackUnpickler(pickle.Unpickler):
                 def find_class(self, module, name):
-                    if module == "icarogw.injections" and name == "injections_at_detector":
+                    if (
+                        module == "icarogw.injections"
+                        and name == "injections_at_detector"
+                    ):
                         return _Fallback
                     return super().find_class(module, name)
 
@@ -2692,9 +2877,15 @@ def load_gw_injections(
         if mode in {"snr_powerlaw", "snr"}:
             snr_ref_val = float(snr_ref) if snr_ref is not None else None
             if snr_ref_val is None or snr_ref_val <= 0.0:
-                snr_ref_val = float(snr_threshold) if snr_threshold else float(np.median(snr))
-            ifar_ref_val = float(ifar_ref) if ifar_ref is not None else float(ifar_threshold)
-            ifar = ifar_ref_val * (np.asarray(snr, dtype=np.float64) / snr_ref_val) ** float(ifar_proxy_power)
+                snr_ref_val = (
+                    float(snr_threshold) if snr_threshold else float(np.median(snr))
+                )
+            ifar_ref_val = (
+                float(ifar_ref) if ifar_ref is not None else float(ifar_threshold)
+            )
+            ifar = ifar_ref_val * (
+                np.asarray(snr, dtype=np.float64) / snr_ref_val
+            ) ** float(ifar_proxy_power)
         else:
             raise ValueError(f"Unknown ifar_proxy_mode: {ifar_proxy_mode}")
 
@@ -2829,13 +3020,14 @@ def load_gwtc3_catalog(
         galaxy_catalog=galaxy_catalog,
     )
 
+
 def create_mock_gw_catalog(
     n_events: int = 10,
     z_max: float = 0.5,
     H0_true: float = 70.0,
     Omega_m_true: float = 0.3,
     seed: int = 42,
-    include_injections: bool = False
+    include_injections: bool = False,
 ) -> GWCatalogData:
     """
     Create mock GW catalog for testing and forecasting.
@@ -2886,7 +3078,7 @@ def create_mock_gw_catalog(
             posterior_samples=posterior,
             weights=None,  # Uniform
             prior_samples=np.power(d_L_samples, 2.0),
-            has_em_counterpart=True
+            has_em_counterpart=True,
         )
         events.append(event)
 
@@ -2905,8 +3097,8 @@ def create_mock_gw_catalog(
         # Monte Carlo weights for integration over (z, m1, m2)
         # Weight = (sampling volume) / (number of samples)
         V_z = z_max - 0.01  # Redshift range
-        V_m1 = 50 - 20      # m1 range (M_sun)
-        V_m2 = 30 - 10      # m2 range (M_sun)
+        V_m1 = 50 - 20  # m1 range (M_sun)
+        V_m2 = 30 - 10  # m2 range (M_sun)
         mc_weight = (V_z * V_m1 * V_m2) / n_inj
         detection_weights = np.ones(n_inj) * mc_weight
 
@@ -2915,13 +3107,10 @@ def create_mock_gw_catalog(
             weights=detection_weights,
             n_total=n_inj * 100,
             V_T=1000.0,  # Gpc^3 yr (O3-like)
-            T_obs=1.0    # years
+            T_obs=1.0,  # years
         )
 
-    catalog = GWCatalogData(
-        events=events,
-        injections=injections
-    )
+    catalog = GWCatalogData(events=events, injections=injections)
 
     return catalog
 
@@ -2932,23 +3121,23 @@ def create_mock_gw_catalog(
 
 __all__ = [
     # Data containers
-    'GWEventData',
-    'GWInjectionSet',
-    'GWCatalogData',
-    'GWGalaxyCatalog',
+    "GWEventData",
+    "GWInjectionSet",
+    "GWCatalogData",
+    "GWGalaxyCatalog",
     # Wrappers (Phase 2)
-    'MassPrior',
-    'PowerLawMass',
-    'RateEvolution',
-    'MadauRate',
+    "MassPrior",
+    "PowerLawMass",
+    "RateEvolution",
+    "MadauRate",
     # Rate model (Phase 2)
-    'GWRateModel',
+    "GWRateModel",
     # Main likelihood
-    'GWStandardSirenLikelihood',
+    "GWStandardSirenLikelihood",
     # Utilities
-    'create_mock_gw_catalog',
-    'load_gwtc3_events',
-    'load_gw_injections',
-    'load_gwtc3_catalog',
-    'load_gw_event_hdf5',
+    "create_mock_gw_catalog",
+    "load_gwtc3_events",
+    "load_gw_injections",
+    "load_gwtc3_catalog",
+    "load_gw_event_hdf5",
 ]

@@ -21,7 +21,12 @@ class SH0ESData:
 class SH0ESLikelihood(Likelihood):
     """Implements the SH0ES local H0 prior as a Gaussian likelihood."""
 
-    def __init__(self, data: Optional[SH0ESData] = None, name: Optional[str] = None, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        data: Optional[SH0ESData] = None,
+        name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
         self.data = data or SH0ESData()
         super().__init__(name=name or "sh0es", data_path=None, **kwargs)
         self.initialize()
@@ -39,7 +44,9 @@ class SH0ESLikelihood(Likelihood):
         return {}
 
     def theory(self, cosmology, **kwargs):
-        raise NotImplementedError("SH0ES likelihood is evaluated via log_likelihood only.")
+        raise NotImplementedError(
+            "SH0ES likelihood is evaluated via log_likelihood only."
+        )
 
     def log_likelihood(self, cosmology, **kwargs) -> float:
         H0 = jnp.asarray(cosmology.params["H0"], dtype=jnp.float32)

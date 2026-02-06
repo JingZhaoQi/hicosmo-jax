@@ -29,19 +29,17 @@ from .intensity_mapping import (
 
 __all__ = [
     # Core Fisher matrix tools
-    'FisherMatrix',
-    'FisherMatrixConfig',
-
+    "FisherMatrix",
+    "FisherMatrixConfig",
     # Numerical differentiation utilities
-    'compute_step_sizes',
-    'finite_difference_gradient',
-    'finite_difference_hessian',
-    'finite_difference_jacobian',
-
+    "compute_step_sizes",
+    "finite_difference_gradient",
+    "finite_difference_hessian",
+    "finite_difference_jacobian",
     # Intensity mapping forecasts
-    'IntensityMappingSurvey',
-    'IntensityMappingFisher',
-    'list_available_surveys',
-    'load_survey',
-    'run_forecast',
+    "IntensityMappingSurvey",
+    "IntensityMappingFisher",
+    "list_available_surveys",
+    "load_survey",
+    "run_forecast",
 ]

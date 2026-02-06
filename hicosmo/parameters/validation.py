@@ -13,34 +13,34 @@ from difflib import get_close_matches
 def _normalize_prior_dict(prior: Dict[str, Any]) -> Dict[str, Any]:
     """Return a normalized copy of a prior dict (dist aliases + key aliases)."""
     normalized = dict(prior)
-    dist_type = normalized.get('dist')
+    dist_type = normalized.get("dist")
     if dist_type:
         dist_lower = str(dist_type).lower()
         dist_aliases = {
-            'log_normal': 'lognormal',
-            'truncated_normal': 'truncnorm',
-            'half_normal': 'halfnormal',
-            'half_cauchy': 'halfcauchy',
+            "log_normal": "lognormal",
+            "truncated_normal": "truncnorm",
+            "half_normal": "halfnormal",
+            "half_cauchy": "halfcauchy",
         }
-        normalized['dist'] = dist_aliases.get(dist_lower, dist_lower)
+        normalized["dist"] = dist_aliases.get(dist_lower, dist_lower)
 
-    dist_norm = normalized.get('dist')
+    dist_norm = normalized.get("dist")
 
-    if dist_norm == 'truncnorm':
-        if 'low' not in normalized and 'min' in normalized:
-            normalized['low'] = normalized['min']
-        if 'high' not in normalized and 'max' in normalized:
-            normalized['high'] = normalized['max']
+    if dist_norm == "truncnorm":
+        if "low" not in normalized and "min" in normalized:
+            normalized["low"] = normalized["min"]
+        if "high" not in normalized and "max" in normalized:
+            normalized["high"] = normalized["max"]
 
-    if dist_norm == 'beta':
-        if 'alpha' not in normalized and 'a' in normalized:
-            normalized['alpha'] = normalized['a']
-        if 'beta' not in normalized and 'b' in normalized:
-            normalized['beta'] = normalized['b']
+    if dist_norm == "beta":
+        if "alpha" not in normalized and "a" in normalized:
+            normalized["alpha"] = normalized["a"]
+        if "beta" not in normalized and "b" in normalized:
+            normalized["beta"] = normalized["b"]
 
-    if dist_norm == 'gamma':
-        if 'concentration' not in normalized and 'shape' in normalized:
-            normalized['concentration'] = normalized['shape']
+    if dist_norm == "gamma":
+        if "concentration" not in normalized and "shape" in normalized:
+            normalized["concentration"] = normalized["shape"]
 
     return normalized
 
@@ -72,25 +72,25 @@ def validate_prior_dict(prior: Dict[str, Any], param_name: str = "") -> None:
             f"Prior for '{param_name}' must be a dict, got {type(prior).__name__}"
         )
 
-    if 'dist' not in prior:
+    if "dist" not in prior:
         raise ValueError(
             f"Prior for '{param_name}' must have 'dist' key specifying distribution type"
         )
 
     normalized = _normalize_prior_dict(prior)
-    dist_type = normalized['dist'].lower()
+    dist_type = normalized["dist"].lower()
 
     # Validate distribution-specific parameters
     required_params = {
-        'uniform': ['min', 'max'],
-        'normal': ['loc', 'scale'],
-        'truncnorm': ['loc', 'scale', 'low', 'high'],
-        'lognormal': ['loc', 'scale'],
-        'halfnormal': ['scale'],
-        'halfcauchy': ['scale'],
-        'beta': ['alpha', 'beta'],
-        'gamma': ['concentration', 'rate'],
-        'exponential': ['rate'],
+        "uniform": ["min", "max"],
+        "normal": ["loc", "scale"],
+        "truncnorm": ["loc", "scale", "low", "high"],
+        "lognormal": ["loc", "scale"],
+        "halfnormal": ["scale"],
+        "halfcauchy": ["scale"],
+        "beta": ["alpha", "beta"],
+        "gamma": ["concentration", "rate"],
+        "exponential": ["rate"],
     }
 
     if dist_type in required_params:
@@ -140,24 +140,23 @@ def validate_parameter_name(name: str) -> None:
         raise ValueError("Parameter name cannot be empty")
 
     if name != name.strip():
-        raise ValueError(
-            f"Parameter name '{name}' has leading/trailing whitespace"
-        )
+        raise ValueError(f"Parameter name '{name}' has leading/trailing whitespace")
 
-    if not (name[0].isalpha() or name[0] == '_'):
+    if not (name[0].isalpha() or name[0] == "_"):
         raise ValueError(
             f"Parameter name '{name}' must start with letter or underscore"
         )
 
-    if not all(c.isalnum() or c == '_' for c in name):
+    if not all(c.isalnum() or c == "_" for c in name):
         raise ValueError(
             f"Parameter name '{name}' contains invalid characters. "
             f"Only alphanumeric and underscore allowed."
         )
 
 
-def suggest_similar_names(name: str, valid_names: List[str],
-                         cutoff: float = 0.6, n: int = 3) -> List[str]:
+def suggest_similar_names(
+    name: str, valid_names: List[str], cutoff: float = 0.6, n: int = 3
+) -> List[str]:
     """
     Suggest similar valid names for a potentially misspelled parameter.
 
@@ -237,10 +236,7 @@ def validate_bounds(bounds: Optional[tuple], param_name: str = "") -> None:
 
 
 def build_parameter_error_message(
-    invalid_params: set,
-    model_name: str,
-    model_params: list,
-    provided_params: list
+    invalid_params: set, model_name: str, model_params: list, provided_params: list
 ) -> str:
     """
     Build user-friendly error message for parameter validation failures.
@@ -282,11 +278,13 @@ def build_parameter_error_message(
         else:
             lines.append(f"   '{param}' not found in model.")
 
-    lines.extend([
-        f"\n📋 Model '{model_name}' accepts these parameters:",
-        f"   {sorted(model_params)}",
-        f"\n🔍 You provided:",
-        f"   {sorted(provided_params)}",
-    ])
+    lines.extend(
+        [
+            f"\n📋 Model '{model_name}' accepts these parameters:",
+            f"   {sorted(model_params)}",
+            f"\n🔍 You provided:",
+            f"   {sorted(provided_params)}",
+        ]
+    )
 
     return "\n".join(lines)

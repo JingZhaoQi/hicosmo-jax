@@ -21,6 +21,7 @@ import rlcompleter
 try:
     from rich.console import Console
     from rich.text import Text
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
@@ -31,9 +32,9 @@ def get_default_output_paths():
     cwd = Path.cwd()
 
     return {
-        'results': cwd / "hicosmo_results",
-        'chains': cwd / "mcmc_chains",
-        'plots': cwd / "plots"
+        "results": cwd / "hicosmo_results",
+        "chains": cwd / "mcmc_chains",
+        "plots": cwd / "plots",
     }
 
 
@@ -71,7 +72,9 @@ def create_banner():
     else:
         logo_text = "\n  HIcosmo\n"
 
-    banner = logo_text + """
+    banner = (
+        logo_text
+        + """
   Neutral Hydrogen (HI) Cosmology Parameter Constraints & Forecast
   Powered by JAX + NumPyro
   ───────────────────────────────────────────────────────────────
@@ -99,15 +102,16 @@ Default output directories (created when needed):
 
 Type 'help(hicosmo)' for documentation, 'exit()' to quit.
 """
+    )
 
     # Get default output paths (without creating directories)
     workspace = get_default_output_paths()
 
     return banner.format(
         cwd=Path.cwd(),
-        results=workspace['results'],
-        chains=workspace['chains'],
-        plots=workspace['plots']
+        results=workspace["results"],
+        chains=workspace["chains"],
+        plots=workspace["plots"],
     )
 
 
@@ -121,28 +125,37 @@ def prepare_namespace():
         from hicosmo.models import LCDM
         from hicosmo.likelihoods import SN_likelihood
 
-        namespace.update({
-            'hicosmo': hicosmo,
-            'InferenceRunner': InferenceRunner,
-            'list_likelihoods': list_likelihoods,
-            'list_cosmologies': list_cosmologies,
-            'LCDM': LCDM,
-            'SN_likelihood': SN_likelihood,
-        })
+        namespace.update(
+            {
+                "hicosmo": hicosmo,
+                "InferenceRunner": InferenceRunner,
+                "list_likelihoods": list_likelihoods,
+                "list_cosmologies": list_cosmologies,
+                "LCDM": LCDM,
+                "SN_likelihood": SN_likelihood,
+            }
+        )
 
         # Try to import additional models
         try:
             from hicosmo.models import wCDM, CPL
-            namespace['wCDM'] = wCDM
-            namespace['CPL'] = CPL
+
+            namespace["wCDM"] = wCDM
+            namespace["CPL"] = CPL
         except ImportError:
             pass
 
         # Try to import additional likelihoods
         try:
-            from hicosmo.likelihoods import BAO_likelihood, Planck2018DistancePriorsLikelihood
-            namespace['BAO_likelihood'] = BAO_likelihood
-            namespace['Planck2018DistancePriorsLikelihood'] = Planck2018DistancePriorsLikelihood
+            from hicosmo.likelihoods import (
+                BAO_likelihood,
+                Planck2018DistancePriorsLikelihood,
+            )
+
+            namespace["BAO_likelihood"] = BAO_likelihood
+            namespace["Planck2018DistancePriorsLikelihood"] = (
+                Planck2018DistancePriorsLikelihood
+            )
         except ImportError:
             pass
 
@@ -155,13 +168,14 @@ def prepare_namespace():
     try:
         import numpy as np
         import matplotlib.pyplot as plt
-        namespace['np'] = np
-        namespace['plt'] = plt
+
+        namespace["np"] = np
+        namespace["plt"] = plt
     except ImportError:
         pass
 
     # Add Path for convenience
-    namespace['Path'] = Path
+    namespace["Path"] = Path
 
     return namespace
 
@@ -189,5 +203,5 @@ def main():
         print("\n\n👋 Thanks for using HIcosmo!\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

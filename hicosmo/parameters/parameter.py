@@ -15,29 +15,29 @@ from .validation import validate_parameter_name, validate_prior_dict, validate_b
 # Used when user doesn't specify a custom label
 DEFAULT_LATEX_LABELS: Dict[str, str] = {
     # Basic cosmological parameters
-    'H0': r'H_0~[\mathrm{km~s^{-1}~Mpc^{-1}}]',
-    'Omega_m': r'\Omega_m',
-    'Omega_b': r'\Omega_b',
-    'Omega_k': r'\Omega_k',
-    'Omega_Lambda': r'\Omega_\Lambda',
-    'Omega_r': r'\Omega_r',
-    'sigma8': r'\sigma_8',
-    'n_s': r'n_s',
+    "H0": r"H_0~[\mathrm{km~s^{-1}~Mpc^{-1}}]",
+    "Omega_m": r"\Omega_m",
+    "Omega_b": r"\Omega_b",
+    "Omega_k": r"\Omega_k",
+    "Omega_Lambda": r"\Omega_\Lambda",
+    "Omega_r": r"\Omega_r",
+    "sigma8": r"\sigma_8",
+    "n_s": r"n_s",
     # Dark energy parameters
-    'w': r'w',
-    'w0': r'w_0',
-    'wa': r'w_a',
+    "w": r"w",
+    "w0": r"w_0",
+    "wa": r"w_a",
     # Nuisance parameters
-    'M_B': r'M_B',
-    'alpha': r'\alpha',
-    'beta': r'\beta',
+    "M_B": r"M_B",
+    "alpha": r"\alpha",
+    "beta": r"\beta",
     # Derived parameters
-    'rd': r'r_d~[\mathrm{Mpc}]',
-    'rd_h': r'r_d h~[\mathrm{Mpc}]',
-    'H0_rd': r'H_0 r_d~[\mathrm{km~s^{-1}}]',
+    "rd": r"r_d~[\mathrm{Mpc}]",
+    "rd_h": r"r_d h~[\mathrm{Mpc}]",
+    "H0_rd": r"H_0 r_d~[\mathrm{km~s^{-1}}]",
     # CMB parameters
-    'T_cmb': r'T_{\mathrm{CMB}}',
-    'N_eff': r'N_{\mathrm{eff}}',
+    "T_cmb": r"T_{\mathrm{CMB}}",
+    "N_eff": r"N_{\mathrm{eff}}",
 }
 
 
@@ -122,37 +122,37 @@ class Parameter:
             return
 
         # Normalize distribution name
-        dist_type = self.prior.get('dist')
+        dist_type = self.prior.get("dist")
         if dist_type:
             dist_lower = dist_type.lower()
             dist_aliases = {
-                'log_normal': 'lognormal',
-                'truncated_normal': 'truncnorm',
-                'half_normal': 'halfnormal',
-                'half_cauchy': 'halfcauchy',
+                "log_normal": "lognormal",
+                "truncated_normal": "truncnorm",
+                "half_normal": "halfnormal",
+                "half_cauchy": "halfcauchy",
             }
-            self.prior['dist'] = dist_aliases.get(dist_lower, dist_lower)
+            self.prior["dist"] = dist_aliases.get(dist_lower, dist_lower)
 
-        dist_norm = self.prior.get('dist')
+        dist_norm = self.prior.get("dist")
 
         # Normalize truncnorm bounds
-        if dist_norm == 'truncnorm':
-            if 'low' not in self.prior and 'min' in self.prior:
-                self.prior['low'] = self.prior['min']
-            if 'high' not in self.prior and 'max' in self.prior:
-                self.prior['high'] = self.prior['max']
+        if dist_norm == "truncnorm":
+            if "low" not in self.prior and "min" in self.prior:
+                self.prior["low"] = self.prior["min"]
+            if "high" not in self.prior and "max" in self.prior:
+                self.prior["high"] = self.prior["max"]
 
         # Normalize beta parameter names
-        if dist_norm == 'beta':
-            if 'alpha' not in self.prior and 'a' in self.prior:
-                self.prior['alpha'] = self.prior['a']
-            if 'beta' not in self.prior and 'b' in self.prior:
-                self.prior['beta'] = self.prior['b']
+        if dist_norm == "beta":
+            if "alpha" not in self.prior and "a" in self.prior:
+                self.prior["alpha"] = self.prior["a"]
+            if "beta" not in self.prior and "b" in self.prior:
+                self.prior["beta"] = self.prior["b"]
 
         # Normalize gamma parameter names
-        if dist_norm == 'gamma':
-            if 'concentration' not in self.prior and 'shape' in self.prior:
-                self.prior['concentration'] = self.prior['shape']
+        if dist_norm == "gamma":
+            if "concentration" not in self.prior and "shape" in self.prior:
+                self.prior["concentration"] = self.prior["shape"]
 
     def _validate_name(self):
         """Validate parameter name using centralized validation."""
@@ -170,9 +170,7 @@ class Parameter:
         else:
             # Fixed parameters should have a value
             if self.value is None:
-                raise ValueError(
-                    f"Fixed parameter '{self.name}' must have a value"
-                )
+                raise ValueError(f"Fixed parameter '{self.name}' must have a value")
 
     def _validate_bounds(self):
         """Validate bounds format using centralized validation."""
@@ -182,10 +180,10 @@ class Parameter:
     def _infer_bounds_from_prior(self):
         """Automatically infer bounds from uniform prior if not specified."""
         if self.bounds is None and self.prior is not None:
-            if self.prior.get('dist') == 'uniform':
-                self.bounds = (self.prior['min'], self.prior['max'])
-            elif self.prior.get('dist') == 'truncnorm':
-                self.bounds = (self.prior['low'], self.prior['high'])
+            if self.prior.get("dist") == "uniform":
+                self.bounds = (self.prior["min"], self.prior["max"])
+            elif self.prior.get("dist") == "truncnorm":
+                self.bounds = (self.prior["low"], self.prior["high"])
 
     def _set_defaults(self):
         """Set default values for optional fields."""
@@ -195,14 +193,14 @@ class Parameter:
 
         # If value is None and prior has ref, use it
         if self.value is None and self.prior is not None:
-            if 'ref' in self.prior:
-                self.value = self.prior['ref']
-            elif self.prior.get('dist') == 'uniform':
+            if "ref" in self.prior:
+                self.value = self.prior["ref"]
+            elif self.prior.get("dist") == "uniform":
                 # Default to middle of uniform prior
-                self.value = (self.prior['min'] + self.prior['max']) / 2.0
-            elif self.prior.get('dist') in ['normal', 'truncnorm']:
+                self.value = (self.prior["min"] + self.prior["max"]) / 2.0
+            elif self.prior.get("dist") in ["normal", "truncnorm"]:
                 # Default to mean of normal-like distribution
-                self.value = self.prior['loc']
+                self.value = self.prior["loc"]
 
     def to_numpyro_dist(self) -> dist.Distribution:
         """
@@ -226,42 +224,44 @@ class Parameter:
         >>> # numpyro_dist is Uniform(50, 100)
         """
         if not self.free or self.prior is None:
-            raise ValueError(f"Cannot convert fixed parameter '{self.name}' to NumPyro distribution")
-
-        dist_type = self.prior['dist'].lower()
-
-        # Map distribution types to NumPyro constructors
-        if dist_type == 'uniform':
-            return dist.Uniform(self.prior['min'], self.prior['max'])
-
-        elif dist_type == 'normal':
-            return dist.Normal(self.prior['loc'], self.prior['scale'])
-
-        elif dist_type == 'truncnorm':
-            return dist.TruncatedNormal(
-                loc=self.prior['loc'],
-                scale=self.prior['scale'],
-                low=self.prior['low'],
-                high=self.prior['high']
+            raise ValueError(
+                f"Cannot convert fixed parameter '{self.name}' to NumPyro distribution"
             )
 
-        elif dist_type == 'lognormal':
-            return dist.LogNormal(self.prior['loc'], self.prior['scale'])
+        dist_type = self.prior["dist"].lower()
 
-        elif dist_type == 'beta':
-            return dist.Beta(self.prior['alpha'], self.prior['beta'])
+        # Map distribution types to NumPyro constructors
+        if dist_type == "uniform":
+            return dist.Uniform(self.prior["min"], self.prior["max"])
 
-        elif dist_type == 'gamma':
-            return dist.Gamma(self.prior['concentration'], self.prior['rate'])
+        elif dist_type == "normal":
+            return dist.Normal(self.prior["loc"], self.prior["scale"])
 
-        elif dist_type == 'halfnormal':
-            return dist.HalfNormal(self.prior['scale'])
+        elif dist_type == "truncnorm":
+            return dist.TruncatedNormal(
+                loc=self.prior["loc"],
+                scale=self.prior["scale"],
+                low=self.prior["low"],
+                high=self.prior["high"],
+            )
 
-        elif dist_type == 'halfcauchy':
-            return dist.HalfCauchy(self.prior['scale'])
+        elif dist_type == "lognormal":
+            return dist.LogNormal(self.prior["loc"], self.prior["scale"])
 
-        elif dist_type == 'exponential':
-            return dist.Exponential(self.prior['rate'])
+        elif dist_type == "beta":
+            return dist.Beta(self.prior["alpha"], self.prior["beta"])
+
+        elif dist_type == "gamma":
+            return dist.Gamma(self.prior["concentration"], self.prior["rate"])
+
+        elif dist_type == "halfnormal":
+            return dist.HalfNormal(self.prior["scale"])
+
+        elif dist_type == "halfcauchy":
+            return dist.HalfCauchy(self.prior["scale"])
+
+        elif dist_type == "exponential":
+            return dist.Exponential(self.prior["rate"])
 
         else:
             raise ValueError(
@@ -286,17 +286,17 @@ class Parameter:
             Dictionary containing all parameter information.
         """
         return {
-            'name': self.name,
-            'value': self.value,
-            'free': self.free,
-            'prior': self.prior,
-            'latex_label': self.latex_label,
-            'description': self.description,
-            'bounds': self.bounds
+            "name": self.name,
+            "value": self.value,
+            "free": self.free,
+            "prior": self.prior,
+            "latex_label": self.latex_label,
+            "description": self.description,
+            "bounds": self.bounds,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Parameter':
+    def from_dict(cls, data: Dict[str, Any]) -> "Parameter":
         """
         Create Parameter from dictionary representation.
 
@@ -314,11 +314,8 @@ class Parameter:
 
     @classmethod
     def from_tuple(
-        cls,
-        name: str,
-        spec: tuple,
-        latex: Optional[str] = None
-    ) -> 'Parameter':
+        cls, name: str, spec: tuple, latex: Optional[str] = None
+    ) -> "Parameter":
         """
         Create Parameter from (initial, min, max, latex) tuple.
 
@@ -358,13 +355,13 @@ class Parameter:
             name=name,
             value=initial,
             free=True,
-            prior={'dist': 'uniform', 'min': min_val, 'max': max_val},
+            prior={"dist": "uniform", "min": min_val, "max": max_val},
             bounds=(min_val, max_val),
-            latex_label=final_latex
+            latex_label=final_latex,
         )
 
     @classmethod
-    def from_simple_config(cls, name: str, config: dict) -> 'Parameter':
+    def from_simple_config(cls, name: str, config: dict) -> "Parameter":
         """
         Create Parameter from simplified configuration dict.
 
@@ -409,13 +406,13 @@ class Parameter:
         ... })
         """
         # Case 1: Full config with 'prior' key (AutoParameter format)
-        if 'prior' in config:
-            prior = config['prior']
-            value = config.get('ref', config.get('value'))
-            latex = config.get('latex', config.get('latex_label'))
-            bounds = config.get('bounds')
-            description = config.get('description')
-            free = config.get('free', True)
+        if "prior" in config:
+            prior = config["prior"]
+            value = config.get("ref", config.get("value"))
+            latex = config.get("latex", config.get("latex_label"))
+            bounds = config.get("bounds")
+            description = config.get("description")
+            free = config.get("free", True)
 
             return cls(
                 name=name,
@@ -424,25 +421,25 @@ class Parameter:
                 prior=prior if free else None,
                 latex_label=latex,
                 description=description,
-                bounds=bounds
+                bounds=bounds,
             )
 
         # Case 2: Fixed parameter with 'value' and 'free': False
-        elif 'value' in config and not config.get('free', True):
+        elif "value" in config and not config.get("free", True):
             return cls(
                 name=name,
-                value=config['value'],
+                value=config["value"],
                 free=False,
-                latex_label=config.get('latex', config.get('latex_label')),
-                description=config.get('description')
+                latex_label=config.get("latex", config.get("latex_label")),
+                description=config.get("description"),
             )
 
         # Case 3: Inline prior format (dist at top level)
-        elif 'dist' in config:
-            value = config.get('ref', config.get('value'))
-            latex = config.get('latex', config.get('latex_label'))
-            bounds = config.get('bounds')
-            description = config.get('description')
+        elif "dist" in config:
+            value = config.get("ref", config.get("value"))
+            latex = config.get("latex", config.get("latex_label"))
+            bounds = config.get("bounds")
+            description = config.get("description")
 
             return cls(
                 name=name,
@@ -451,26 +448,28 @@ class Parameter:
                 prior=config,
                 latex_label=latex,
                 description=description,
-                bounds=bounds
+                bounds=bounds,
             )
 
         # Case 4: User-friendly format with init/min/max
         # e.g., {'init': 0.0, 'min': -5.0, 'max': 5.0, 'latex': '$b$'}
-        elif 'min' in config and 'max' in config:
-            min_val = config['min']
-            max_val = config['max']
-            init_val = config.get('init', config.get('value', (min_val + max_val) / 2.0))
-            latex = config.get('latex', config.get('latex_label'))
-            description = config.get('description')
+        elif "min" in config and "max" in config:
+            min_val = config["min"]
+            max_val = config["max"]
+            init_val = config.get(
+                "init", config.get("value", (min_val + max_val) / 2.0)
+            )
+            latex = config.get("latex", config.get("latex_label"))
+            description = config.get("description")
 
             return cls(
                 name=name,
                 value=init_val,
                 free=True,
-                prior={'dist': 'uniform', 'min': min_val, 'max': max_val},
+                prior={"dist": "uniform", "min": min_val, "max": max_val},
                 latex_label=latex,
                 description=description,
-                bounds=(min_val, max_val)
+                bounds=(min_val, max_val),
             )
 
         else:

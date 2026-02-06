@@ -161,11 +161,13 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
     def get_info(self) -> Dict[str, Any]:
         """Return likelihood information."""
         return {
-            'name': self.name,
-            'type': 'Planck2018DistancePriors',
-            'observables': ['R', 'l_a', 'omega_b_h2'],
-            'reference': 'Planck Collaboration 2018',
-            'cosmology_class': self.cosmology_class.__name__ if self.cosmology_class else None,
+            "name": self.name,
+            "type": "Planck2018DistancePriors",
+            "observables": ["R", "l_a", "omega_b_h2"],
+            "reference": "Planck Collaboration 2018",
+            "cosmology_class": (
+                self.cosmology_class.__name__ if self.cosmology_class else None
+            ),
         }
 
     def __repr__(self) -> str:
@@ -177,7 +179,9 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
         Omega_m = jnp.asarray(cosmology.params["Omega_m"], dtype=jnp.float32)
         Omega_b = cosmology.params.get("Omega_b")
         if Omega_b is None:
-            raise ValueError("Planck distance priors require Omega_b in the cosmology parameters.")
+            raise ValueError(
+                "Planck distance priors require Omega_b in the cosmology parameters."
+            )
         Omega_b = jnp.asarray(Omega_b, dtype=jnp.float32)
 
         z_star = cosmology.recombination_redshift()
@@ -214,7 +218,6 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
             "r_s_zstar": float(r_s),
         }
 
-
     def _prepare_params_dict(self, params: Dict[str, Any]) -> Dict[str, jnp.ndarray]:
         """Convert params to JAX arrays using cosmology normalization."""
         return self._prepare_params_for_jax(
@@ -228,7 +231,7 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
             return False
         if not hasattr(self.cosmology_class, "sound_horizon_traced"):
             return False
-        return ('H0' in params or 'h' in params)
+        return "H0" in params or "h" in params
 
     def _initialize_fast_likelihood(self) -> None:
         """Build JIT-compiled fast likelihood path for JAX samplers."""
@@ -265,7 +268,10 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
             D_M = cosmo_grid["D_M"][-1]
             D_A = D_M / (1.0 + z_star)
 
-            r_s = cosmology_class.sound_horizon_traced(z_star, params) * self.RS_ZSTAR_CALIBRATION
+            r_s = (
+                cosmology_class.sound_horizon_traced(z_star, params)
+                * self.RS_ZSTAR_CALIBRATION
+            )
 
             shift_R = jnp.sqrt(Omega_m) * (H0 / c_km_s) * D_A * (1.0 + z_star)
             l_a = jnp.pi * D_A * (1.0 + z_star) / r_s
