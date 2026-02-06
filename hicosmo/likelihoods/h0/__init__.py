@@ -16,7 +16,7 @@ Quick Start:
 """
 
 from .shoes import SH0ESLikelihood
-from .h0licow import H0LiCOWLikelihood
+from ..lensing.h0licow import H0LiCOWLikelihood
 
 __all__ = [
     "SH0ESLikelihood",

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hicosmo"
+version = "0.1.0"
+description = "HIcosmo - Cosmological Parameter Estimation with JAX"
+requires-python = ">=3.9"
+dynamic = ["dependencies"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "flake8>=6.0",
+    "black>=23.0",
+    "mypy>=1.0",
+    "isort>=5.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hicosmo*"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
