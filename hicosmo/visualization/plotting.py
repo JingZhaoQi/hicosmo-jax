@@ -357,7 +357,7 @@ def _prepare_latex_labels(param_names: List[str]) -> List[str]:
 
 
 def _normalize_range(
-    bounds: Union[Tuple[float, float], List[float]]
+    bounds: Union[Tuple[float, float], List[float]],
 ) -> Tuple[float, float]:
     lo, hi = bounds
     return (float(lo), float(hi))
@@ -437,7 +437,7 @@ def _merge_range_dicts(
 
 
 def _coerce_ranges_arg(
-    ranges: Optional[Union[Dict[str, Tuple[float, float]], List[Any], Tuple[Any, ...]]]
+    ranges: Optional[Union[Dict[str, Tuple[float, float]], List[Any], Tuple[Any, ...]]],
 ) -> Optional[Dict[str, Tuple[float, float]]]:
     if ranges is None:
         return None
