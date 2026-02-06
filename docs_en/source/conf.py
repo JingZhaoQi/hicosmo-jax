@@ -29,15 +29,18 @@ autosectionlabel_prefix_document = True
 
 autodoc_mock_imports = []
 
-# Read the Docs environment does not provide scientific deps by default
+# CI / Read the Docs environment does not provide scientific deps
 if os.environ.get("READTHEDOCS", "").lower() == "true":
     autodoc_mock_imports = [
+        "numpy",
         "jax",
         "jaxlib",
         "numpyro",
         "getdist",
         "matplotlib",
         "scipy",
+        "astropy",
+        "h5py",
         "torch",
         "camb",
         "classy",
@@ -46,7 +49,11 @@ if os.environ.get("READTHEDOCS", "").lower() == "true":
         "corner",
         "pandas",
         "tqdm",
+        "rich",
+        "yaml",
+        "hicosmo",
     ]
+    autosummary_generate = False
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
