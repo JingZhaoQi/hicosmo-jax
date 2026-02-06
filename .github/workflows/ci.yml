@@ -109,14 +109,13 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
         pip install sphinx sphinx_rtd_theme
 
     - name: Build Chinese docs
-      run: cd docs_zh && make html
+      run: cd docs_zh && READTHEDOCS=true make html
 
     - name: Build English docs
-      run: cd docs_en && make html
+      run: cd docs_en && READTHEDOCS=true make html
 
     - name: Assemble site
       run: |
