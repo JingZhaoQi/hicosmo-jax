@@ -51,7 +51,7 @@ HIcosmo 采用分层架构设计：
    │  MCMC, NumPyro NUTS, emcee, 检查点系统             │
    ├─────────────────────────────────────────────────────┤
    │  Layer 3: Likelihoods（似然函数）                   │
-   │  SN, BAO, CMB, H0LiCOW, TDCOSMO, GW               │
+   │  SN, BAO, CMB, H0LiCOW, TDCOSMO, SH0ES            │
    ├─────────────────────────────────────────────────────┤
    │  Layer 2: Models（宇宙学模型）                      │
    │  LCDM, wCDM, CPL, ILCDM                            │

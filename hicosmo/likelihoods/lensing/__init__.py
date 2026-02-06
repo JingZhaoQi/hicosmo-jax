@@ -1,22 +1,24 @@
 """
-Strong Lensing Likelihoods
-==========================
+Strong Gravitational Lensing Likelihoods
+=========================================
 
 Provides likelihood implementations for strong gravitational lensing time delays.
 
 Available Classes:
+- H0LiCOWLikelihood: H0LiCOW 6-lens time-delay distance analysis
 - TDCOSMOLikelihood: Hierarchical TDCOSMO analysis
 - ExternalLensLikelihood: External lens likelihood
 - HierarchicalTDCOSMO: Full hierarchical model
 - KappaPrior: External convergence prior
 
 Quick Start:
-    >>> from hicosmo.likelihoods import TDCOSMO
+    >>> from hicosmo.likelihoods import H0LiCOW, TDCOSMO
     >>> from hicosmo.models import LCDM
-    >>> tdcosmo = TDCOSMO(LCDM)
-    >>> log_L = tdcosmo(H0=70, Omega_m=0.3, lambda_int_mean=1.0)
+    >>> lensing = H0LiCOW(LCDM)
+    >>> log_L = lensing(H0=70, Omega_m=0.3)
 """
 
+from .h0licow import H0LiCOWLikelihood
 from .tdcosmo import (
     ExternalLensLikelihood,
     HierarchicalTDCOSMO,
@@ -26,6 +28,7 @@ from .tdcosmo import (
 from .hierarchical_helper import HierarchicalGWLikelihood
 
 __all__ = [
+    "H0LiCOWLikelihood",
     "TDCOSMOLikelihood",
     "ExternalLensLikelihood",
     "HierarchicalTDCOSMO",

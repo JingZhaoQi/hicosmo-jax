@@ -51,7 +51,7 @@ HIcosmo employs a layered architecture design:
    |  MCMC, NumPyro NUTS, emcee, Checkpoint System           |
    +---------------------------------------------------------+
    |  Layer 3: Likelihoods                                   |
-   |  SN, BAO, CMB, H0LiCOW, TDCOSMO, GW                    |
+   |  SN, BAO, CMB, H0LiCOW, TDCOSMO, SH0ES                 |
    +---------------------------------------------------------+
    |  Layer 2: Models (Cosmological Models)                  |
    |  LCDM, wCDM, CPL, ILCDM                                |
