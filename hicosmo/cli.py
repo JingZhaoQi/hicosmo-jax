@@ -72,9 +72,7 @@ def create_banner():
     else:
         logo_text = "\n  HIcosmo\n"
 
-    banner = (
-        logo_text
-        + """
+    banner = logo_text + """
   Neutral Hydrogen (HI) Cosmology Parameter Constraints & Forecast
   Powered by JAX + NumPyro
   ───────────────────────────────────────────────────────────────
@@ -102,7 +100,6 @@ Default output directories (created when needed):
 
 Type 'help(hicosmo)' for documentation, 'exit()' to quit.
 """
-    )
 
     # Get default output paths (without creating directories)
     workspace = get_default_output_paths()

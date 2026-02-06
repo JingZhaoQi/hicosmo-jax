@@ -8,7 +8,7 @@ via JAX for high-performance numerical derivatives.
 
 Key features:
 - Automatic differentiation of likelihood functions
-- Multi-probe Fisher matrix combination  
+- Multi-probe Fisher matrix combination
 - Parameter marginalization and conditioning
 - Numerical stability with advanced regularization
 - Professional validation and diagnostics

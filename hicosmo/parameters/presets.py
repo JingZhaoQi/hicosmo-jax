@@ -14,7 +14,6 @@ Single Source of Truth - All parameter values should reference this module.
 
 from typing import Dict, Any
 
-
 # Planck 2018 cosmological parameters (TT,TE,EE+lowE+lensing)
 # Source: Planck Collaboration VI (2020), Table 2
 # DOI: 10.1051/0004-6361/201833910

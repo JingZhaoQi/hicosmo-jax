@@ -13,7 +13,6 @@ from jax.scipy.stats import norm
 jax_config.update("jax_enable_x64", True)
 from ...utils.jax_tools import trapezoid
 
-
 ArrayLike = Union[float, np.ndarray, jnp.ndarray]
 
 
