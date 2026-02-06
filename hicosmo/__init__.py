@@ -1,10 +1,9 @@
 """
-HIcosmo: High-performance universal cosmology framework.
+HIcosmo: High-performance Inference for Cosmology.
 
-HIcosmo (HI = neutral hydrogen, I = Roman numeral 1) is a universal
-cosmological parameter estimation framework with enhanced functionality
-and optimizations for neutral hydrogen cosmology and 21cm surveys.
-Built with JAX for high-performance computing and modern MCMC methods.
+A modern JAX-based cosmological parameter estimation framework featuring
+automatic differentiation, JIT compilation, and GPU/TPU acceleration.
+Built for high-performance computing and modern MCMC methods.
 """
 
 from __future__ import annotations

@@ -1,14 +1,18 @@
 # HIcosmo
 
 <p align="center">
-  <strong>High-performance JAX-based Cosmological Parameter Estimation Framework</strong>
+  <strong>High-performance Inference for Cosmology</strong>
+</p>
+
+<p align="center">
+  <a href="https://jingzhaoqi.github.io/hicosmo-jax/en/">Documentation (English)</a> •
+  <a href="https://jingzhaoqi.github.io/hicosmo-jax/zh/">文档 (中文)</a>
 </p>
 
 <p align="center">
   <a href="#installation">Installation</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#features">Features</a> •
-  <a href="#documentation">Documentation</a> •
   <a href="#performance">Performance</a>
 </p>
 
@@ -16,7 +20,7 @@
 
 ## Overview
 
-**HIcosmo** (HI = neutral hydrogen, I = Roman numeral 1) is a modern JAX-based cosmological parameter estimation framework designed for high-performance computing and 21cm neutral hydrogen cosmology research.
+**HIcosmo** (**H**igh-performance **I**nference for **Cosmo**logy) is a modern JAX-based cosmological parameter estimation framework, featuring automatic differentiation, JIT compilation, and GPU/TPU acceleration.
 
 ### Key Features
 
@@ -339,7 +343,7 @@ If you use HIcosmo in your research, please cite:
 ```bibtex
 @software{hicosmo,
   author = {Qi, Jingzhao},
-  title = {HIcosmo: High-performance JAX-based Cosmological Parameter Estimation Framework},
+  title = {HIcosmo: High-performance Inference for Cosmology},
   year = {2024},
   url = {https://github.com/JingZhaoQi/hicosmo-jax}
 }
@@ -361,5 +365,5 @@ MIT License
 ---
 
 <p align="center">
-  <sub>Built with JAX for the next generation of cosmological analysis</sub>
+  <sub>High-performance Inference for Cosmology — Built with JAX</sub>
 </p>

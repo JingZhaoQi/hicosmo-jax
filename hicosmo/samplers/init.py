@@ -3,7 +3,7 @@
 HIcosmo Elegant Multi-core Initialization Module
 
 Provides clean and elegant multi-core environment configuration
-for neutral hydrogen cosmology and 21cm surveys.
+for high-performance cosmological inference.
 
 Author: Jingzhao Qi
 """
@@ -29,7 +29,7 @@ class Config:
     HIcosmo Global Configuration Manager
 
     Provides elegant one-line initialization with automatic multi-core and environment setup
-    for neutral hydrogen cosmology and 21cm surveys
+    for high-performance cosmological inference
     """
 
     _initialized = False
