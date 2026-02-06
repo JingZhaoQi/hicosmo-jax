@@ -23,27 +23,27 @@ logger = get_logger(__name__)
 
 # Mapping between different dataset naming conventions and HIcosmo observables
 _OBSERVABLE_MAP = {
-    'DM_over_rs': 'DM_over_rd',
-    'DM_over_rd': 'DM_over_rd',
-    'bao_DM_over_rs': 'DM_over_rd',
-    'DH_over_rs': 'DH_over_rd',
-    'DH_over_rd': 'DH_over_rd',
-    'bao_DH_over_rs': 'DH_over_rd',
-    'DV_over_rs': 'DV_over_rd',
-    'DV_over_rd': 'DV_over_rd',
-    'bao_DV_over_rs': 'DV_over_rd',
-    'rs_over_DV': 'rs_over_DV',
-    'bao_rs_over_DV': 'rs_over_DV',
-    'Hz_rs': 'Hz_rs',
-    'bao_Hz_rs': 'Hz_rs',
-    'f_sigma8': 'fsigma8',
+    "DM_over_rs": "DM_over_rd",
+    "DM_over_rd": "DM_over_rd",
+    "bao_DM_over_rs": "DM_over_rd",
+    "DH_over_rs": "DH_over_rd",
+    "DH_over_rd": "DH_over_rd",
+    "bao_DH_over_rs": "DH_over_rd",
+    "DV_over_rs": "DV_over_rd",
+    "DV_over_rd": "DV_over_rd",
+    "bao_DV_over_rs": "DV_over_rd",
+    "rs_over_DV": "rs_over_DV",
+    "bao_rs_over_DV": "rs_over_DV",
+    "Hz_rs": "Hz_rs",
+    "bao_Hz_rs": "Hz_rs",
+    "f_sigma8": "fsigma8",
 }
 
 
 def _normalize_observable(raw: str) -> str:
     """Map observable labels from external datasets into HIcosmo conventions."""
     observable = raw.strip()
-    if observable.startswith('bao_') and observable not in _OBSERVABLE_MAP:
+    if observable.startswith("bao_") and observable not in _OBSERVABLE_MAP:
         observable = observable[4:]
     if observable not in _OBSERVABLE_MAP:
         raise ValueError(f"Unsupported BAO observable label '{raw}'.")
@@ -53,10 +53,10 @@ def _normalize_observable(raw: str) -> str:
 def _read_data_file(file_path: Path) -> List[Tuple[float, float, Optional[float], str]]:
     """Parse a BAO data file containing rows of measurements."""
     entries: List[Tuple[float, float, Optional[float], str]] = []
-    with open(file_path, 'r') as handle:
+    with open(file_path, "r") as handle:
         for line in handle:
             stripped = line.strip()
-            if not stripped or stripped.startswith('#'):
+            if not stripped or stripped.startswith("#"):
                 continue
             parts = stripped.split()
             if len(parts) < 3:
@@ -97,10 +97,10 @@ def _build_dataset(
             )
         errors = np.sqrt(np.diag(covariance))
     else:
-        errors = np.array([
-            entry[2] if entry[2] is not None else None
-            for entry in entries
-        ], dtype=float)
+        errors = np.array(
+            [entry[2] if entry[2] is not None else None for entry in entries],
+            dtype=float,
+        )
         if np.any(np.isnan(errors)):
             raise ValueError(
                 f"Covariance not provided and some entries missing errors for dataset '{name}'."
@@ -137,22 +137,24 @@ class SDSSDR12BAO(BAOLikelihood):
     """
 
     def _default_dataset_name(self) -> str:
-        return 'sdss_dr12_consensus'
+        return "sdss_dr12_consensus"
 
     def _load_dataset(self) -> BAODataset:
         """Load SDSS DR12 consensus BAO data from official files."""
-        base_path = Path(self.data_path) / 'sdss_dr12'
-        data_file = base_path / 'sdss_DR12Consensus_bao.dat'
-        cov_file = base_path / 'BAO_consensus_covtot_dM_Hz.txt'
+        base_path = Path(self.data_path) / "sdss_dr12"
+        data_file = base_path / "sdss_DR12Consensus_bao.dat"
+        cov_file = base_path / "BAO_consensus_covtot_dM_Hz.txt"
 
         if not data_file.exists():
             # Fallback to simplified in-repo dataset (z, DV/rd, error)
-            alt_data = base_path / 'consensus_data.txt'
-            alt_cov = base_path / 'covariance.txt'
+            alt_data = base_path / "consensus_data.txt"
+            alt_cov = base_path / "covariance.txt"
             if not alt_data.exists():
                 raise FileNotFoundError(f"SDSS DR12 data file not found: {data_file}")
             raw = np.loadtxt(alt_data)
-            entries = [(float(z), float(val), float(err), 'DV_over_rd') for z, val, err in raw]
+            entries = [
+                (float(z), float(val), float(err), "DV_over_rd") for z, val, err in raw
+            ]
             covariance = np.loadtxt(alt_cov) if alt_cov.exists() else None
         else:
             entries = _read_data_file(data_file)
@@ -175,12 +177,12 @@ class SDSSDR16BAO(BAOLikelihood):
     """
 
     def _default_dataset_name(self) -> str:
-        return 'sdss_dr16_bao'
+        return "sdss_dr16_bao"
 
     def _load_dataset(self) -> BAODataset:
         """Load SDSS DR16 BAO data."""
-        base_path = Path(self.data_path) / 'sdss_dr16'
-        data_file = base_path / 'eboss_bao_data.txt'
+        base_path = Path(self.data_path) / "sdss_dr16"
+        data_file = base_path / "eboss_bao_data.txt"
 
         entries = _read_data_file(data_file)
 
@@ -201,13 +203,13 @@ class BOSSDR12BAO(BAOLikelihood):
     """
 
     def _default_dataset_name(self) -> str:
-        return 'boss_dr12'
+        return "boss_dr12"
 
     def _load_dataset(self) -> BAODataset:
         """Load BOSS DR12 BAO data with DM and DH separately."""
-        base_path = Path(self.data_path) / 'boss_dr12'
-        data_file = base_path / 'sdss_DR12_LRG_BAO_DMDH.dat'
-        cov_file = base_path / 'sdss_DR12_LRG_BAO_DMDH_covtot.txt'
+        base_path = Path(self.data_path) / "boss_dr12"
+        data_file = base_path / "sdss_DR12_LRG_BAO_DMDH.dat"
+        cov_file = base_path / "sdss_DR12_LRG_BAO_DMDH_covtot.txt"
 
         entries = _read_data_file(data_file)
         covariance = np.loadtxt(cov_file)
@@ -268,13 +270,13 @@ class DESI2024BAO(BAOLikelihood):
     BBN_OMEGA_B_H2_ERR = 0.00055
 
     def _default_dataset_name(self) -> str:
-        return 'desi_2024_dr1'
+        return "desi_2024_dr1"
 
     def _load_dataset(self) -> BAODataset:
         """Load DESI 2024 DR1 BAO data."""
-        base_path = Path(self.data_path) / 'desi_2024'
-        data_file = base_path / 'desi_2024_gaussian_bao_ALL_GCcomb_mean.txt'
-        cov_file = base_path / 'desi_2024_gaussian_bao_ALL_GCcomb_cov.txt'
+        base_path = Path(self.data_path) / "desi_2024"
+        data_file = base_path / "desi_2024_gaussian_bao_ALL_GCcomb_mean.txt"
+        cov_file = base_path / "desi_2024_gaussian_bao_ALL_GCcomb_cov.txt"
 
         entries = _read_data_file(data_file)
         covariance = np.loadtxt(cov_file)
@@ -288,11 +290,13 @@ class DESI2024BAO(BAOLikelihood):
         )
         return dataset
 
-    def __init__(self, cosmology_class: type = None, omega_b_mode: str = 'h0rd', **kwargs):
+    def __init__(
+        self, cosmology_class: type = None, omega_b_mode: str = "h0rd", **kwargs
+    ):
         self._cosmology_class = cosmology_class if cosmology_class is not None else LCDM
         self.omega_b_mode = omega_b_mode.lower()
 
-        if self.omega_b_mode not in ('fixed', 'bbn_prior', 'free', 'h0rd'):
+        if self.omega_b_mode not in ("fixed", "bbn_prior", "free", "h0rd"):
             raise ValueError(
                 f"omega_b_mode must be 'fixed', 'bbn_prior', 'free', or 'h0rd', got '{omega_b_mode}'"
             )
@@ -302,10 +306,10 @@ class DESI2024BAO(BAOLikelihood):
 
         # Print mode info
         mode_desc = {
-            'fixed': 'fixed (Planck 2018)',
-            'bbn_prior': 'sampled with BBN prior (Omega_b)',
-            'free': 'free Omega_b (BAO constrains H0*r_d only)',
-            'h0rd': 'H0_rd as nuisance (prior: 95-110)',
+            "fixed": "fixed (Planck 2018)",
+            "bbn_prior": "sampled with BBN prior (Omega_b)",
+            "free": "free Omega_b (BAO constrains H0*r_d only)",
+            "h0rd": "H0_rd as nuisance (prior: 95-110)",
         }
         logger.debug(f"Mode: {mode_desc[self.omega_b_mode]}")
 
@@ -335,11 +339,13 @@ class DESI2024BAO(BAOLikelihood):
             self._loglike_fast = None
             return
 
-        z_grid = jnp.linspace(self._z_grid_min, self._z_grid_max, self._n_grid, dtype=self._dtype)
+        z_grid = jnp.linspace(
+            self._z_grid_min, self._z_grid_max, self._n_grid, dtype=self._dtype
+        )
         z_obs = self._z_obs
         obs_codes = jnp.array(
             [self._observable_code(p.observable) for p in self.dataset.data_points],
-            dtype=jnp.int32
+            dtype=jnp.int32,
         )
         data_vec = self._data_vec
         inv_cov = self._inv_cov_jax
@@ -349,13 +355,13 @@ class DESI2024BAO(BAOLikelihood):
         @jit
         def _loglike_impl(params: Dict[str, jnp.ndarray]) -> jnp.ndarray:
             cosmo_grid = cosmology_class.compute_grid_traced(z_grid, params)
-            DM_grid = cosmo_grid['D_M']
-            DH_grid = cosmo_grid['D_H']
-            E_z_grid = cosmo_grid['E_z']
+            DM_grid = cosmo_grid["D_M"]
+            DH_grid = cosmo_grid["D_H"]
+            E_z_grid = cosmo_grid["E_z"]
 
             volume_factor = z_grid * DM_grid**2 * DH_grid
             DV_grid = jnp.exp((1.0 / 3.0) * jnp.log(volume_factor + 1e-30))
-            H_grid = params['H0'] * E_z_grid
+            H_grid = params["H0"] * E_z_grid
 
             DM_obs = jnp.interp(z_obs, z_grid, DM_grid)
             DH_obs = jnp.interp(z_obs, z_grid, DH_grid)
@@ -363,10 +369,10 @@ class DESI2024BAO(BAOLikelihood):
             H_obs = jnp.interp(z_obs, z_grid, H_grid)
 
             # Compute rd based on mode
-            if omega_b_mode == 'h0rd':
+            if omega_b_mode == "h0rd":
                 # rd = H0_rd * 100 / H0
-                H0_rd = params.get('H0_rd', jnp.asarray(101.0, dtype=DM_obs.dtype))
-                rd_val = H0_rd * 100.0 / params['H0']
+                H0_rd = params.get("H0_rd", jnp.asarray(101.0, dtype=DM_obs.dtype))
+                rd_val = H0_rd * 100.0 / params["H0"]
             else:
                 # Use traced sound horizon calculation
                 rd_val = cosmology_class.sound_horizon_drag_traced(params)
@@ -376,7 +382,7 @@ class DESI2024BAO(BAOLikelihood):
             theory = jnp.where(obs_codes == 1, DH_obs / rd_val, theory)  # DH_over_rd
             theory = jnp.where(obs_codes == 2, DV_obs / rd_val, theory)  # DV_over_rd
             theory = jnp.where(obs_codes == 3, rd_val / DV_obs, theory)  # rs_over_DV
-            theory = jnp.where(obs_codes == 4, H_obs * rd_val, theory)   # Hz_rs
+            theory = jnp.where(obs_codes == 4, H_obs * rd_val, theory)  # Hz_rs
             theory = jnp.where(obs_codes == 6, DM_obs / DH_obs, theory)  # DM_over_DH
 
             diff = theory - data_vec
@@ -389,13 +395,13 @@ class DESI2024BAO(BAOLikelihood):
     def _observable_code(observable: str) -> int:
         """Map observable string to integer code for fast vectorized selection."""
         codes = {
-            'DM_over_rd': 0,
-            'DH_over_rd': 1,
-            'DV_over_rd': 2,
-            'rs_over_DV': 3,
-            'Hz_rs': 4,
-            'fsigma8': 5,
-            'DM_over_DH': 6,
+            "DM_over_rd": 0,
+            "DH_over_rd": 1,
+            "DV_over_rd": 2,
+            "rs_over_DV": 3,
+            "Hz_rs": 4,
+            "fsigma8": 5,
+            "DM_over_DH": 6,
         }
         return codes.get(observable, -1)
 
@@ -415,10 +421,10 @@ class DESI2024BAO(BAOLikelihood):
         In 'h0rd' mode: rd = H0_rd * 100 / H0
         Otherwise: use CAMB for high precision (~0.1% accuracy).
         """
-        if self.omega_b_mode == 'h0rd':
+        if self.omega_b_mode == "h0rd":
             # H0_rd = H0 * r_d / 100 => r_d = H0_rd * 100 / H0
-            H0_rd = params.get('H0_rd', jnp.asarray(101.0, dtype=self._dtype))
-            H0 = params['H0']
+            H0_rd = params.get("H0_rd", jnp.asarray(101.0, dtype=self._dtype))
+            H0 = params["H0"]
             return H0_rd * 100.0 / H0
 
         # Create model instance to use CAMB-based rd calculation
@@ -438,23 +444,25 @@ class DESI2024BAO(BAOLikelihood):
         cosmo_params = self._extract_cosmo_params(cosmology)
 
         # In h0rd mode, get H0_rd from kwargs (passed from MCMC sampler)
-        if self.omega_b_mode == 'h0rd' and 'H0_rd' in kwargs:
-            cosmo_params['H0_rd'] = jnp.asarray(kwargs['H0_rd'], dtype=self._dtype)
+        if self.omega_b_mode == "h0rd" and "H0_rd" in kwargs:
+            cosmo_params["H0_rd"] = jnp.asarray(kwargs["H0_rd"], dtype=self._dtype)
 
-        z_grid = jnp.linspace(self._z_grid_min, self._z_grid_max, self._n_grid, dtype=self._dtype)
+        z_grid = jnp.linspace(
+            self._z_grid_min, self._z_grid_max, self._n_grid, dtype=self._dtype
+        )
 
         # Get all distances from cosmology model (curvature handled there!)
         grid = self._cosmology_class.compute_grid_traced(z_grid, cosmo_params)
 
         # Use D_M and D_H directly from model (no duplicate calculation!)
-        DM_grid = grid['D_M']  # Transverse comoving distance
-        DH_grid = grid['D_H']  # Hubble distance c/H(z)
-        E_z_grid = grid['E_z']
+        DM_grid = grid["D_M"]  # Transverse comoving distance
+        DH_grid = grid["D_H"]  # Hubble distance c/H(z)
+        E_z_grid = grid["E_z"]
 
         # Compute volume-averaged distance DV = (z * DM^2 * DH)^(1/3)
         volume_factor = z_grid * DM_grid**2 * DH_grid
         DV_grid = jnp.exp((1.0 / 3.0) * jnp.log(volume_factor + 1e-30))
-        H_grid = cosmo_params['H0'] * E_z_grid
+        H_grid = cosmo_params["H0"] * E_z_grid
 
         # Interpolate to observed redshifts
         DM_obs = jnp.interp(self._z_obs, z_grid, DM_grid)
@@ -463,7 +471,11 @@ class DESI2024BAO(BAOLikelihood):
         H_obs = jnp.interp(self._z_obs, z_grid, H_grid)
 
         # Compute sound horizon
-        rd_val = self._compute_rd(cosmo_params) if rd is None else jnp.asarray(rd, dtype=self._dtype)
+        rd_val = (
+            self._compute_rd(cosmo_params)
+            if rd is None
+            else jnp.asarray(rd, dtype=self._dtype)
+        )
 
         # Build theory vector
         theory = jnp.zeros_like(self._z_obs, dtype=self._dtype)
@@ -472,17 +484,17 @@ class DESI2024BAO(BAOLikelihood):
             return jnp.where(mask, values, theory_vec)
 
         for obs_name, mask in self._obs_masks.items():
-            if obs_name == 'DM_over_rd':
+            if obs_name == "DM_over_rd":
                 theory = apply_obs(theory, mask, DM_obs / rd_val)
-            elif obs_name == 'DH_over_rd':
+            elif obs_name == "DH_over_rd":
                 theory = apply_obs(theory, mask, DH_obs / rd_val)
-            elif obs_name == 'DV_over_rd':
+            elif obs_name == "DV_over_rd":
                 theory = apply_obs(theory, mask, DV_obs / rd_val)
-            elif obs_name == 'rs_over_DV':
+            elif obs_name == "rs_over_DV":
                 theory = apply_obs(theory, mask, rd_val / DV_obs)
-            elif obs_name == 'Hz_rs':
+            elif obs_name == "Hz_rs":
                 theory = apply_obs(theory, mask, H_obs * rd_val)
-            elif obs_name == 'DM_over_DH':
+            elif obs_name == "DM_over_DH":
                 theory = apply_obs(theory, mask, DM_obs / DH_obs)
             else:
                 # Fallback to base implementation for unsupported observables
@@ -506,47 +518,53 @@ class DESI2024BAO(BAOLikelihood):
         """
         from ...parameters import Parameter
 
-        if self.omega_b_mode == 'h0rd':
+        if self.omega_b_mode == "h0rd":
             # H0_rd = H0 * r_d / 100 in units of [100 km/s]
             # Typical: H0=70, r_d=147 Mpc => H0_rd = 102.9
-            return NuisanceList([
-                Parameter(
-                    name='H0_rd',
-                    value=102.5,
-                    free=True,
-                    prior={'dist': 'uniform', 'min': 95.0, 'max': 110.0},
-                    latex_label=r'$H_0 r_{\rm d} / (100\,{\rm km\,s^{-1}})$',
-                    description='H0*r_d in units of 100 km/s'
-                )
-            ])
+            return NuisanceList(
+                [
+                    Parameter(
+                        name="H0_rd",
+                        value=102.5,
+                        free=True,
+                        prior={"dist": "uniform", "min": 95.0, "max": 110.0},
+                        latex_label=r"$H_0 r_{\rm d} / (100\,{\rm km\,s^{-1}})$",
+                        description="H0*r_d in units of 100 km/s",
+                    )
+                ]
+            )
 
-        elif self.omega_b_mode == 'bbn_prior':
+        elif self.omega_b_mode == "bbn_prior":
             # Sample Omega_b, BBN prior applied in likelihood
             # BBN: Omega_b * h^2 = 0.02218 ± 0.00055
             # For h=0.67: Omega_b ≈ 0.0494
-            return NuisanceList([
-                Parameter(
-                    name='Omega_b',
-                    value=0.0493,
-                    free=True,
-                    prior={'dist': 'uniform', 'min': 0.03, 'max': 0.07},
-                    latex_label=r'$\Omega_{\rm b}$',
-                    description='Baryon density (BBN prior in likelihood)'
-                )
-            ])
+            return NuisanceList(
+                [
+                    Parameter(
+                        name="Omega_b",
+                        value=0.0493,
+                        free=True,
+                        prior={"dist": "uniform", "min": 0.03, "max": 0.07},
+                        latex_label=r"$\Omega_{\rm b}$",
+                        description="Baryon density (BBN prior in likelihood)",
+                    )
+                ]
+            )
 
-        elif self.omega_b_mode == 'free':
+        elif self.omega_b_mode == "free":
             # Sample Omega_b freely without BBN prior
-            return NuisanceList([
-                Parameter(
-                    name='Omega_b',
-                    value=0.0493,
-                    free=True,
-                    prior={'dist': 'uniform', 'min': 0.03, 'max': 0.07},
-                    latex_label=r'$\Omega_{\rm b}$',
-                    description='Baryon density (free)'
-                )
-            ])
+            return NuisanceList(
+                [
+                    Parameter(
+                        name="Omega_b",
+                        value=0.0493,
+                        free=True,
+                        prior={"dist": "uniform", "min": 0.03, "max": 0.07},
+                        latex_label=r"$\Omega_{\rm b}$",
+                        description="Baryon density (free)",
+                    )
+                ]
+            )
 
         else:  # 'fixed'
             # Omega_b fixed to Planck 2018 value, no nuisance needed
@@ -600,17 +618,17 @@ class DESI2024BAO(BAOLikelihood):
             - rd_h: r_d * h = r_d * H0/100 [Mpc]
             - H0_rd: H0 * r_d [km/s] (the BAO-constrained combination)
         """
-        H0 = params.get('H0', 70.0)
+        H0 = params.get("H0", 70.0)
         h = H0 / 100.0
 
         # rd = H0_rd * 100 / H0
-        H0_rd = params.get('H0_rd', 101.0)
+        H0_rd = params.get("H0_rd", 101.0)
         rd = H0_rd * 100.0 / H0
 
         return {
-            'rd': rd,
-            'rd_h': rd * h,
-            'H0_rd': H0 * rd,
+            "rd": rd,
+            "rd_h": rd * h,
+            "H0_rd": H0 * rd,
         }
 
     def __call__(self, **params) -> float:
@@ -644,11 +662,13 @@ class DESI2024BAO(BAOLikelihood):
         log_L = self.log_likelihood_from_params(params)
 
         # BBN prior only applied if Omega_b is explicitly provided
-        if self.omega_b_mode == 'bbn_prior' and 'Omega_b' in params:
-            H0_val = params.get('H0', 70.0)
+        if self.omega_b_mode == "bbn_prior" and "Omega_b" in params:
+            H0_val = params.get("H0", 70.0)
             h = H0_val / 100.0
-            omega_b_h2 = params['Omega_b'] * h**2
-            chi2_bbn = ((omega_b_h2 - self.BBN_OMEGA_B_H2) / self.BBN_OMEGA_B_H2_ERR) ** 2
+            omega_b_h2 = params["Omega_b"] * h**2
+            chi2_bbn = (
+                (omega_b_h2 - self.BBN_OMEGA_B_H2) / self.BBN_OMEGA_B_H2_ERR
+            ) ** 2
             log_L = log_L - 0.5 * chi2_bbn
 
         return log_L
@@ -663,12 +683,12 @@ class SixDFBAO(BAOLikelihood):
     """
 
     def _default_dataset_name(self) -> str:
-        return 'sixdf_2011'
+        return "sixdf_2011"
 
     def _load_dataset(self) -> BAODataset:
         """Load 6dFGS BAO data."""
-        base_path = Path(self.data_path) / 'sixdf'
-        data_file = base_path / 'sixdf_bao_data.txt'
+        base_path = Path(self.data_path) / "sixdf"
+        data_file = base_path / "sixdf_bao_data.txt"
 
         entries = _read_data_file(data_file)
 
@@ -699,33 +719,34 @@ class CustomBAO(BAOLikelihood):
         super().__init__(**kwargs)
 
     def _default_dataset_name(self) -> str:
-        return 'custom_bao'
+        return "custom_bao"
 
     def _load_dataset(self) -> BAODataset:
         """Load custom BAO data from configuration file."""
-        with open(self.config_file, 'r') as f:
+        with open(self.config_file, "r") as f:
             config = yaml.safe_load(f)
 
         # Parse data points
         data_points = []
-        for point in config['data_points']:
-            data_points.append(BAODataPoint(
-                z=point['z'],
-                value=point['value'],
-                error=point.get('error', 0.0),
-                observable=point['observable']
-            ))
+        for point in config["data_points"]:
+            data_points.append(
+                BAODataPoint(
+                    z=point["z"],
+                    value=point["value"],
+                    error=point.get("error", 0.0),
+                    observable=point["observable"],
+                )
+            )
 
         # Load covariance if provided
         covariance = None
-        if 'covariance_file' in config:
+        if "covariance_file" in config:
             cov_path = os.path.join(
-                os.path.dirname(self.config_file),
-                config['covariance_file']
+                os.path.dirname(self.config_file), config["covariance_file"]
             )
             covariance = np.loadtxt(cov_path)
-        elif 'covariance' in config:
-            covariance = np.array(config['covariance'])
+        elif "covariance" in config:
+            covariance = np.array(config["covariance"])
         else:
             # Use diagonal errors
             errors = np.array([p.error for p in data_points])
@@ -733,22 +754,22 @@ class CustomBAO(BAOLikelihood):
                 covariance = np.diag(errors**2)
 
         return BAODataset(
-            name=config.get('name', 'Custom BAO Dataset'),
+            name=config.get("name", "Custom BAO Dataset"),
             data_points=data_points,
             covariance=covariance,
-            reference=config.get('reference', ''),
-            year=config.get('year', 0)
+            reference=config.get("reference", ""),
+            year=config.get("year", 0),
         )
 
 
 def get_available_datasets() -> List[str]:
     """Get list of available BAO datasets."""
     return [
-        'sdss_dr12',
-        'sdss_dr16',
-        'boss_dr12',
-        'desi_2024',
-        'sixdf',
+        "sdss_dr12",
+        "sdss_dr16",
+        "boss_dr12",
+        "desi_2024",
+        "sixdf",
     ]
 
 
@@ -764,15 +785,16 @@ def create_bao_likelihood(dataset: str, **kwargs) -> BAOLikelihood:
         BAOLikelihood object
     """
     dataset_map = {
-        'sdss_dr12': SDSSDR12BAO,
-        'sdss_dr16': SDSSDR16BAO,
-        'boss_dr12': BOSSDR12BAO,
-        'desi_2024': DESI2024BAO,
-        'sixdf': SixDFBAO,
+        "sdss_dr12": SDSSDR12BAO,
+        "sdss_dr16": SDSSDR16BAO,
+        "boss_dr12": BOSSDR12BAO,
+        "desi_2024": DESI2024BAO,
+        "sixdf": SixDFBAO,
     }
 
     if dataset not in dataset_map:
-        raise ValueError(f"Unknown dataset: {dataset}. "
-                        f"Available: {list(dataset_map.keys())}")
+        raise ValueError(
+            f"Unknown dataset: {dataset}. " f"Available: {list(dataset_map.keys())}"
+        )
 
     return dataset_map[dataset](**kwargs)

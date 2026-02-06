@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 try:
     from getdist import plots, MCSamples
     from getdist.gaussian_mixtures import GaussianND
+
     HAS_GETDIST = True
 except ImportError:
     HAS_GETDIST = False
@@ -91,8 +92,8 @@ class Plotter:
         labels: Optional[Union[List[str], Dict[str, str]]] = None,
         ranges: Optional[Dict[str, Tuple[float, float]]] = None,
         chain_labels: Optional[List[str]] = None,
-        style: str = 'modern',
-        results_dir: Union[str, Path] = 'results',
+        style: str = "modern",
+        results_dir: Union[str, Path] = "results",
         **kwargs,
     ):
         """
@@ -113,12 +114,13 @@ class Plotter:
         results_dir : str or Path
             Directory for saving plots
         """
-        if 'cosmology' in kwargs:
+        if "cosmology" in kwargs:
             import warnings
+
             warnings.warn(
                 "The 'cosmology' parameter is deprecated.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
 
         self.style = style
@@ -155,7 +157,7 @@ class Plotter:
         *,
         nsample: int = 200_000,
         **kwargs,
-    ) -> 'Plotter':
+    ) -> "Plotter":
         """Create Plotter from Fisher matrix results."""
         mean_arr = np.asarray(mean, dtype=float)
         cov_arr = np.asarray(covariance, dtype=float)
@@ -175,11 +177,15 @@ class Plotter:
         return cls(samples, **kwargs)
 
     @classmethod
-    def from_mcmc(cls, mcmc: 'MCMC', **kwargs) -> 'Plotter':
+    def from_mcmc(cls, mcmc: "MCMC", **kwargs) -> "Plotter":
         """Create Plotter from MCMC object."""
         samples = mcmc.samples
-        labels = mcmc.param_config.get_labels() if hasattr(mcmc, 'param_config') else None
-        ranges = mcmc.param_config.get_bounds() if hasattr(mcmc, 'param_config') else None
+        labels = (
+            mcmc.param_config.get_labels() if hasattr(mcmc, "param_config") else None
+        )
+        ranges = (
+            mcmc.param_config.get_bounds() if hasattr(mcmc, "param_config") else None
+        )
         return cls(samples, labels=labels, ranges=ranges, **kwargs)
 
     # =========================================================================
@@ -199,7 +205,7 @@ class Plotter:
     @property
     def _colors(self) -> List[str]:
         """Get color palette based on style."""
-        return MODERN_COLORS if self.style == 'modern' else CLASSIC_COLORS
+        return MODERN_COLORS if self.style == "modern" else CLASSIC_COLORS
 
     # =========================================================================
     # Public Plotting Methods
@@ -230,21 +236,17 @@ class Plotter:
         n_chains = len(samples_list)
         colors = self._colors[:n_chains]
 
-        plot_kwargs = {
-            'filled': True,
-            'contour_colors': colors,
-            **kwargs
-        }
+        plot_kwargs = {"filled": True, "contour_colors": colors, **kwargs}
 
         if self._is_multichain:
-            plot_kwargs['line_args'] = [{'color': c, 'lw': 2} for c in colors]
-            plot_kwargs['legend_labels'] = self._get_legend_labels(samples_list)
-            plot_kwargs['legend_loc'] = 'upper right'
+            plot_kwargs["line_args"] = [{"color": c, "lw": 2} for c in colors]
+            plot_kwargs["legend_labels"] = self._get_legend_labels(samples_list)
+            plot_kwargs["legend_loc"] = "upper right"
         else:
-            plot_kwargs['line_args'] = {'color': colors[0], 'lw': 2}
+            plot_kwargs["line_args"] = {"color": colors[0], "lw": 2}
 
         plotter.triangle_plot(samples_list, **plot_kwargs)
-        return self._finalize_plot(plotter.fig, filename, 'Corner plot')
+        return self._finalize_plot(plotter.fig, filename, "Corner plot")
 
     def plot_1d(
         self,
@@ -260,11 +262,11 @@ class Plotter:
         plotter.plot_1d(
             self._samples_list,
             param_name,
-            colors=self._colors[:len(self._samples_list)],
-            **kwargs
+            colors=self._colors[: len(self._samples_list)],
+            **kwargs,
         )
         self._add_multichain_legend(plotter)
-        return self._finalize_plot(plotter.fig, filename, '1D plot')
+        return self._finalize_plot(plotter.fig, filename, "1D plot")
 
     def plot_2d(
         self,
@@ -282,13 +284,14 @@ class Plotter:
 
         plotter.plot_2d(
             self._samples_list,
-            p1, p2,
+            p1,
+            p2,
             filled=filled,
-            colors=self._colors[:len(self._samples_list)],
-            **kwargs
+            colors=self._colors[: len(self._samples_list)],
+            **kwargs,
         )
         self._add_multichain_legend(plotter)
-        return self._finalize_plot(plotter.fig, filename, '2D contour plot')
+        return self._finalize_plot(plotter.fig, filename, "2D contour plot")
 
     def traces(
         self,
@@ -300,9 +303,11 @@ class Plotter:
         """Create chain trace plots for convergence diagnostics."""
         _apply_qijing_style()
 
-        selected = self._resolve_param_names(params) if params else self._param_names[:6]
+        selected = (
+            self._resolve_param_names(params) if params else self._param_names[:6]
+        )
         n_params = len(selected)
-        fig, axes = plt.subplots(n_params, 1, figsize=(10, 2*n_params))
+        fig, axes = plt.subplots(n_params, 1, figsize=(10, 2 * n_params))
         axes = [axes] if n_params == 1 else axes
 
         for i, param_name in enumerate(selected):
@@ -311,16 +316,21 @@ class Plotter:
 
             for j, samples in enumerate(self._samples_list):
                 idx = samples.getParamNames().list().index(param_name)
-                axes[i].plot(samples.samples[:, idx], color=self._colors[j], alpha=0.8, lw=1.5,
-                           label=samples.label if self._is_multichain else None)
+                axes[i].plot(
+                    samples.samples[:, idx],
+                    color=self._colors[j],
+                    alpha=0.8,
+                    lw=1.5,
+                    label=samples.label if self._is_multichain else None,
+                )
 
             axes[i].set_ylabel(label)
             axes[i].grid(True, alpha=0.3)
             if i == 0 and self._is_multichain:
                 axes[i].legend(frameon=False)
 
-        axes[-1].set_xlabel('Sample Index')
-        return self._finalize_plot(fig, filename, 'Chain traces', use_getdist=False)
+        axes[-1].set_xlabel("Sample Index")
+        return self._finalize_plot(fig, filename, "Chain traces", use_getdist=False)
 
     def marginals(
         self,
@@ -335,11 +345,11 @@ class Plotter:
 
         plotter.plots_1d(
             samples_list,
-            colors=self._colors[:len(samples_list)],
+            colors=self._colors[: len(samples_list)],
             legend_labels=self._get_legend_labels(samples_list),
-            **kwargs
+            **kwargs,
         )
-        return self._finalize_plot(plotter.fig, filename, '1D marginals')
+        return self._finalize_plot(plotter.fig, filename, "1D marginals")
 
     def get_summary(self) -> Dict[str, Dict[str, float]]:
         """Get summary statistics for all parameters."""
@@ -347,11 +357,11 @@ class Plotter:
         n_params = min(len(self._param_names), samples.shape[1])
         return {
             self._param_names[i]: {
-                'mean': float(np.mean(samples[:, i])),
-                'std': float(np.std(samples[:, i])),
-                'median': float(np.median(samples[:, i])),
-                'q16': float(np.percentile(samples[:, i], 16)),
-                'q84': float(np.percentile(samples[:, i], 84)),
+                "mean": float(np.mean(samples[:, i])),
+                "std": float(np.std(samples[:, i])),
+                "median": float(np.median(samples[:, i])),
+                "q16": float(np.percentile(samples[:, i], 16)),
+                "q84": float(np.percentile(samples[:, i], 84)),
             }
             for i in range(n_params)
         }
@@ -379,8 +389,10 @@ class Plotter:
                 )
             # Generate ONE combined corner plot for comparison
             if save_corner:
-                params = corner_params or [p for p in self._param_names if p != 'log_likelihood']
-                combined_name = '+'.join(self._chain_names)
+                params = corner_params or [
+                    p for p in self._param_names if p != "log_likelihood"
+                ]
+                combined_name = "+".join(self._chain_names)
                 self.corner(params, filename=f"{combined_name}_corner.pdf")
             return
 
@@ -428,16 +440,22 @@ class Plotter:
             filename = f"{chain_name}_report.md"
         save_path = self.results_dir / filename
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        save_path.write_text('\n'.join(lines))
+        save_path.write_text("\n".join(lines))
         print(f"Report saved to: {save_path}")
 
         # Auto-save corner plot (only for single chain mode)
         if save_corner and not original_multichain:
-            params = corner_params or [p for p in self._param_names if p != 'log_likelihood']
+            params = corner_params or [
+                p for p in self._param_names if p != "log_likelihood"
+            ]
             self.corner(params, filename=f"{chain_name}_corner.pdf")
 
     def __repr__(self) -> str:
-        chain_info = f"{len(self._samples_list)} chains" if self._is_multichain else "single chain"
+        chain_info = (
+            f"{len(self._samples_list)} chains"
+            if self._is_multichain
+            else "single chain"
+        )
         return f"Plotter({chain_info}, {len(self._param_names)} parameters)"
 
     # =========================================================================
@@ -447,8 +465,9 @@ class Plotter:
     def _is_chain_name_list(self, data) -> bool:
         """Check if data is a list of chain names (strings without extensions)."""
         return (
-            isinstance(data, (list, tuple)) and len(data) > 0 and
-            all(isinstance(item, str) and not Path(item).suffix for item in data)
+            isinstance(data, (list, tuple))
+            and len(data) > 0
+            and all(isinstance(item, str) and not Path(item).suffix for item in data)
         )
 
     def _load_data(self, data):
@@ -481,30 +500,32 @@ class Plotter:
         import h5py
         import json
 
-        h5_path = get_chains_dir() / f'{chain_name}.h5'
+        h5_path = get_chains_dir() / f"{chain_name}.h5"
         if not h5_path.exists():
             raise FileNotFoundError(f"Chain not found: {h5_path}")
 
         samples, ranges, labels = {}, {}, {}
-        with h5py.File(h5_path, 'r') as f:
-            if 'samples' in f:
-                for param_name in f['samples'].keys():
-                    samples[param_name] = np.array(f['samples'][param_name])
+        with h5py.File(h5_path, "r") as f:
+            if "samples" in f:
+                for param_name in f["samples"].keys():
+                    samples[param_name] = np.array(f["samples"][param_name])
 
-            if 'metadata' in f:
-                if 'parameter_config' in f['metadata']:
+            if "metadata" in f:
+                if "parameter_config" in f["metadata"]:
                     try:
-                        config = json.loads(f['metadata']['parameter_config'][()].decode('utf-8'))
-                        for pname, pinfo in config.get('parameters', {}).items():
-                            bounds = pinfo.get('bounds')
+                        config = json.loads(
+                            f["metadata"]["parameter_config"][()].decode("utf-8")
+                        )
+                        for pname, pinfo in config.get("parameters", {}).items():
+                            bounds = pinfo.get("bounds")
                             if bounds and len(bounds) >= 2:
                                 ranges[pname] = (float(bounds[0]), float(bounds[1]))
                     except (json.JSONDecodeError, KeyError, AttributeError):
                         pass
 
-                if 'labels' in f['metadata']:
-                    for pname in f['metadata']['labels'].attrs.keys():
-                        labels[pname] = f['metadata']['labels'].attrs[pname]
+                if "labels" in f["metadata"]:
+                    for pname in f["metadata"]["labels"].attrs.keys():
+                        labels[pname] = f["metadata"]["labels"].attrs[pname]
 
         if not samples:
             raise ValueError(f"No samples found in {h5_path}")
@@ -515,7 +536,11 @@ class Plotter:
         self._chain_names = list(chain_names)
         loaded = [self._load_h5_chain(name) for name in chain_names]
         all_samples = [d[0] for d in loaded]
-        effective_ranges = self._user_ranges or loaded[0][1] or self._compute_unified_ranges(all_samples)
+        effective_ranges = (
+            self._user_ranges
+            or loaded[0][1]
+            or self._compute_unified_ranges(all_samples)
+        )
         effective_labels = self._user_labels or loaded[0][2]
         self._build_multichain_samples(all_samples, effective_labels, effective_ranges)
 
@@ -530,7 +555,11 @@ class Plotter:
         self._is_multichain = True
         for i, chain_data in enumerate(data_list):
             samples = _prepare_getdist_samples(chain_data, labels=labels, ranges=ranges)
-            samples.label = self._chain_labels[i] if self._chain_labels and i < len(self._chain_labels) else f'Chain {i+1}'
+            samples.label = (
+                self._chain_labels[i]
+                if self._chain_labels and i < len(self._chain_labels)
+                else f"Chain {i+1}"
+            )
             self._samples_list.append(samples)
         self._param_names = self._samples_list[0].getParamNames().list()
 
@@ -546,19 +575,27 @@ class Plotter:
         if self._is_metadata_tuple(data):
             data, self._file_metadata = data
 
-        effective_labels = self._user_labels or self._file_metadata.get('labels')
-        effective_ranges = self._user_ranges or self._file_metadata.get('ranges')
+        effective_labels = self._user_labels or self._file_metadata.get("labels")
+        effective_ranges = self._user_ranges or self._file_metadata.get("ranges")
 
-        samples = _prepare_getdist_samples(data, labels=effective_labels, ranges=effective_ranges)
+        samples = _prepare_getdist_samples(
+            data, labels=effective_labels, ranges=effective_ranges
+        )
         self._samples_list = [samples]
         self._param_names = samples.getParamNames().list()
 
     def _is_metadata_tuple(self, data) -> bool:
         """Check if data is (samples, metadata) tuple."""
-        return (isinstance(data, tuple) and len(data) == 2 and
-                isinstance(data[1], dict) and ('labels' in data[1] or 'ranges' in data[1]))
+        return (
+            isinstance(data, tuple)
+            and len(data) == 2
+            and isinstance(data[1], dict)
+            and ("labels" in data[1] or "ranges" in data[1])
+        )
 
-    def _compute_unified_ranges(self, all_samples: List) -> Dict[str, Tuple[float, float]]:
+    def _compute_unified_ranges(
+        self, all_samples: List
+    ) -> Dict[str, Tuple[float, float]]:
         """Compute unified ranges from all chains."""
         if not all_samples or not isinstance(all_samples[0], dict):
             return {}
@@ -584,14 +621,20 @@ class Plotter:
     def _create_getdist_plotter(self, width_inch: int = 8, single: bool = False):
         """Create and configure GetDist plotter."""
         _apply_qijing_style()
-        plotter = plots.get_single_plotter(width_inch=width_inch) if single else plots.get_subplot_plotter(width_inch=width_inch)
+        plotter = (
+            plots.get_single_plotter(width_inch=width_inch)
+            if single
+            else plots.get_subplot_plotter(width_inch=width_inch)
+        )
         plotter.settings.axes_fontsize = 12
         plotter.settings.lab_fontsize = 14
         plotter.settings.legend_fontsize = 12 if not single else 9
         plotter.settings.figure_legend_frame = False
         return plotter
 
-    def _finalize_plot(self, fig: plt.Figure, filename, plot_type: str, use_getdist: bool = True) -> plt.Figure:
+    def _finalize_plot(
+        self, fig: plt.Figure, filename, plot_type: str, use_getdist: bool = True
+    ) -> plt.Figure:
         """Apply final optimizations and save."""
         if use_getdist:
             _optimize_ticks(fig)
@@ -600,9 +643,15 @@ class Plotter:
         if filename:
             save_path = self.results_dir / filename
             if not save_path.suffix:
-                save_path = save_path.with_suffix('.pdf')
+                save_path = save_path.with_suffix(".pdf")
             save_path.parent.mkdir(parents=True, exist_ok=True)
-            fig.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
+            fig.savefig(
+                save_path,
+                dpi=300,
+                bbox_inches="tight",
+                facecolor="white",
+                edgecolor="none",
+            )
             print(f"{plot_type} saved to: {save_path}")
         return fig
 
@@ -611,7 +660,7 @@ class Plotter:
         labels = self._get_legend_labels(self._samples_list)
         if not labels:
             return
-        plotter.add_legend(labels, legend_loc='upper right')
+        plotter.add_legend(labels, legend_loc="upper right")
         for ax in plotter.fig.axes:
             legend = ax.get_legend()
             if legend:
@@ -630,7 +679,9 @@ class Plotter:
         if not params:
             return self._param_names
         if isinstance(params[0], int):
-            return [self._param_names[i] for i in params if 0 <= i < len(self._param_names)]
+            return [
+                self._param_names[i] for i in params if 0 <= i < len(self._param_names)
+            ]
         return list(params)
 
     def _select_params(self, params: Union[List[str], List[int]]) -> List[MCSamples]:
@@ -645,7 +696,9 @@ class Plotter:
                 continue
 
             actual_names = [available[i] for i in indices]
-            labels_list = [samples.getParamNames().parWithName(p).label for p in actual_names]
+            labels_list = [
+                samples.getParamNames().parWithName(p).label for p in actual_names
+            ]
 
             selected_ranges = self._extract_ranges_for_params(samples, actual_names)
 
@@ -653,15 +706,17 @@ class Plotter:
                 samples=samples.samples[:, indices],
                 names=actual_names,
                 labels=labels_list,
-                label=getattr(samples, 'label', None),
+                label=getattr(samples, "label", None),
                 ranges=selected_ranges or None,
             )
             result.append(subset)
         return result
 
-    def _extract_ranges_for_params(self, samples: MCSamples, param_names: List[str]) -> Dict[str, Tuple[float, float]]:
+    def _extract_ranges_for_params(
+        self, samples: MCSamples, param_names: List[str]
+    ) -> Dict[str, Tuple[float, float]]:
         """Extract ranges for specified parameters from MCSamples."""
-        if not hasattr(samples, 'ranges') or not samples.ranges:
+        if not hasattr(samples, "ranges") or not samples.ranges:
             return {}
         ranges = {}
         for pname in param_names:
@@ -683,16 +738,19 @@ class Plotter:
     def _load_chain_metadata(self, chain_path: Path) -> Dict:
         """Load metadata from chain file."""
         import h5py
+
         metadata = {}
         try:
-            with h5py.File(chain_path, 'r') as f:
-                if 'metadata' not in f:
+            with h5py.File(chain_path, "r") as f:
+                if "metadata" not in f:
                     return metadata
-                for key in f['metadata'].keys():
-                    item = f['metadata'][key]
+                for key in f["metadata"].keys():
+                    item = f["metadata"][key]
                     if isinstance(item, h5py.Dataset):
                         val = item[()]
-                        metadata[key] = val.decode('utf-8') if isinstance(val, bytes) else val
+                        metadata[key] = (
+                            val.decode("utf-8") if isinstance(val, bytes) else val
+                        )
         except (OSError, KeyError, AttributeError):
             pass
         return metadata
@@ -716,11 +774,15 @@ class Plotter:
         param_config = {}
         likelihood_info = {}
 
-        if 'parameter_config' in metadata:
+        if "parameter_config" in metadata:
             try:
-                param_config = json.loads(metadata['parameter_config'])
-                mcmc_cfg = param_config.get('mcmc', {})
-                for key, label in [('num_chains', 'Chains'), ('num_warmup', 'Warmup Steps'), ('num_samples', 'Samples per Chain')]:
+                param_config = json.loads(metadata["parameter_config"])
+                mcmc_cfg = param_config.get("mcmc", {})
+                for key, label in [
+                    ("num_chains", "Chains"),
+                    ("num_warmup", "Warmup Steps"),
+                    ("num_samples", "Samples per Chain"),
+                ]:
                     if key in mcmc_cfg:
                         lines.append(f"- **{label}**: {mcmc_cfg[key]}")
             except (json.JSONDecodeError, KeyError, TypeError):
@@ -728,46 +790,57 @@ class Plotter:
         lines.append("")
 
         # Likelihood Information
-        if 'likelihood_info' in metadata:
+        if "likelihood_info" in metadata:
             try:
-                likelihood_info = json.loads(metadata['likelihood_info'])
+                likelihood_info = json.loads(metadata["likelihood_info"])
             except (json.JSONDecodeError, TypeError):
                 pass
 
         if likelihood_info:
-            lines.extend([
-                "## Likelihood",
-                "",
-            ])
-            if 'class' in likelihood_info:
+            lines.extend(
+                [
+                    "## Likelihood",
+                    "",
+                ]
+            )
+            if "class" in likelihood_info:
                 lines.append(f"- **Class**: `{likelihood_info['class']}`")
-            elif 'module' in likelihood_info:
+            elif "module" in likelihood_info:
                 lines.append(f"- **Module**: `{likelihood_info['module']}`")
-            if 'function_name' in likelihood_info and likelihood_info['function_name'] != 'unknown':
+            if (
+                "function_name" in likelihood_info
+                and likelihood_info["function_name"] != "unknown"
+            ):
                 lines.append(f"- **Function**: `{likelihood_info['function_name']}`")
-            if 'description' in likelihood_info:
+            if "description" in likelihood_info:
                 lines.append(f"- **Description**: {likelihood_info['description']}")
-            elif 'docstring' in likelihood_info:
+            elif "docstring" in likelihood_info:
                 # Extract first line of docstring as description
-                docstring = likelihood_info['docstring'].strip()
-                first_line = docstring.split('\n')[0].strip() if docstring else ""
+                docstring = likelihood_info["docstring"].strip()
+                first_line = docstring.split("\n")[0].strip() if docstring else ""
                 if first_line:
                     lines.append(f"- **Description**: {first_line}")
             lines.append("")
 
         # Input Parameters
-        if 'parameters' in param_config:
-            lines.extend([
-                "## Input Parameters",
-                "",
-                "| Parameter | Prior | Bounds | Free |",
-                "|-----------|-------|--------|------|",
-            ])
-            for pname, pinfo in param_config['parameters'].items():
-                bounds = pinfo.get('bounds', [None, None])
-                bounds_str = f"[{bounds[0]}, {bounds[1]}]" if bounds and bounds[0] is not None else "N/A"
-                free = "Yes" if pinfo.get('free', False) else "No"
-                prior = pinfo.get('prior', 'uniform')
+        if "parameters" in param_config:
+            lines.extend(
+                [
+                    "## Input Parameters",
+                    "",
+                    "| Parameter | Prior | Bounds | Free |",
+                    "|-----------|-------|--------|------|",
+                ]
+            )
+            for pname, pinfo in param_config["parameters"].items():
+                bounds = pinfo.get("bounds", [None, None])
+                bounds_str = (
+                    f"[{bounds[0]}, {bounds[1]}]"
+                    if bounds and bounds[0] is not None
+                    else "N/A"
+                )
+                free = "Yes" if pinfo.get("free", False) else "No"
+                prior = pinfo.get("prior", "uniform")
                 lines.append(f"| {pname} | {prior} | {bounds_str} | {free} |")
             lines.append("")
 
@@ -794,7 +867,9 @@ class Plotter:
                 continue
 
             param_obj = samples.getParamNames().parWithName(param_name)
-            latex_label = param_obj.label if param_obj and param_obj.label else param_name
+            latex_label = (
+                param_obj.label if param_obj and param_obj.label else param_name
+            )
             display_label = f"${latex_label}$"
 
             limit_68 = ps.limits[0] if ps.limits and len(ps.limits) > 0 else None
@@ -802,8 +877,8 @@ class Plotter:
 
             ci68_lo = limit_68.lower if limit_68 else ps.mean - ps.err
             ci68_hi = limit_68.upper if limit_68 else ps.mean + ps.err
-            ci95_lo = limit_95.lower if limit_95 else ps.mean - 2*ps.err
-            ci95_hi = limit_95.upper if limit_95 else ps.mean + 2*ps.err
+            ci95_lo = limit_95.lower if limit_95 else ps.mean - 2 * ps.err
+            ci95_hi = limit_95.upper if limit_95 else ps.mean + 2 * ps.err
 
             idx = samples.getParamNames().list().index(param_name)
             median = float(np.median(samples.samples[:, idx]))
@@ -822,34 +897,46 @@ class Plotter:
             if abs(err_up_1 - err_dn_1) < 0.1 * ps.err:
                 latex_1sigma.append(f"${latex_label} = {ps.mean:.3g}\\pm {ps.err:.2g}$")
             else:
-                latex_1sigma.append(f"${latex_label} = {ps.mean:.3g}^{{+{err_up_1:.2g}}}_{{-{err_dn_1:.2g}}}$")
+                latex_1sigma.append(
+                    f"${latex_label} = {ps.mean:.3g}^{{+{err_up_1:.2g}}}_{{-{err_dn_1:.2g}}}$"
+                )
 
             if abs(err_up_2 - err_dn_2) < 0.1 * 2 * ps.err:
-                latex_2sigma.append(f"${latex_label} = {ps.mean:.3g}\\pm {2*ps.err:.2g}$")
+                latex_2sigma.append(
+                    f"${latex_label} = {ps.mean:.3g}\\pm {2*ps.err:.2g}$"
+                )
             else:
-                latex_2sigma.append(f"${latex_label} = {ps.mean:.3g}^{{+{err_up_2:.2g}}}_{{-{err_dn_2:.2g}}}$")
+                latex_2sigma.append(
+                    f"${latex_label} = {ps.mean:.3g}^{{+{err_up_2:.2g}}}_{{-{err_dn_2:.2g}}}$"
+                )
 
         lines.append("")
 
         # LaTeX Format section
-        lines.extend([
-            "### LaTeX Format",
-            "",
-            r"**1$\sigma$ constraints:**",
-            "```latex",
-        ])
+        lines.extend(
+            [
+                "### LaTeX Format",
+                "",
+                r"**1$\sigma$ constraints:**",
+                "```latex",
+            ]
+        )
         lines.extend(latex_1sigma)
-        lines.extend([
-            "```",
-            "",
-            r"**2$\sigma$ constraints:**",
-            "```latex",
-        ])
+        lines.extend(
+            [
+                "```",
+                "",
+                r"**2$\sigma$ constraints:**",
+                "```latex",
+            ]
+        )
         lines.extend(latex_2sigma)
-        lines.extend([
-            "```",
-            "",
-        ])
+        lines.extend(
+            [
+                "```",
+                "",
+            ]
+        )
 
         return lines
 
@@ -882,22 +969,26 @@ class Plotter:
         """Estimate effective sample size."""
         try:
             from scipy import signal
+
             centered = data - np.mean(data)
-            autocorr = signal.correlate(centered, centered, mode='full')
+            autocorr = signal.correlate(centered, centered, mode="full")
             mid = len(autocorr) // 2
             autocorr = autocorr[mid:] / autocorr[mid]
-            tau = 1 + 2 * np.sum(autocorr[:min(mid, 1000)])
+            tau = 1 + 2 * np.sum(autocorr[: min(mid, 1000)])
             return min(int(n_samples / max(tau, 1)), n_samples)
         except (ImportError, ValueError, ZeroDivisionError):
             return n_samples
 
-    def _generate_model_selection_section(self, chain_path: Optional[Path]) -> List[str]:
+    def _generate_model_selection_section(
+        self, chain_path: Optional[Path]
+    ) -> List[str]:
         """Generate model selection criteria section."""
         if not chain_path or not chain_path.exists():
             return []
 
         try:
             from .information_criteria import information_criteria
+
             ic = information_criteria(chain_path)
 
             lines = [
@@ -906,24 +997,30 @@ class Plotter:
                 f"- **$\\chi^2_{{\\rm min}}$**: {ic.get('chi2_min', 0):.2f}",
                 f"- **$\\log(L_{{\\rm max}})$**: {ic.get('log_likelihood_max', 0):.2f}",
             ]
-            if 'num_data' in ic:
+            if "num_data" in ic:
                 lines.append(f"- **$N_{{\\rm data}}$**: {ic['num_data']}")
-            lines.extend([
-                "",
-                "| Criterion | Value | Interpretation |",
-                "|-----------|-------|----------------|",
-            ])
-            if 'aic' in ic:
+            lines.extend(
+                [
+                    "",
+                    "| Criterion | Value | Interpretation |",
+                    "|-----------|-------|----------------|",
+                ]
+            )
+            if "aic" in ic:
                 lines.append(f"| AIC | {ic['aic']:.2f} | Lower is better |")
-            if 'bic' in ic:
+            if "bic" in ic:
                 lines.append(f"| BIC | {ic['bic']:.2f} | Lower is better |")
-            if 'log_evidence' in ic:
-                lines.append(f"| log(Z) | {ic['log_evidence']:.2f} | Higher is better |")
-            lines.extend([
-                "",
-                f"- **Free parameters (k)**: {ic.get('num_params', 'N/A')}",
-            ])
-            if 'num_data' in ic:
+            if "log_evidence" in ic:
+                lines.append(
+                    f"| log(Z) | {ic['log_evidence']:.2f} | Higher is better |"
+                )
+            lines.extend(
+                [
+                    "",
+                    f"- **Free parameters (k)**: {ic.get('num_params', 'N/A')}",
+                ]
+            )
+            if "num_data" in ic:
                 lines.append(f"- **Data points (N)**: {ic['num_data']}")
             lines.append("")
             return lines

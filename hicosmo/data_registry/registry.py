@@ -13,6 +13,7 @@ import json
 @dataclass
 class DatasetInfo:
     """Information about an available dataset."""
+
     name: str
     category: str  # bao, sn, cmb, h0, gw, lensing
     path: Path
@@ -156,7 +157,11 @@ class DataRegistry:
 
             # Handle SNe data
             elif dirname == "sne":
-                files = [f.name for f in subdir.iterdir() if f.is_file() and not f.name.startswith(".")]
+                files = [
+                    f.name
+                    for f in subdir.iterdir()
+                    if f.is_file() and not f.name.startswith(".")
+                ]
                 if files:
                     # Check for Pantheon+SH0ES specifically
                     has_shoes = any("SH0ES" in f for f in files)
@@ -165,7 +170,9 @@ class DataRegistry:
                         name=name,
                         category="sn",
                         path=subdir,
-                        description=self._DESCRIPTIONS.get(name, "Type Ia Supernova data"),
+                        description=self._DESCRIPTIONS.get(
+                            name, "Type Ia Supernova data"
+                        ),
                         files=files,
                     )
                     result["sn"].append(info)
@@ -178,7 +185,9 @@ class DataRegistry:
                         name="h0licow",
                         category="h0",
                         path=subdir,
-                        description=self._DESCRIPTIONS.get("h0licow", "H0LiCOW lensing data"),
+                        description=self._DESCRIPTIONS.get(
+                            "h0licow", "H0LiCOW lensing data"
+                        ),
                         files=files,
                     )
                     result["h0"].append(info)
@@ -191,7 +200,9 @@ class DataRegistry:
                         name="tdcosmo",
                         category="lensing",
                         path=subdir,
-                        description=self._DESCRIPTIONS.get("tdcosmo", "TDCOSMO lensing data"),
+                        description=self._DESCRIPTIONS.get(
+                            "tdcosmo", "TDCOSMO lensing data"
+                        ),
                         files=files,
                     )
                     result["lensing"].append(info)
@@ -199,13 +210,17 @@ class DataRegistry:
                     # Check for TDCOSMO2025 subdirectory
                     tdcosmo2025 = subdir / "tdcosmo2025"
                     if tdcosmo2025.exists():
-                        files_2025 = [f.name for f in tdcosmo2025.iterdir() if f.is_file()]
+                        files_2025 = [
+                            f.name for f in tdcosmo2025.iterdir() if f.is_file()
+                        ]
                         if files_2025:
                             info_2025 = DatasetInfo(
                                 name="tdcosmo2025",
                                 category="lensing",
                                 path=tdcosmo2025,
-                                description=self._DESCRIPTIONS.get("tdcosmo2025", "TDCOSMO 2025 data"),
+                                description=self._DESCRIPTIONS.get(
+                                    "tdcosmo2025", "TDCOSMO 2025 data"
+                                ),
                                 files=files_2025,
                             )
                             result["lensing"].append(info_2025)
@@ -218,7 +233,9 @@ class DataRegistry:
                         name="gwtc-3",
                         category="gw",
                         path=subdir,
-                        description=self._DESCRIPTIONS.get("gwtc-3", "GWTC-3 GW catalog"),
+                        description=self._DESCRIPTIONS.get(
+                            "gwtc-3", "GWTC-3 GW catalog"
+                        ),
                         files=files,
                     )
                     result["gw"].append(info)
@@ -234,7 +251,9 @@ class DataRegistry:
                         name="planck2018",
                         category="cmb",
                         path=planck_dir,
-                        description=self._DESCRIPTIONS.get("planck2018", "Planck 2018 CMB data"),
+                        description=self._DESCRIPTIONS.get(
+                            "planck2018", "Planck 2018 CMB data"
+                        ),
                         files=files,
                     )
                     result["cmb"].append(info)
@@ -257,7 +276,9 @@ class DataRegistry:
         self._cache = result
         return result
 
-    def _collect_files_recursive(self, directory: Path, max_depth: int = 3) -> List[str]:
+    def _collect_files_recursive(
+        self, directory: Path, max_depth: int = 3
+    ) -> List[str]:
         """Collect file names from directory recursively."""
         files = []
         for item in directory.rglob("*"):

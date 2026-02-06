@@ -31,6 +31,7 @@ class MappingResult:
     success : bool
         Whether the mapping was successful.
     """
+
     parameter_mapping: Dict[str, str]
     data_arguments: Dict[str, Any]
     missing_parameters: List[str]
@@ -40,8 +41,7 @@ class MappingResult:
 
 
 def create_direct_mapping(
-    param_names: List[str],
-    data_kwargs: Dict[str, Any] = None
+    param_names: List[str], data_kwargs: Dict[str, Any] = None
 ) -> MappingResult:
     """
     Create a simple direct parameter mapping.
@@ -64,5 +64,5 @@ def create_direct_mapping(
         missing_parameters=[],
         unused_parameters=[],
         warnings=[],
-        success=True
+        success=True,
     )

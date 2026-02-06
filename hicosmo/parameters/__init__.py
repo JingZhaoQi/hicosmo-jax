@@ -75,25 +75,25 @@ from .validation import (
     validate_prior_dict,
     validate_bounds,
     suggest_similar_names,
-    build_parameter_error_message
+    build_parameter_error_message,
 )
 
 __all__ = [
     # Core classes
-    'Parameter',
-    'ParameterRegistry',
+    "Parameter",
+    "ParameterRegistry",
     # Preset parameters (Single Source of Truth)
-    'PLANCK_2018_PARAMS',
-    'PLANCK_2018_DEFAULTS',
-    'WMAP9_PARAMS',
-    'WMAP9_DEFAULTS',
-    'PRESET_CATALOG',
-    'get_preset',
-    'get_fiducial_values',
+    "PLANCK_2018_PARAMS",
+    "PLANCK_2018_DEFAULTS",
+    "WMAP9_PARAMS",
+    "WMAP9_DEFAULTS",
+    "PRESET_CATALOG",
+    "get_preset",
+    "get_fiducial_values",
     # Validation utilities
-    'validate_parameter_name',
-    'validate_prior_dict',
-    'validate_bounds',
-    'suggest_similar_names',
-    'build_parameter_error_message',
+    "validate_parameter_name",
+    "validate_prior_dict",
+    "validate_bounds",
+    "suggest_similar_names",
+    "build_parameter_error_message",
 ]

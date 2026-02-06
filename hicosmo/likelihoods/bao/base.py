@@ -26,6 +26,7 @@ logger = get_logger(__name__)
 @dataclass
 class BAODataPoint:
     """Single BAO measurement data point."""
+
     z: float  # Effective redshift
     value: float  # Measured value
     error: float  # Error on measurement
@@ -35,6 +36,7 @@ class BAODataPoint:
 @dataclass
 class BAODataset:
     """Container for a complete BAO dataset."""
+
     name: str
     data_points: List[BAODataPoint]
     covariance: Optional[np.ndarray] = None
@@ -61,14 +63,16 @@ class BAOLikelihood(Likelihood):
         marginalize_rd: Whether to marginalize over rd
     """
 
-    def __init__(self,
-                 dataset_name: Optional[str] = None,
-                 data_path: Optional[str] = None,
-                 use_rd_fid: bool = False,
-                 marginalize_rd: bool = False,
-                 cosmology_class: Optional[type] = None,
-                 verbose: bool = True,
-                 **kwargs):
+    def __init__(
+        self,
+        dataset_name: Optional[str] = None,
+        data_path: Optional[str] = None,
+        use_rd_fid: bool = False,
+        marginalize_rd: bool = False,
+        cosmology_class: Optional[type] = None,
+        verbose: bool = True,
+        **kwargs,
+    ):
         """
         Initialize BAO likelihood.
 
@@ -83,7 +87,8 @@ class BAOLikelihood(Likelihood):
         if data_path is None:
             data_path = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                'data', 'bao_data'
+                "data",
+                "bao_data",
             )
 
         super().__init__(name=dataset_name, data_path=data_path, **kwargs)
@@ -94,6 +99,7 @@ class BAOLikelihood(Likelihood):
         self.verbose = verbose
         if cosmology_class is None:
             from ...models import LCDM
+
             self._cosmology_class = LCDM
         else:
             self._cosmology_class = cosmology_class
@@ -136,7 +142,9 @@ class BAOLikelihood(Likelihood):
         self.dataset = self._load_dataset()
 
         if self.verbose:
-            logger.debug(f"{self.dataset.name} loaded: {len(self.dataset.data_points)} measurements")
+            logger.debug(
+                f"{self.dataset.name} loaded: {len(self.dataset.data_points)} measurements"
+            )
             logger.debug(
                 f"Redshift range: {min(p.z for p in self.dataset.data_points):.3f} - "
                 f"{max(p.z for p in self.dataset.data_points):.3f}"
@@ -152,13 +160,17 @@ class BAOLikelihood(Likelihood):
             return
 
         self._z = jnp.array([p.z for p in self.dataset.data_points], dtype=jnp.float64)
-        self._data_vec = jnp.array([p.value for p in self.dataset.data_points], dtype=jnp.float64)
+        self._data_vec = jnp.array(
+            [p.value for p in self.dataset.data_points], dtype=jnp.float64
+        )
         self._obs_codes = jnp.array(
             [self._observable_code(p.observable) for p in self.dataset.data_points],
-            dtype=jnp.int32
+            dtype=jnp.int32,
         )
         self._inv_cov_jax = jnp.array(self.inv_cov)
-        self._has_fsigma8 = any(p.observable == 'fsigma8' for p in self.dataset.data_points)
+        self._has_fsigma8 = any(
+            p.observable == "fsigma8" for p in self.dataset.data_points
+        )
         self._dtype = self._data_vec.dtype
         self._prepare_distance_grid()
         self._initialize_fast_likelihood()
@@ -174,13 +186,13 @@ class BAOLikelihood(Likelihood):
     def _observable_code(observable: str) -> int:
         """Map observable string to integer code for fast vectorized selection."""
         codes = {
-            'DM_over_rd': 0,
-            'DH_over_rd': 1,
-            'DV_over_rd': 2,
-            'rs_over_DV': 3,
-            'Hz_rs': 4,
-            'fsigma8': 5,
-            'DM_over_DH': 6,
+            "DM_over_rd": 0,
+            "DH_over_rd": 1,
+            "DV_over_rd": 2,
+            "rs_over_DV": 3,
+            "Hz_rs": 4,
+            "fsigma8": 5,
+            "DM_over_DH": 6,
         }
         if observable not in codes:
             raise ValueError(f"Unknown BAO observable: {observable}")
@@ -212,15 +224,18 @@ class BAOLikelihood(Likelihood):
             Dictionary of required theory calculations
         """
         reqs = {
-            'DM_z': {'z': [p.z for p in self.dataset.data_points]},
-            'DH_z': {'z': [p.z for p in self.dataset.data_points]},
-            'rd': None,  # Sound horizon at drag epoch
+            "DM_z": {"z": [p.z for p in self.dataset.data_points]},
+            "DH_z": {"z": [p.z for p in self.dataset.data_points]},
+            "rd": None,  # Sound horizon at drag epoch
         }
 
         # Add fsigma8 requirement if needed
-        if any(p.observable == 'fsigma8' for p in self.dataset.data_points):
-            reqs['fsigma8_z'] = {'z': [p.z for p in self.dataset.data_points
-                                       if p.observable == 'fsigma8']}
+        if any(p.observable == "fsigma8" for p in self.dataset.data_points):
+            reqs["fsigma8_z"] = {
+                "z": [
+                    p.z for p in self.dataset.data_points if p.observable == "fsigma8"
+                ]
+            }
 
         return reqs
 
@@ -239,7 +254,7 @@ class BAOLikelihood(Likelihood):
             return False
         if not hasattr(self._cosmology_class, "sound_horizon_drag_traced"):
             return False
-        return ('H0' in params) or ('h' in params)
+        return ("H0" in params) or ("h" in params)
 
     def _compute_rd_from_params(self, params: Dict[str, jnp.ndarray]) -> jnp.ndarray:
         if hasattr(self._cosmology_class, "sound_horizon_drag_traced"):
@@ -264,20 +279,22 @@ class BAOLikelihood(Likelihood):
         data_vec = self._data_vec
         inv_cov = self._inv_cov_jax
         use_rd_fid = bool(self.use_rd_fid)
-        rd_fid = jnp.asarray(self.rd_fid if self.rd_fid is not None else 0.0, dtype=self._dtype)
+        rd_fid = jnp.asarray(
+            self.rd_fid if self.rd_fid is not None else 0.0, dtype=self._dtype
+        )
         cosmology_class = self._cosmology_class
         rd_func = getattr(cosmology_class, "sound_horizon_drag_traced", None)
 
         @jit
         def _loglike_impl(params: Dict[str, jnp.ndarray]) -> jnp.ndarray:
             cosmo_grid = cosmology_class.compute_grid_traced(z_grid, params)
-            DM_grid = cosmo_grid['D_M']
-            DH_grid = cosmo_grid['D_H']
-            E_z_grid = cosmo_grid['E_z']
+            DM_grid = cosmo_grid["D_M"]
+            DH_grid = cosmo_grid["D_H"]
+            E_z_grid = cosmo_grid["E_z"]
 
             volume_factor = z_grid * DM_grid**2 * DH_grid
             DV_grid = jnp.exp((1.0 / 3.0) * jnp.log(volume_factor + 1e-30))
-            H_grid = params['H0'] * E_z_grid
+            H_grid = params["H0"] * E_z_grid
 
             DM_obs = jnp.interp(z_obs, z_grid, DM_grid)
             DH_obs = jnp.interp(z_obs, z_grid, DH_grid)
@@ -322,11 +339,13 @@ class BAOLikelihood(Likelihood):
         Returns:
             Theory vector as JAX array
         """
-        rd = kwargs.get('rd', None)
+        rd = kwargs.get("rd", None)
         theory_vec = self._compute_theory_vector(cosmology, rd=rd)
         return jnp.array(theory_vec)
 
-    def _compute_theory_vector(self, cosmology, rd: Optional[float] = None) -> jnp.ndarray:
+    def _compute_theory_vector(
+        self, cosmology, rd: Optional[float] = None
+    ) -> jnp.ndarray:
         """
         Compute theoretical predictions for all data points.
 
@@ -353,7 +372,7 @@ class BAOLikelihood(Likelihood):
 
         # Optional growth term
         if self._has_fsigma8:
-            if hasattr(cosmology, 'fsigma8'):
+            if hasattr(cosmology, "fsigma8"):
                 fsigma8_vals = cosmology.fsigma8(z)
             else:
                 fsigma8_vals = cosmology.f_sigma8(z)
@@ -362,18 +381,19 @@ class BAOLikelihood(Likelihood):
 
         # Assemble theory vector with vectorized selection
         theory = jnp.zeros_like(z)
-        theory = jnp.where(obs_codes == 0, DM / rd, theory)          # DM_over_rd
-        theory = jnp.where(obs_codes == 1, DH / rd, theory)          # DH_over_rd
-        theory = jnp.where(obs_codes == 2, DV / rd, theory)          # DV_over_rd
-        theory = jnp.where(obs_codes == 3, rd / DV, theory)          # rs_over_DV
-        theory = jnp.where(obs_codes == 4, H_z * rd, theory)         # Hz_rs
-        theory = jnp.where(obs_codes == 5, fsigma8_vals, theory)     # fsigma8
-        theory = jnp.where(obs_codes == 6, DM / DH, theory)          # DM_over_DH
+        theory = jnp.where(obs_codes == 0, DM / rd, theory)  # DM_over_rd
+        theory = jnp.where(obs_codes == 1, DH / rd, theory)  # DH_over_rd
+        theory = jnp.where(obs_codes == 2, DV / rd, theory)  # DV_over_rd
+        theory = jnp.where(obs_codes == 3, rd / DV, theory)  # rs_over_DV
+        theory = jnp.where(obs_codes == 4, H_z * rd, theory)  # Hz_rs
+        theory = jnp.where(obs_codes == 5, fsigma8_vals, theory)  # fsigma8
+        theory = jnp.where(obs_codes == 6, DM / DH, theory)  # DM_over_DH
 
         return theory
 
-    def _chi_squared(self, theory: jnp.ndarray, data: jnp.ndarray,
-                     inv_cov: jnp.ndarray) -> float:
+    def _chi_squared(
+        self, theory: jnp.ndarray, data: jnp.ndarray, inv_cov: jnp.ndarray
+    ) -> float:
         """
         Compute chi-squared for BAO data.
 
@@ -406,11 +426,7 @@ class BAOLikelihood(Likelihood):
         theory_jax = self.theory(cosmology, rd=rd)
 
         # Compute chi-squared
-        chi2 = self._chi_squared(
-            theory_jax,
-            self._data_vec,
-            self._inv_cov_jax
-        )
+        chi2 = self._chi_squared(theory_jax, self._data_vec, self._inv_cov_jax)
 
         # Return log likelihood
         return -0.5 * chi2
@@ -430,16 +446,12 @@ class BAOLikelihood(Likelihood):
 
         # Add rd if computed
         if not self.use_rd_fid:
-            derived['rd'] = cosmology.sound_horizon_drag()
+            derived["rd"] = cosmology.sound_horizon_drag()
 
         # Add chi2
         theory = self._compute_theory_vector(cosmology)
-        chi2 = self._chi_squared(
-            jnp.array(theory),
-            self._data_vec,
-            self._inv_cov_jax
-        )
-        derived[f'chi2_{self.dataset_name}'] = float(chi2)
+        chi2 = self._chi_squared(jnp.array(theory), self._data_vec, self._inv_cov_jax)
+        derived[f"chi2_{self.dataset_name}"] = float(chi2)
 
         return derived
 
@@ -474,11 +486,13 @@ class BAOCollection:
     collection/wrapper rather than a single likelihood.
     """
 
-    def __init__(self,
-                 datasets: List[Union[str, BAOLikelihood]],
-                 data_path: Optional[str] = None,
-                 verbose: bool = True,
-                 **kwargs):
+    def __init__(
+        self,
+        datasets: List[Union[str, BAOLikelihood]],
+        data_path: Optional[str] = None,
+        verbose: bool = True,
+        **kwargs,
+    ):
         """
         Initialize collection of BAO datasets.
 
@@ -487,7 +501,7 @@ class BAOCollection:
             data_path: Path to BAO data files
             verbose: Print information
         """
-        self.name = 'BAO_collection'
+        self.name = "BAO_collection"
         self.data_path = data_path
         self.verbose = verbose
         self.likelihoods: List[BAOLikelihood] = []
@@ -503,7 +517,9 @@ class BAOCollection:
             self.likelihoods.append(like)
 
         if self.verbose:
-            logger.debug(f"BAO Collection initialized with {len(self.likelihoods)} datasets")
+            logger.debug(
+                f"BAO Collection initialized with {len(self.likelihoods)} datasets"
+            )
 
     def _create_likelihood(self, name: str, data_path: Optional[str]) -> BAOLikelihood:
         """Create a BAO likelihood from dataset name."""
@@ -512,16 +528,18 @@ class BAOCollection:
 
         # Map dataset names to classes
         dataset_map = {
-            'sdss_dr12': bao_datasets.SDSSDR12BAO,
-            'sdss_dr16': bao_datasets.SDSSDR16BAO,
-            'boss_dr12': bao_datasets.BOSSDR12BAO,
-            'desi_2024': bao_datasets.DESI2024BAO,
-            'sixdf': bao_datasets.SixDFBAO,
+            "sdss_dr12": bao_datasets.SDSSDR12BAO,
+            "sdss_dr16": bao_datasets.SDSSDR16BAO,
+            "boss_dr12": bao_datasets.BOSSDR12BAO,
+            "desi_2024": bao_datasets.DESI2024BAO,
+            "sixdf": bao_datasets.SixDFBAO,
         }
 
         if name not in dataset_map:
-            raise ValueError(f"Unknown BAO dataset: {name}. "
-                           f"Available: {list(dataset_map.keys())}")
+            raise ValueError(
+                f"Unknown BAO dataset: {name}. "
+                f"Available: {list(dataset_map.keys())}"
+            )
 
         return dataset_map[name](data_path=data_path, verbose=self.verbose)
 
@@ -550,11 +568,11 @@ class BAOCollection:
             for key, value in like_reqs.items():
                 if key not in reqs:
                     reqs[key] = value
-                elif isinstance(value, dict) and 'z' in value:
+                elif isinstance(value, dict) and "z" in value:
                     # Merge redshift arrays
-                    existing_z = reqs[key].get('z', [])
-                    new_z = value['z']
+                    existing_z = reqs[key].get("z", [])
+                    new_z = value["z"]
                     # Combine and remove duplicates
                     all_z = sorted(set(existing_z + new_z))
-                    reqs[key] = {'z': all_z}
+                    reqs[key] = {"z": all_z}
         return reqs

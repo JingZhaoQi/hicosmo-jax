@@ -48,8 +48,9 @@ _HERMITE_WEIGHTS = jnp.asarray(
 _HERMITE_NORM = jnp.sqrt(jnp.pi)
 
 
-def _soft_indicator(x: jnp.ndarray, low: jnp.ndarray, high: jnp.ndarray,
-                    sharpness: float = 100.0) -> jnp.ndarray:
+def _soft_indicator(
+    x: jnp.ndarray, low: jnp.ndarray, high: jnp.ndarray, sharpness: float = 100.0
+) -> jnp.ndarray:
     """Soft indicator function: ~1 if low <= x < high, ~0 otherwise.
 
     Uses sigmoid functions to create a differentiable approximation of the
@@ -75,7 +76,9 @@ def _soft_indicator(x: jnp.ndarray, low: jnp.ndarray, high: jnp.ndarray,
     return left * right
 
 
-def _bspline_basis_vector(x: jnp.ndarray, knots: jnp.ndarray, degree: int) -> jnp.ndarray:
+def _bspline_basis_vector(
+    x: jnp.ndarray, knots: jnp.ndarray, degree: int
+) -> jnp.ndarray:
     """Evaluate all B-spline basis functions at a scalar x.
 
     Matches SciPy FITPACK spline evaluation when used with the (tx, ty, c) from
@@ -425,9 +428,9 @@ class TDCOSMOLensData:
         """Vectorized anisotropy scaling for an array of ani_param values."""
         ani_param = jnp.asarray(ani_param, dtype=_DTYPE)
         if ani_param.ndim == 0:
-            return self.anisotropy_scaling(
-                ani_param, gamma_pl, use_spline=use_spline
-            )[None, :]
+            return self.anisotropy_scaling(ani_param, gamma_pl, use_spline=use_spline)[
+                None, :
+            ]
 
         if (
             self.gamma_pl_params is None
@@ -464,7 +467,11 @@ class TDCOSMOLensData:
                 )
             )(ani_param, gamma_pl)
         return _interp_2d_batch(
-            ani_param, gamma_pl, self.ani_params, self.gamma_pl_params, self.ani_scaling_2d
+            ani_param,
+            gamma_pl,
+            self.ani_params,
+            self.gamma_pl_params,
+            self.ani_scaling_2d,
         )
 
 
@@ -609,7 +616,11 @@ def _load_processed_lens(
             gamma_pl_params = gamma_pl_axis
 
             for item in data.get("prior_list", []) or []:
-                if isinstance(item, (list, tuple)) and len(item) >= 3 and item[0] == "gamma_pl":
+                if (
+                    isinstance(item, (list, tuple))
+                    and len(item) >= 3
+                    and item[0] == "gamma_pl"
+                ):
                     gamma_pl_prior_mean = float(item[1])
                     gamma_pl_prior_sigma = float(item[2])
                     break
@@ -622,7 +633,8 @@ def _load_processed_lens(
             ):
                 weights = np.exp(
                     -0.5
-                    * ((gamma_pl_axis - gamma_pl_prior_mean) / gamma_pl_prior_sigma) ** 2
+                    * ((gamma_pl_axis - gamma_pl_prior_mean) / gamma_pl_prior_sigma)
+                    ** 2
                 )
                 if np.all(np.isfinite(weights)) and float(np.sum(weights)) > 0:
                     gamma_weights = weights / np.sum(weights)
@@ -638,9 +650,13 @@ def _load_processed_lens(
                 else:
                     grid_norm = grid.T  # (n_ani, n_gamma)
                 scaling_2d_list.append(grid_norm)
-                ani_scaling_list.append(np.sum(grid_norm * gamma_weights[None, :], axis=1))
+                ani_scaling_list.append(
+                    np.sum(grid_norm * gamma_weights[None, :], axis=1)
+                )
 
-            ani_scaling_2d = np.stack(scaling_2d_list, axis=0)  # (n_meas, n_ani, n_gamma)
+            ani_scaling_2d = np.stack(
+                scaling_2d_list, axis=0
+            )  # (n_meas, n_ani, n_gamma)
             ani_scaling = np.stack(ani_scaling_list, axis=0)  # (n_meas, n_ani)
 
             tx, ty, coeffs = _build_rect_bivariate_spline_coeffs(
@@ -715,9 +731,7 @@ def _load_processed_lens(
         ),
         gamma_pl_prior_mean=gamma_pl_prior_mean,
         gamma_pl_prior_sigma=gamma_pl_prior_sigma,
-        gamma_pl_pivot=(
-            float(gamma_pl_pivot) if gamma_pl_pivot is not None else None
-        ),
+        gamma_pl_pivot=(float(gamma_pl_pivot) if gamma_pl_pivot is not None else None),
         gamma_pl_ddt_slope=(
             float(gamma_pl_ddt_slope) if gamma_pl_ddt_slope is not None else None
         ),
@@ -1033,7 +1047,9 @@ class TDCOSMOLikelihood(Likelihood):
 
         # Print summary
         if cosmology_class is not None:
-            logger.info(f"TDCOSMO loaded: {len(self.lens_names)} lenses (hierarchical mode)")
+            logger.info(
+                f"TDCOSMO loaded: {len(self.lens_names)} lenses (hierarchical mode)"
+            )
             logger.info(f"  Lenses: {', '.join(self.lens_names)}")
             logger.info(f"  Nuisance parameters: {len(self.nuisance_parameters())}")
             logger.info(f"  Lambda bounds: {self.lambda_bounds}")
@@ -1300,9 +1316,7 @@ class TDCOSMOLikelihood(Likelihood):
 
             centers = np.asarray(lens.ddt_centers, dtype="float32")
             weights = np.asarray(lens.ddt_weights, dtype="float32")
-            ddt_centers[i] = _pad_axis(
-                centers, max_n_ddt, pad_val=float(centers[-1])
-            )
+            ddt_centers[i] = _pad_axis(centers, max_n_ddt, pad_val=float(centers[-1]))
             ddt_weights[i, : centers.shape[0]] = weights
             ddt_n[i] = int(centers.shape[0])
             ddt_norm_factor[i] = float(lens.ddt_norm_factor)
@@ -1536,8 +1550,7 @@ class TDCOSMOLikelihood(Likelihood):
                             self.gamma_pl_bounds,
                             q_gamma,
                         ),
-                        lambda __: gamma_lower
-                        + (gamma_upper - gamma_lower) * q_gamma,
+                        lambda __: gamma_lower + (gamma_upper - gamma_lower) * q_gamma,
                         operand=None,
                     ),
                 )
@@ -1609,8 +1622,7 @@ class TDCOSMOLikelihood(Likelihood):
             ddt_eff = ddt_l * lambda_tot
             ddt_eff = jax.lax.cond(
                 (has_gamma > 0.5) & (gamma_slope != 0.0),
-                lambda _: ddt_eff
-                - (gamma_draws - gamma_pivot) * gamma_slope,
+                lambda _: ddt_eff - (gamma_draws - gamma_pivot) * gamma_slope,
                 lambda _: ddt_eff,
                 operand=None,
             )
@@ -1618,9 +1630,7 @@ class TDCOSMOLikelihood(Likelihood):
             diff_ddt = (ddt_eff[:, None] - ddt_centers[None, :]) / jnp.maximum(
                 bandwidth, _EPS
             )
-            log_kernel = -0.5 * diff_ddt**2 - jnp.log(
-                bandwidth * jnp.sqrt(_TWO_PI)
-            )
+            log_kernel = -0.5 * diff_ddt**2 - jnp.log(bandwidth * jnp.sqrt(_TWO_PI))
             log_weights = jnp.log(ddt_weights + _EPS)
             ddt_log = logsumexp(log_kernel + log_weights, axis=-1) - ddt_norm
 
@@ -1663,9 +1673,7 @@ class TDCOSMOLikelihood(Likelihood):
                     jnp.log(jnp.diagonal(L, axis1=-2, axis2=-1)), axis=-1
                 )
                 n_meas = jnp.sum(mask_meas)
-                kin_log = -0.5 * (
-                    chi2 + logdet + n_meas * jnp.log(_TWO_PI)
-                )
+                kin_log = -0.5 * (chi2 + logdet + n_meas * jnp.log(_TWO_PI))
             else:
                 kin_log = -0.5 * chi2
 
@@ -1836,8 +1844,7 @@ class TDCOSMOLikelihood(Likelihood):
             and lens.gamma_pl_ddt_slope is not None
         ):
             ddt_eff = (
-                ddt_eff
-                - (gamma_draws - lens.gamma_pl_pivot) * lens.gamma_pl_ddt_slope
+                ddt_eff - (gamma_draws - lens.gamma_pl_pivot) * lens.gamma_pl_ddt_slope
             )
         ddt_log = lens.ddt_logpdf(ddt_eff)
 
@@ -1858,7 +1865,11 @@ class TDCOSMOLikelihood(Likelihood):
         cov_total = cov_model + lens.cov_meas[None, :, :]
         cov_total = jnp.where(
             sigma_v_sys_error > 0,
-            cov_total + jnp.outer(lens.sigma_v_obs * sigma_v_sys_error, lens.sigma_v_obs * sigma_v_sys_error)[None, :, :],
+            cov_total
+            + jnp.outer(
+                lens.sigma_v_obs * sigma_v_sys_error,
+                lens.sigma_v_obs * sigma_v_sys_error,
+            )[None, :, :],
             cov_total,
         )
         n = lens.sigma_v_obs.shape[0]
@@ -1879,8 +1890,7 @@ class TDCOSMOLikelihood(Likelihood):
             else:
                 kin_log = jnp.where(
                     sigma2 > 0.0,
-                    -0.5
-                    * (delta0**2 / sigma2 + jnp.log(sigma2) + jnp.log(_TWO_PI)),
+                    -0.5 * (delta0**2 / sigma2 + jnp.log(sigma2) + jnp.log(_TWO_PI)),
                     _NEG_LARGE,
                 )
         else:
@@ -1975,7 +1985,9 @@ class TDCOSMOLikelihood(Likelihood):
 
         # Only extract sigma_v_sys_error when sigma_sys_error_include=True
         if self.sigma_sys_error_include:
-            sigma_v_sys = jnp.asarray(kwargs.get("sigma_v_sys_error", 0.05), dtype=_DTYPE)
+            sigma_v_sys = jnp.asarray(
+                kwargs.get("sigma_v_sys_error", 0.05), dtype=_DTYPE
+            )
         else:
             sigma_v_sys = jnp.array(0.0, dtype=_DTYPE)
 
@@ -2181,7 +2193,10 @@ class TDCOSMOLikelihood(Likelihood):
                     and lens.gamma_pl_prior_sigma is not None
                     and lens.gamma_pl_prior_sigma > 0
                 ):
-                    diff = (jnp.asarray(gamma_override, dtype=_DTYPE) - jnp.array(lens.gamma_pl_prior_mean, dtype=_DTYPE)) / jnp.array(  # noqa: E501
+                    diff = (
+                        jnp.asarray(gamma_override, dtype=_DTYPE)
+                        - jnp.array(lens.gamma_pl_prior_mean, dtype=_DTYPE)
+                    ) / jnp.array(  # noqa: E501
                         lens.gamma_pl_prior_sigma, dtype=_DTYPE
                     )
                     total = total - 0.5 * diff**2
@@ -2221,9 +2236,7 @@ class TDCOSMOLikelihood(Likelihood):
         lambda_mst: jnp.ndarray,
         ani_param: Optional[jnp.ndarray],
     ) -> jnp.ndarray:
-        kin_scaling = lens.anisotropy_scaling(
-            ani_param, use_spline=self.use_spline
-        )
+        kin_scaling = lens.anisotropy_scaling(ani_param, use_spline=self.use_spline)
         return self._single_lens_loglike_with_kin_scaling(
             lens=lens,
             ddt=ddt,
@@ -2283,8 +2296,7 @@ class TDCOSMOLikelihood(Likelihood):
             else:
                 kin_log = jnp.where(
                     sigma2 > 0.0,
-                    -0.5
-                    * (delta0**2 / sigma2 + jnp.log(sigma2) + jnp.log(_TWO_PI)),
+                    -0.5 * (delta0**2 / sigma2 + jnp.log(sigma2) + jnp.log(_TWO_PI)),
                     _NEG_LARGE,
                 )
         else:
@@ -2755,9 +2767,9 @@ class ExternalLensData:
         """Vectorized anisotropy scaling for an array of ani_param values."""
         ani_param = jnp.asarray(ani_param, dtype=_DTYPE)
         if ani_param.ndim == 0:
-            return self.anisotropy_scaling(
-                ani_param, gamma_pl, use_spline=use_spline
-            )[None, :]
+            return self.anisotropy_scaling(ani_param, gamma_pl, use_spline=use_spline)[
+                None, :
+            ]
 
         if (
             self.gamma_pl_params is None
@@ -2793,7 +2805,11 @@ class ExternalLensData:
                 )
             )(ani_param, gamma_pl)
         return _interp_2d_batch(
-            ani_param, gamma_pl, self.ani_params, self.gamma_pl_params, self.ani_scaling_2d
+            ani_param,
+            gamma_pl,
+            self.ani_params,
+            self.gamma_pl_params,
+            self.ani_scaling_2d,
         )
 
 
@@ -3176,7 +3192,9 @@ class ExternalLensLikelihood(Likelihood):
         self.initialize()
 
         if cosmology_class is not None:
-            logger.info(f"External lens loaded: {len(self.lens_data)} lenses ({sample_type})")
+            logger.info(
+                f"External lens loaded: {len(self.lens_data)} lenses ({sample_type})"
+            )
             logger.info(f"  Lenses: {', '.join(self.lens_data.keys())}")
 
         self._packed_data = None
@@ -3444,9 +3462,9 @@ class ExternalLensLikelihood(Likelihood):
                 gamma_axis = np.asarray(lens.gamma_pl_params, dtype="float32")
                 gamma_n[i] = int(gamma_axis.shape[0])
                 gamma_params[i] = _pad_axis(gamma_axis, max_n_gamma)
-                ani_scaling_2d[i, :n_meas, : ani_axis.shape[0], : gamma_axis.shape[0]] = np.asarray(
-                    lens.ani_scaling_2d, dtype="float32"
-                )
+                ani_scaling_2d[
+                    i, :n_meas, : ani_axis.shape[0], : gamma_axis.shape[0]
+                ] = np.asarray(lens.ani_scaling_2d, dtype="float32")
                 if lens.gamma_pl_prior_mean is not None:
                     gamma_prior_mean[i] = float(lens.gamma_pl_prior_mean)
                 if lens.gamma_pl_prior_sigma is not None:
@@ -3757,9 +3775,7 @@ class ExternalLensLikelihood(Likelihood):
         gamma_draws: Optional[jnp.ndarray] = None
         if lens.gamma_pl_params is not None and lens.ani_scaling_2d is not None:
             if gamma_pl is not None:
-                gamma_draws = jnp.full_like(
-                    q_lam, jnp.asarray(gamma_pl, dtype=_DTYPE)
-                )
+                gamma_draws = jnp.full_like(q_lam, jnp.asarray(gamma_pl, dtype=_DTYPE))
             else:
                 if (
                     lens.gamma_pl_prior_mean is not None
@@ -3828,8 +3844,7 @@ class ExternalLensLikelihood(Likelihood):
             else:
                 kin_log = jnp.where(
                     sigma2 > 0.0,
-                    -0.5
-                    * (delta0**2 / sigma2 + jnp.log(sigma2) + jnp.log(_TWO_PI)),
+                    -0.5 * (delta0**2 / sigma2 + jnp.log(sigma2) + jnp.log(_TWO_PI)),
                     _NEG_LARGE,
                 )
         else:
@@ -3915,8 +3930,12 @@ class ExternalLensLikelihood(Likelihood):
 
             # Anisotropy draws (bounds from interpolation grid)
             if self.anisotropy_parameterization == "TAN_RAD":
-                r_max = jnp.sqrt(jnp.maximum(1.0 - ani_min, jnp.array(0.0, dtype=_DTYPE)))
-                r_min = jnp.sqrt(jnp.maximum(1.0 - ani_max, jnp.array(0.0, dtype=_DTYPE)))
+                r_max = jnp.sqrt(
+                    jnp.maximum(1.0 - ani_min, jnp.array(0.0, dtype=_DTYPE))
+                )
+                r_min = jnp.sqrt(
+                    jnp.maximum(1.0 - ani_max, jnp.array(0.0, dtype=_DTYPE))
+                )
                 _ = r_min
                 ani_bounds = (-r_max, r_max)
             else:
@@ -3968,8 +3987,7 @@ class ExternalLensLikelihood(Likelihood):
                             self.gamma_pl_bounds,
                             q_gamma,
                         ),
-                        lambda __: gamma_lower
-                        + (gamma_upper - gamma_lower) * q_gamma,
+                        lambda __: gamma_lower + (gamma_upper - gamma_lower) * q_gamma,
                         operand=None,
                     ),
                 )
@@ -3995,6 +4013,7 @@ class ExternalLensLikelihood(Likelihood):
                 v1 = jnp.take(ani_scaling, idx + 1, axis=1)
                 kin_scalings = jnp.swapaxes((1.0 - t) * v0 + t * v1, 0, 1)
             else:
+
                 def _interp_one(a, g):
                     i = jnp.searchsorted(ani_params, a, side="right") - 1
                     j = jnp.searchsorted(gamma_params, g, side="right") - 1
@@ -4134,8 +4153,7 @@ class ExternalLensLikelihood(Likelihood):
             else:
                 kin_log = jnp.where(
                     sigma2 > 0.0,
-                    -0.5
-                    * (delta0**2 / sigma2 + jnp.log(sigma2) + jnp.log(_TWO_PI)),
+                    -0.5 * (delta0**2 / sigma2 + jnp.log(sigma2) + jnp.log(_TWO_PI)),
                     _NEG_LARGE,
                 )
         else:
@@ -4244,11 +4262,7 @@ class ExternalLensLikelihood(Likelihood):
             gamma_prior_sigma = packed["gamma_prior_sigma"]
             gamma_prior_mean = packed["gamma_prior_mean"]
             has_gamma = packed["has_gamma"] > 0.5
-            mask = (
-                has_gamma
-                & jnp.isfinite(gamma_overrides)
-                & (gamma_prior_sigma > 0.0)
-            )
+            mask = has_gamma & jnp.isfinite(gamma_overrides) & (gamma_prior_sigma > 0.0)
             diff = (gamma_overrides - gamma_prior_mean) / jnp.maximum(
                 gamma_prior_sigma, _EPS
             )

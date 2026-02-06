@@ -13,6 +13,7 @@ import jax
 import jax.numpy as jnp
 from jax import jit, vmap, lax
 from functools import partial
+
 # Diffrax removed - now using ultra-fast integration engine
 
 from .base import CosmologyBase, compute_omega_r
@@ -62,55 +63,62 @@ class LCDM(CosmologyBase):
         Effective number of neutrino species (default: 3.046)
     """
 
-    def __init__(self,
-                 H0: float = 67.36,
-                 Omega_m: float = 0.3153,
-                 Omega_b: float = 0.0493,  # Planck 2018 default (needed for BAO rd calculation)
-                 Omega_k: float = 0.0,
-                 Omega_r: Optional[float] = None,
-                 sigma8: float = 0.8111,
-                 n_s: float = 0.9649,
-                 T_cmb: float = 2.7255,
-                 N_eff: float = 3.046,
-                 precision_mode: Literal['fast', 'balanced', 'precise'] = 'balanced',
-                 **kwargs):
+    def __init__(
+        self,
+        H0: float = 67.36,
+        Omega_m: float = 0.3153,
+        Omega_b: float = 0.0493,  # Planck 2018 default (needed for BAO rd calculation)
+        Omega_k: float = 0.0,
+        Omega_r: Optional[float] = None,
+        sigma8: float = 0.8111,
+        n_s: float = 0.9649,
+        T_cmb: float = 2.7255,
+        N_eff: float = 3.046,
+        precision_mode: Literal["fast", "balanced", "precise"] = "balanced",
+        **kwargs,
+    ):
 
         # Use unified parameter management
         # Check if user provided alternative parameter bases (e.g., h instead of H0)
         # to avoid conflicts with default values
-        has_h = 'h' in kwargs
-        has_omega_m_alt = 'omega_m' in kwargs or 'omega_m_h2' in kwargs or \
-                          ('omega_b_h2' in kwargs and 'omega_c_h2' in kwargs)
+        has_h = "h" in kwargs
+        has_omega_m_alt = (
+            "omega_m" in kwargs
+            or "omega_m_h2" in kwargs
+            or ("omega_b_h2" in kwargs and "omega_c_h2" in kwargs)
+        )
 
         param_dict = {}
 
         # Only set defaults if alternative parameters not provided
         if not has_h:
-            param_dict['H0'] = H0
+            param_dict["H0"] = H0
         if not has_omega_m_alt:
-            param_dict['Omega_m'] = Omega_m
+            param_dict["Omega_m"] = Omega_m
 
         # Always include these (no alternative forms commonly used)
-        param_dict['Omega_k'] = Omega_k
-        param_dict['Omega_b'] = Omega_b  # Always include (needed for BAO rd calculation)
-        param_dict['sigma8'] = sigma8
-        param_dict['n_s'] = n_s
-        param_dict['T_cmb'] = T_cmb
-        param_dict['N_eff'] = N_eff
+        param_dict["Omega_k"] = Omega_k
+        param_dict["Omega_b"] = (
+            Omega_b  # Always include (needed for BAO rd calculation)
+        )
+        param_dict["sigma8"] = sigma8
+        param_dict["n_s"] = n_s
+        param_dict["T_cmb"] = T_cmb
+        param_dict["N_eff"] = N_eff
 
         # Handle optional parameters
         if Omega_r is not None:
-            param_dict['Omega_r'] = Omega_r
+            param_dict["Omega_r"] = Omega_r
 
         # Add any additional parameters (including h, omega_b_h2, etc.)
         param_dict.update(kwargs)
-        
+
         # Initialize with unified parameter system
         self.cosmology_params = CosmologicalParameters(**param_dict)
 
         # Call parent - it will use our cosmology_params
         super().__init__()
-        
+
         self.precision_mode = precision_mode
         # JIT-compiled kernels for hot paths (JAX JIT provides automatic compilation caching)
         self._comoving_distance_gauss_jit = jit(self._comoving_distance_gauss)
@@ -118,15 +126,15 @@ class LCDM(CosmologyBase):
         self._comoving_distance_dense_jit = jit(
             self._comoving_distance_dense, static_argnums=(1,)
         )
-    
+
     # Radiation density computation now handled by unified parameter system
-    
+
     def _validate_params(self) -> None:
         """Validate LCDM parameters for physical consistency."""
         # Validation now handled by unified parameter system
         self.cosmology_params.validate_closure()
         self.cosmology_params.validate_physics()
-    
+
     # ==================== Background Evolution ====================
 
     @staticmethod
@@ -141,16 +149,16 @@ class LCDM(CosmologyBase):
         z_arr = jnp.asarray(z)
         one_plus_z = 1.0 + z_arr
 
-        Omega_m = params['Omega_m']
-        Omega_k = params.get('Omega_k', 0.0)
+        Omega_m = params["Omega_m"]
+        Omega_k = params.get("Omega_k", 0.0)
         Omega_r = compute_omega_r(params)
-        Omega_Lambda = params.get('Omega_Lambda', 1.0 - Omega_m - Omega_k - Omega_r)
+        Omega_Lambda = params.get("Omega_Lambda", 1.0 - Omega_m - Omega_k - Omega_r)
 
         E_squared = (
-            Omega_m * one_plus_z**3 +
-            Omega_r * one_plus_z**4 +
-            Omega_k * one_plus_z**2 +
-            Omega_Lambda
+            Omega_m * one_plus_z**3
+            + Omega_r * one_plus_z**4
+            + Omega_k * one_plus_z**2
+            + Omega_Lambda
         )
         return jnp.sqrt(E_squared)
 
@@ -161,7 +169,7 @@ class LCDM(CosmologyBase):
     # w_z() inherited from CosmologyBase (returns -1 for ΛCDM)
 
     # ==================== Specialized LCDM Functions ====================
-    
+
     def redshift_equality(self) -> float:
         """
         Matter-radiation equality redshift z_eq.
@@ -171,15 +179,15 @@ class LCDM(CosmologyBase):
         float
             z_eq = Omega_m / Omega_r - 1
         """
-        Omega_r = self.params.get('Omega_r', 0.0)
+        Omega_r = self.params.get("Omega_r", 0.0)
         try:
             Omega_r_val = float(Omega_r)
             if Omega_r_val <= 0.0:
                 raise ValueError("Omega_r must be positive to compute z_eq.")
         except (TypeError, ValueError):
             pass
-        return self.params['Omega_m'] / Omega_r - 1
-    
+        return self.params["Omega_m"] / Omega_r - 1
+
     def redshift_acceleration(self) -> float:
         """
         Acceleration redshift z_acc where q(z_acc) = 0.
@@ -191,9 +199,9 @@ class LCDM(CosmologyBase):
         float
             z_acc
         """
-        ratio = 2 * self.params['Omega_Lambda'] / self.params['Omega_m']
-        return jnp.power(ratio, 1.0/3.0) - 1.0
-    
+        ratio = 2 * self.params["Omega_Lambda"] / self.params["Omega_m"]
+        return jnp.power(ratio, 1.0 / 3.0) - 1.0
+
     def sound_horizon(self, z: float, n_steps: int = 1000) -> float:
         """
         Sound horizon at redshift z in Mpc.
@@ -214,13 +222,13 @@ class LCDM(CosmologyBase):
         """
         # Use fast EH98 approximation for stability and speed.
         return sound_horizon_eh98(
-            jnp.asarray(self.params['H0']),
-            jnp.asarray(self.params['Omega_m']),
-            jnp.asarray(self.params.get('Omega_b', 0.05)),
-            jnp.asarray(self.params.get('T_cmb', 2.7255)),
+            jnp.asarray(self.params["H0"]),
+            jnp.asarray(self.params["Omega_m"]),
+            jnp.asarray(self.params.get("Omega_b", 0.05)),
+            jnp.asarray(self.params.get("T_cmb", 2.7255)),
             jnp.asarray(z),
         )
-    
+
     def sound_horizon_drag(self, use_camb: bool = True) -> float:
         """
         Sound horizon at drag epoch.
@@ -254,10 +262,10 @@ class LCDM(CosmologyBase):
         """Sound horizon via CAMB numerical integration (high precision)."""
         import camb
 
-        H0 = self.params.get('H0')
-        Omega_m = self.params.get('Omega_m')
-        Omega_b = self.params.get('Omega_b')
-        T_cmb = self.params.get('T_cmb', 2.7255)
+        H0 = self.params.get("H0")
+        Omega_m = self.params.get("Omega_m")
+        Omega_b = self.params.get("Omega_b")
+        T_cmb = self.params.get("T_cmb", 2.7255)
 
         h = H0 / 100.0
         omega_b = Omega_b * h**2
@@ -273,21 +281,23 @@ class LCDM(CosmologyBase):
             mnu=0.0,
         )
         results = camb.get_background(pars)
-        return results.get_derived_params()['rdrag']
+        return results.get_derived_params()["rdrag"]
 
     def _sound_horizon_drag_eh98(self) -> float:
         """Sound horizon via Eisenstein & Hu 1998 fitting formula (~2.7% error)."""
         Omega_m_h2 = self.Omega_m_h2
         Omega_b_h2 = self.Omega_b_h2
 
-        T_cmb = self.params.get('T_cmb', 2.7255)
+        T_cmb = self.params.get("T_cmb", 2.7255)
         theta_cmb = T_cmb / 2.7
 
         # Eisenstein & Hu (1998) fitting formulas
-        b1 = 0.313 * Omega_m_h2**(-0.419) * (1 + 0.607 * Omega_m_h2**0.674)
+        b1 = 0.313 * Omega_m_h2 ** (-0.419) * (1 + 0.607 * Omega_m_h2**0.674)
         b2 = 0.238 * Omega_m_h2**0.223
         z_d = (
-            1291 * Omega_m_h2**0.251 / (1 + 0.659 * Omega_m_h2**0.828)
+            1291
+            * Omega_m_h2**0.251
+            / (1 + 0.659 * Omega_m_h2**0.828)
             * (1 + b1 * Omega_b_h2**b2)
         )
 
@@ -303,7 +313,9 @@ class LCDM(CosmologyBase):
 
         return s
 
-    def critical_density(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def critical_density(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """
         Critical density at redshift z in units of M_sun/Mpc³.
 
@@ -350,7 +362,7 @@ class LCDM(CosmologyBase):
             Growth factor D(z)
         """
         return self.growth_factor_analytical(z)
-    
+
     def growth_rate(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Growth rate f(z) = d ln D / d ln a.
@@ -368,16 +380,16 @@ class LCDM(CosmologyBase):
             Growth rate f(z)
         """
         return self.growth_rate_analytical(z)
-    
+
     def f_sigma8(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         fσ8(z) = f(z) * σ8(z) parameter.
-        
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-            
+
         Returns
         -------
         float or array_like
@@ -386,27 +398,27 @@ class LCDM(CosmologyBase):
         sigma8_z = self.sigma8_z(z)
         f_z = self.growth_rate(z)
         return f_z * sigma8_z
-    
+
     def sigma8_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         σ8(z) = σ8(0) * D(z) for linear growth.
-        
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-            
+
         Returns
         -------
         float or array_like
             σ8(z) values
         """
-        sigma8_0 = self.params.get('sigma8', 0.8111)
+        sigma8_0 = self.params.get("sigma8", 0.8111)
         D_z = self.growth_factor(z)
         return sigma8_0 * D_z
-    
+
     # ==================== σ8 Calculation (First Principles) ====================
-    
+
     def _eisenstein_hu_transfer(self, k: jnp.ndarray) -> jnp.ndarray:
         """
         Eisenstein & Hu (1998) transfer function (no BAO).
@@ -424,105 +436,126 @@ class LCDM(CosmologyBase):
         # Use derived parameters from unified parameter system
         Omega_m_h2 = self.Omega_m_h2
         Omega_b_h2 = self.Omega_b_h2
-        theta_cmb = self.params.get('T_cmb', 2.7255) / 2.7  # CMB temperature ratio
-        
+        theta_cmb = self.params.get("T_cmb", 2.7255) / 2.7  # CMB temperature ratio
+
         # Fitting parameters
         s = 44.5 * jnp.log(9.83 / Omega_m_h2) / jnp.sqrt(1 + 10 * Omega_b_h2**0.75)
-        alpha_gamma = 1 - 0.328 * jnp.log(431 * Omega_m_h2) * Omega_b_h2 / Omega_m_h2 + \
-                     0.38 * jnp.log(22.3 * Omega_m_h2) * (Omega_b_h2 / Omega_m_h2)**2
-        
+        alpha_gamma = (
+            1
+            - 0.328 * jnp.log(431 * Omega_m_h2) * Omega_b_h2 / Omega_m_h2
+            + 0.38 * jnp.log(22.3 * Omega_m_h2) * (Omega_b_h2 / Omega_m_h2) ** 2
+        )
+
         gamma_eff = Omega_m_h2 * alpha_gamma
         q = k * theta_cmb**2 / gamma_eff
-        
+
         # Baryon suppression
         L0 = jnp.log(2 * jnp.e + 1.8 * q)
         C0 = 14.2 + 731.0 / (1 + 62.5 * q)
         T0 = L0 / (L0 + C0 * q**2)
-        
+
         return T0
-    
+
     def _tophat_window(self, k: jnp.ndarray, R: float) -> jnp.ndarray:
         """
         Tophat window function in Fourier space.
-        
+
         W(kR) = 3(sin(kR) - kR*cos(kR))/(kR)^3
-        
+
         Parameters
         ----------
         k : array_like
             Wavenumber in h/Mpc
         R : float
             Radius in Mpc/h
-            
+
         Returns
         -------
         array_like
             Window function W(kR)
         """
         kR = k * R
-        
+
         # Handle kR -> 0 limit
         def small_kr_limit():
-            return 1.0 - kR**2/10.0 + kR**4/280.0
-        
+            return 1.0 - kR**2 / 10.0 + kR**4 / 280.0
+
         def normal_case():
             sin_kR = jnp.sin(kR)
             cos_kR = jnp.cos(kR)
             return 3.0 * (sin_kR - kR * cos_kR) / (kR**3)
-        
+
         return jnp.where(kR < 1e-3, small_kr_limit(), normal_case())
 
-    def growth_factor_analytical(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def growth_factor_analytical(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """
         Analytical approximation for ΛCDM growth factor.
-        
+
         Uses Carroll, Press & Turner (1992) formula.
-        
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-            
+
         Returns
         -------
         float or array_like
             Growth factor D(z) normalized to D(0) = 1
         """
         a = 1.0 / (1.0 + z)
-        Omega_m = self.params['Omega_m']
-        Omega_Lambda = self.params['Omega_Lambda']
+        Omega_m = self.params["Omega_m"]
+        Omega_Lambda = self.params["Omega_Lambda"]
 
         # Analytical approximation for flat ΛCDM
-        if abs(self.params.get('Omega_k', 0.0)) < 1e-6:
+        if abs(self.params.get("Omega_k", 0.0)) < 1e-6:
             # Lahav et al. (1991) / Carroll, Press & Turner (1992) approximation
             Om_a = Omega_m / (Omega_m + Omega_Lambda * a**3)
-            D_a = (5/2) * Om_a / (Om_a**(4/7) - Omega_Lambda +
-                                  (1 + Om_a/2) * (1 + Omega_Lambda/70))
+            D_a = (
+                (5 / 2)
+                * Om_a
+                / (
+                    Om_a ** (4 / 7)
+                    - Omega_Lambda
+                    + (1 + Om_a / 2) * (1 + Omega_Lambda / 70)
+                )
+            )
             D_unnormalized = D_a * a
 
             # Normalize to D(0) = 1
             a_0 = 1.0
             Om_a_0 = Omega_m / (Omega_m + Omega_Lambda * a_0**3)
-            D_a_0 = (5/2) * Om_a_0 / (Om_a_0**(4/7) - Omega_Lambda +
-                                       (1 + Om_a_0/2) * (1 + Omega_Lambda/70))
+            D_a_0 = (
+                (5 / 2)
+                * Om_a_0
+                / (
+                    Om_a_0 ** (4 / 7)
+                    - Omega_Lambda
+                    + (1 + Om_a_0 / 2) * (1 + Omega_Lambda / 70)
+                )
+            )
             D_0 = D_a_0 * a_0
 
             return D_unnormalized / D_0
         else:
             # For non-flat, use growth rate approximation (normalized to a at a=1)
             return a
-    
-    def growth_rate_analytical(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+
+    def growth_rate_analytical(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """
         Analytical approximation for ΛCDM growth rate.
-        
+
         Uses Wang & Steinhardt (1998) formula: f ≈ Ω_m(z)^γ
-        
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-            
+
         Returns
         -------
         float or array_like
@@ -531,12 +564,12 @@ class LCDM(CosmologyBase):
         # For flat ΛCDM, γ ≈ 0.55 + 0.05 * (1 + w) for general w
         # For ΛCDM (w = -1), γ ≈ 0.55
         gamma = 0.545 + 0.0055 * (1 + self.w_z(z))  # Small correction
-        
+
         Omega_m_z = self.Omega_m_z(z)
         return Omega_m_z**gamma
-    
+
     # ==================== Specialized Distances ====================
-    
+
     def drift_rate(self, z: float, observation_time_yr: float = 30.0) -> float:
         """
         Redshift drift rate for Sandage test.
@@ -568,7 +601,7 @@ class LCDM(CosmologyBase):
         Sandage (1962), Loeb (1998), Liske et al. (2008)
         """
         # H0 in units of 1/s (from km/s/Mpc)
-        H0_per_s = self.params['H0'] / Mpc_km
+        H0_per_s = self.params["H0"] / Mpc_km
 
         # H(z) = H0 * E(z) in units of 1/s
         E_z_val = self.E_z(z)
@@ -582,55 +615,55 @@ class LCDM(CosmologyBase):
 
         # Total velocity drift: Δv = c * (dz/dt) * Δt [units: cm/s]
         return dz_dt * c_cm_s * observation_time_sec
-    
+
     # ==================== Convenience Methods ====================
-    
+
     @classmethod
-    def planck2018(cls, **kwargs) -> 'LCDM':
+    def planck2018(cls, **kwargs) -> "LCDM":
         """
         ΛCDM with Planck 2018 best-fit parameters.
-        
+
         Parameters
         ----------
         **kwargs
             Override any default parameters
-            
+
         Returns
         -------
         LCDM
             Planck 2018 ΛCDM model
         """
         planck_params = {
-            'H0': 67.36,
-            'Omega_m': 0.3153,
-            'Omega_b': 0.0493,
-            'sigma8': 0.8111,
-            'n_s': 0.9649,
+            "H0": 67.36,
+            "Omega_m": 0.3153,
+            "Omega_b": 0.0493,
+            "sigma8": 0.8111,
+            "n_s": 0.9649,
         }
         planck_params.update(kwargs)
         return cls(**planck_params)
-    
+
     @classmethod
-    def wmap9(cls, **kwargs) -> 'LCDM':
+    def wmap9(cls, **kwargs) -> "LCDM":
         """
         ΛCDM with WMAP9 best-fit parameters.
-        
+
         Parameters
         ----------
         **kwargs
             Override any default parameters
-            
+
         Returns
         -------
         LCDM
             WMAP9 ΛCDM model
         """
         wmap_params = {
-            'H0': 70.0,
-            'Omega_m': 0.279,
-            'Omega_b': 0.046,
-            'sigma8': 0.821,
-            'n_s': 0.972,
+            "H0": 70.0,
+            "Omega_m": 0.279,
+            "Omega_b": 0.046,
+            "sigma8": 0.821,
+            "n_s": 0.972,
         }
         wmap_params.update(kwargs)
         return cls(**wmap_params)
@@ -664,59 +697,59 @@ class LCDM(CosmologyBase):
 
         return [
             Parameter(
-                name='H0',
+                name="H0",
                 value=67.36,
                 free=False,  # Default to fixed, users set_free() to sample
-                prior={'dist': 'uniform', 'min': 50.0, 'max': 100.0},
-                latex_label=r'$H_0$',
-                description='Hubble constant [km/s/Mpc]'
+                prior={"dist": "uniform", "min": 50.0, "max": 100.0},
+                latex_label=r"$H_0$",
+                description="Hubble constant [km/s/Mpc]",
             ),
             Parameter(
-                name='Omega_m',
+                name="Omega_m",
                 value=0.3153,
                 free=False,
-                prior={'dist': 'uniform', 'min': 0.1, 'max': 0.5},
-                latex_label=r'$\Omega_m$',
-                description='Total matter density parameter'
+                prior={"dist": "uniform", "min": 0.1, "max": 0.5},
+                latex_label=r"$\Omega_m$",
+                description="Total matter density parameter",
             ),
             Parameter(
-                name='Omega_b',
+                name="Omega_b",
                 value=0.0493,
                 free=False,
-                prior={'dist': 'uniform', 'min': 0.01, 'max': 0.1},
-                latex_label=r'$\Omega_b$',
-                description='Baryon density parameter'
+                prior={"dist": "uniform", "min": 0.01, "max": 0.1},
+                latex_label=r"$\Omega_b$",
+                description="Baryon density parameter",
             ),
             Parameter(
-                name='Omega_k',
+                name="Omega_k",
                 value=0.0,
                 free=False,
-                prior={'dist': 'uniform', 'min': -0.1, 'max': 0.1},
-                latex_label=r'$\Omega_k$',
-                description='Curvature density parameter'
+                prior={"dist": "uniform", "min": -0.1, "max": 0.1},
+                latex_label=r"$\Omega_k$",
+                description="Curvature density parameter",
             ),
             Parameter(
-                name='sigma8',
+                name="sigma8",
                 value=0.8111,
                 free=False,
-                prior={'dist': 'uniform', 'min': 0.5, 'max': 1.2},
-                latex_label=r'$\sigma_8$',
-                description='Matter fluctuation amplitude at 8 h^-1 Mpc'
+                prior={"dist": "uniform", "min": 0.5, "max": 1.2},
+                latex_label=r"$\sigma_8$",
+                description="Matter fluctuation amplitude at 8 h^-1 Mpc",
             ),
             Parameter(
-                name='n_s',
+                name="n_s",
                 value=0.9649,
                 free=False,
-                prior={'dist': 'uniform', 'min': 0.8, 'max': 1.2},
-                latex_label=r'$n_s$',
-                description='Scalar spectral index'
+                prior={"dist": "uniform", "min": 0.8, "max": 1.2},
+                latex_label=r"$n_s$",
+                description="Scalar spectral index",
             ),
         ]
 
     def summary(self) -> str:
         """
         Generate a comprehensive summary of the ΛCDM model.
-        
+
         Returns
         -------
         str
@@ -737,86 +770,88 @@ class LCDM(CosmologyBase):
             "Structure Formation:",
             f"  σ₈ = {self.params.get('sigma8', 0):.4f}",
             f"  nₛ = {self.params.get('n_s', 0):.4f}",
-            ""
+            "",
         ]
-        
+
         # Derived parameters
         derived = self.params
-        Omega_m = self.params['Omega_m']
-        Omega_Lambda = self.params['Omega_Lambda']
-        Omega_r = self.params.get('Omega_r', 0.0)
+        Omega_m = self.params["Omega_m"]
+        Omega_Lambda = self.params["Omega_Lambda"]
+        Omega_r = self.params.get("Omega_r", 0.0)
         q0 = 0.5 * Omega_m + Omega_r - Omega_Lambda
-        lines.extend([
-            "Derived Parameters:",
-            f"  Age₀ = {derived.get('age', 0):.2f} Gyr",
-            f"  tₕ = {derived.get('t_H', 0):.2f} Gyr",
-            f"  Dₕ = {derived.get('D_H', 0):.1f} Mpc",
-            f"  q₀ = {q0:.3f}",
-            f"  z_acc = {self.redshift_acceleration():.2f}",
-        ])
-        
-        if 'Omega_r' in self.params:
+        lines.extend(
+            [
+                "Derived Parameters:",
+                f"  Age₀ = {derived.get('age', 0):.2f} Gyr",
+                f"  tₕ = {derived.get('t_H', 0):.2f} Gyr",
+                f"  Dₕ = {derived.get('D_H', 0):.1f} Mpc",
+                f"  q₀ = {q0:.3f}",
+                f"  z_acc = {self.redshift_acceleration():.2f}",
+            ]
+        )
+
+        if "Omega_r" in self.params:
             z_eq = self.redshift_equality()
             lines.append(f"  z_eq = {z_eq:.0f}")
-        
+
         return "\n".join(lines)
-    
+
     # ==================== Background Evolution Methods ====================
-    
+
     def H_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Hubble parameter H(z) in km/s/Mpc.
-        
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-            
+
         Returns
         -------
         float or array_like
             Hubble parameter in km/s/Mpc
         """
-        H0 = self.params['H0']
+        H0 = self.params["H0"]
         E_z_val = self.E_z(z)
         return H0 * E_z_val
-    
+
     @property
     def H0_value(self) -> float:
         """Hubble constant in km/s/Mpc."""
-        return self.params['H0']
-    
+        return self.params["H0"]
+
     @property
     def D_H(self) -> float:
         """Hubble distance in Mpc."""
-        return c_km_s / self.params['H0']
+        return c_km_s / self.params["H0"]
 
     # ==================== Derived Parameter Properties ====================
 
     @property
     def h(self) -> float:
         """Dimensionless Hubble parameter h = H0/100."""
-        return self.cosmology_params._derived['h']
+        return self.cosmology_params._derived["h"]
 
     @property
     def Omega_m_h2(self) -> float:
         """Physical matter density Omega_m * h²."""
-        return self.cosmology_params._derived['Omega_m_h2']
+        return self.cosmology_params._derived["Omega_m_h2"]
 
     @property
     def Omega_b_h2(self) -> float:
         """Physical baryon density Omega_b * h²."""
-        return self.cosmology_params._derived['Omega_b_h2']
+        return self.cosmology_params._derived["Omega_b_h2"]
 
     @property
     def omega_b(self) -> float:
         """Physical baryon density parameter."""
-        return self.cosmology_params._derived['omega_b']
+        return self.cosmology_params._derived["omega_b"]
 
     @property
     def omega_m(self) -> float:
         """Physical matter density parameter."""
-        return self.cosmology_params._derived['omega_m']
+        return self.cosmology_params._derived["omega_m"]
 
     # ==================== Derived Parameters ====================
 
@@ -842,18 +877,23 @@ class LCDM(CosmologyBase):
         """
         rd = float(self.sound_horizon_drag())
         h = float(self.h)
-        H0 = float(self.params['H0'])
+        H0 = float(self.params["H0"])
 
         derived = {
-            'rd': rd,
-            'rd_h': rd * h,
-            'H0_rd': H0 * rd,
-            'Omega_Lambda': float(1.0 - self.params['Omega_m'] - self.params.get('Omega_k', 0.0) - self.params.get('Omega_r', 0.0)),
+            "rd": rd,
+            "rd_h": rd * h,
+            "H0_rd": H0 * rd,
+            "Omega_Lambda": float(
+                1.0
+                - self.params["Omega_m"]
+                - self.params.get("Omega_k", 0.0)
+                - self.params.get("Omega_r", 0.0)
+            ),
         }
 
         # Add age if method exists and works
         try:
-            derived['age'] = float(self.age_universe())
+            derived["age"] = float(self.age_universe())
         except (AttributeError, Exception):
             pass
 
@@ -870,11 +910,11 @@ class LCDM(CosmologyBase):
             LaTeX labels (without $ signs).
         """
         return {
-            'rd': r'r_d\,[\mathrm{Mpc}]',
-            'rd_h': r'r_d h\,[\mathrm{Mpc}]',
-            'H0_rd': r'H_0 r_d\,[\mathrm{km/s}]',
-            'Omega_Lambda': r'\Omega_\Lambda',
-            'age': r't_0\,[\mathrm{Gyr}]',
+            "rd": r"r_d\,[\mathrm{Mpc}]",
+            "rd_h": r"r_d h\,[\mathrm{Mpc}]",
+            "H0_rd": r"H_0 r_d\,[\mathrm{km/s}]",
+            "Omega_Lambda": r"\Omega_\Lambda",
+            "age": r"t_0\,[\mathrm{Gyr}]",
         }
 
     # ==================== Redshift-dependent Properties ====================
@@ -883,13 +923,15 @@ class LCDM(CosmologyBase):
         """Matter density parameter as function of redshift."""
         E_z_val = self.E_z(z)
         z_arr = jnp.asarray(z)
-        return self.params['Omega_m'] * (1 + z_arr)**3 / E_z_val**2
-    
+        return self.params["Omega_m"] * (1 + z_arr) ** 3 / E_z_val**2
+
     # ==================== Distance Calculation Methods (Diffrax Integration) ====================
-    
+
     # Old Diffrax integration methods removed - now using ultra-fast integration engine
 
-    def comoving_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def comoving_distance(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """
         Vectorized comoving distance calculation (JIT-compiled).
 
@@ -912,16 +954,22 @@ class LCDM(CosmologyBase):
         # Ensure both branches return same dtype (float64) for JAX compatibility
         result = lax.cond(
             z_max > self.HIGH_Z_THRESHOLD,
-            lambda arr: jnp.asarray(self._comoving_distance_dense_jit(arr, 20), dtype=jnp.float64),
-            lambda arr: jnp.asarray(self._comoving_distance_gauss_jit(arr), dtype=jnp.float64),
-            z_array
+            lambda arr: jnp.asarray(
+                self._comoving_distance_dense_jit(arr, 20), dtype=jnp.float64
+            ),
+            lambda arr: jnp.asarray(
+                self._comoving_distance_gauss_jit(arr), dtype=jnp.float64
+            ),
+            z_array,
         )
         return result
 
     # Threshold above which we use dense grid integration for accuracy
     HIGH_Z_THRESHOLD = 10.0
 
-    def _comoving_distance_gauss(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def _comoving_distance_gauss(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """Gauss-Legendre integration for low-z (JIT-friendly)."""
         z_array = jnp.atleast_1d(z)
 
@@ -929,11 +977,15 @@ class LCDM(CosmologyBase):
             return 1.0 / self.E_z(z_prime)
 
         order, _ = self._precision_settings()
-        integrals = gauss_legendre_integrate_batch(integrand, z_array, z_min=0.0, order=order)
-        d_c = self.params['D_H'] * integrals
+        integrals = gauss_legendre_integrate_batch(
+            integrand, z_array, z_min=0.0, order=order
+        )
+        d_c = self.params["D_H"] * integrals
         return jnp.squeeze(d_c)
 
-    def _comoving_distance_dense(self, z: Union[float, jnp.ndarray], z_max_int: int) -> Union[float, jnp.ndarray]:
+    def _comoving_distance_dense(
+        self, z: Union[float, jnp.ndarray], z_max_int: int
+    ) -> Union[float, jnp.ndarray]:
         """Dense grid integration for high-z accuracy (JIT-friendly).
 
         Parameters
@@ -951,8 +1003,10 @@ class LCDM(CosmologyBase):
         _, grid_n = self._precision_settings()
         # Scale grid density with z_max for consistent precision
         adaptive_grid_n = max(grid_n, z_max_int * 8)
-        integrals = integrate_batch_cumulative(integrand, z_array, z_min=0.0, n_grid=adaptive_grid_n)
-        d_c = self.params['D_H'] * integrals
+        integrals = integrate_batch_cumulative(
+            integrand, z_array, z_min=0.0, n_grid=adaptive_grid_n
+        )
+        d_c = self.params["D_H"] * integrals
         return jnp.squeeze(d_c)
 
     def _precision_settings(self) -> tuple[int, int]:
@@ -963,7 +1017,9 @@ class LCDM(CosmologyBase):
             return 16, 8192
         return 12, 4096
 
-    def transverse_comoving_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def transverse_comoving_distance(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """
         Transverse comoving distance (accounts for curvature).
 
@@ -972,19 +1028,19 @@ class LCDM(CosmologyBase):
             D_C                          for Ωk = 0 (flat)
             D_H/√|Ωk| sin(√|Ωk| D_C/D_H) for Ωk < 0 (closed)
         }
-        
+
         Parameters
         ----------
         z : float or array_like
             Redshift(s)
-            
+
         Returns
         -------
         float or array_like
             Transverse comoving distance(s) in Mpc
         """
         D_C = self.comoving_distance(z)
-        Omega_k = self.params.get('Omega_k', 0.0)
+        Omega_k = self.params.get("Omega_k", 0.0)
 
         # Use safe sqrt to avoid division by zero in JAX tracing
         # This prevents NaN gradients from propagating through unused branches
@@ -1002,7 +1058,9 @@ class LCDM(CosmologyBase):
         # Use JAX conditionals for differentiability
         return jnp.where(jnp.abs(Omega_k) < 1e-6, flat, curved)
 
-    def _transverse_comoving_distance_delta(self, z1: Union[float, jnp.ndarray], z2: Union[float, jnp.ndarray]) -> jnp.ndarray:
+    def _transverse_comoving_distance_delta(
+        self, z1: Union[float, jnp.ndarray], z2: Union[float, jnp.ndarray]
+    ) -> jnp.ndarray:
         """Transverse comoving distance between two redshifts.
 
         JAX-differentiable version: avoids division by zero in unused branches
@@ -1012,14 +1070,16 @@ class LCDM(CosmologyBase):
             if z2 <= z1:
                 raise ValueError("Source redshift must be greater than lens redshift.")
 
-        z1_arr, z2_arr = jnp.broadcast_arrays(jnp.asarray(z1, dtype=jnp.float64), jnp.asarray(z2, dtype=jnp.float64))
+        z1_arr, z2_arr = jnp.broadcast_arrays(
+            jnp.asarray(z1, dtype=jnp.float64), jnp.asarray(z2, dtype=jnp.float64)
+        )
 
         D_C1 = jnp.asarray(self.comoving_distance(z1_arr))
         D_C2 = jnp.asarray(self.comoving_distance(z2_arr))
         D_H = jnp.asarray(self.D_H, dtype=jnp.float64)
         delta_chi = (D_C2 - D_C1) / D_H
 
-        Omega_k = jnp.asarray(self.params.get('Omega_k', 0.0), dtype=jnp.float64)
+        Omega_k = jnp.asarray(self.params.get("Omega_k", 0.0), dtype=jnp.float64)
 
         # Use safe sqrt to avoid division by zero in JAX tracing
         # When Omega_k=0, we use 1.0 as placeholder (result won't be used due to where)
@@ -1040,9 +1100,13 @@ class LCDM(CosmologyBase):
         # Use -1e10 instead of jnp.nan to preserve gradient flow
         return jnp.where(valid, result, -1e10)
 
-    def angular_diameter_distance_between(self, z1: Union[float, jnp.ndarray], z2: Union[float, jnp.ndarray]) -> jnp.ndarray:
+    def angular_diameter_distance_between(
+        self, z1: Union[float, jnp.ndarray], z2: Union[float, jnp.ndarray]
+    ) -> jnp.ndarray:
         """Angular diameter distance between two redshifts z1 < z2."""
-        z1_arr, z2_arr = jnp.broadcast_arrays(jnp.asarray(z1, dtype=jnp.float64), jnp.asarray(z2, dtype=jnp.float64))
+        z1_arr, z2_arr = jnp.broadcast_arrays(
+            jnp.asarray(z1, dtype=jnp.float64), jnp.asarray(z2, dtype=jnp.float64)
+        )
         D_M = self._transverse_comoving_distance_delta(z1_arr, z2_arr)
         return jnp.asarray(D_M / (1.0 + z2_arr))
 
@@ -1052,8 +1116,10 @@ class LCDM(CosmologyBase):
         D_s = jnp.asarray(self.angular_diameter_distance(z_source))
         D_ds = jnp.asarray(self.angular_diameter_distance_between(z_lens, z_source))
         return (1.0 + z_lens) * D_d * D_s / D_ds
-    
-    def angular_diameter_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+
+    def angular_diameter_distance(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """
         Angular diameter distance.
 
@@ -1074,8 +1140,10 @@ class LCDM(CosmologyBase):
         z_array = jnp.atleast_1d(z)
         d_m = self.transverse_comoving_distance(z_array)
         return jnp.squeeze(d_m / (1.0 + z_array))
-    
-    def luminosity_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+
+    def luminosity_distance(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """
         Luminosity distance.
 
@@ -1097,7 +1165,9 @@ class LCDM(CosmologyBase):
         d_m = self.transverse_comoving_distance(z_array)
         return jnp.squeeze(d_m * (1.0 + z_array))
 
-    def differential_comoving_volume(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def differential_comoving_volume(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """
         Differential comoving volume element dVc/dz.
 
@@ -1163,9 +1233,14 @@ class LCDM(CosmologyBase):
         # Convert from Mpc³ to Gpc³
         return self.differential_comoving_volume(z) / 1e9
 
-    def dl_to_z(self, d_L: Union[float, jnp.ndarray],
-                z_min: float = 0.0, z_max: float = 10.0,
-                tol: float = 1e-6, max_iter: int = 50) -> Union[float, jnp.ndarray]:
+    def dl_to_z(
+        self,
+        d_L: Union[float, jnp.ndarray],
+        z_min: float = 0.0,
+        z_max: float = 10.0,
+        tol: float = 1e-6,
+        max_iter: int = 50,
+    ) -> Union[float, jnp.ndarray]:
         """
         Inverse luminosity distance: convert d_L to redshift z.
 
@@ -1258,14 +1333,16 @@ class LCDM(CosmologyBase):
 
         # Compute dD_M/dz = c / (H0 * E(z))
         E_z_vals = self.E_z(z_array)  # Calls subclass implementation if overridden
-        dD_M_dz = c_km_s / (self.params['H0'] * E_z_vals)
+        dD_M_dz = c_km_s / (self.params["H0"] * E_z_vals)
 
         # Compute dD_L/dz = D_M + (1+z) * dD_M/dz
         ddL_dz_vals = D_M + (1.0 + z_array) * dD_M_dz
 
         return jnp.squeeze(ddL_dz_vals)
 
-    def distance_modulus(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def distance_modulus(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """
         Distance modulus.
 
@@ -1284,16 +1361,16 @@ class LCDM(CosmologyBase):
         # Compute from luminosity distance
         d_L = self.luminosity_distance(z)
         return 5.0 * jnp.log10(d_L) + 25.0
-    
+
     def distance_summary(self, z: float = 1.0) -> str:
         """
         Generate summary of distance measures at given redshift.
-        
+
         Parameters
         ----------
         z : float
             Redshift for summary
-            
+
         Returns
         -------
         str
@@ -1304,13 +1381,13 @@ class LCDM(CosmologyBase):
         D_L = self.luminosity_distance(z)
         mu = self.distance_modulus(z)
         H_z = self.H_z(z)
-        
+
         lines = [
             f"ΛCDM Distance Summary at z = {z:.2f}",
             "=" * 40,
             f"Hubble parameter: H(z) = {H_z:.1f} km/s/Mpc",
             f"Comoving distance: D_C = {D_C:.1f} Mpc",
-            f"Angular diameter distance: D_A = {D_A:.1f} Mpc", 
+            f"Angular diameter distance: D_A = {D_A:.1f} Mpc",
             f"Luminosity distance: D_L = {D_L:.1f} Mpc",
             f"Distance modulus: μ = {mu:.2f} mag",
             "",
@@ -1319,7 +1396,7 @@ class LCDM(CosmologyBase):
             f"  Ωₘ = {self.params['Omega_m']:.4f}",
             f"  ΩΛ = {self.params['Omega_Lambda']:.4f}",
         ]
-        
+
         return "\n".join(lines)
 
     # ==================== Traced-Aware Interface (NumPyro MCMC) ====================
@@ -1344,6 +1421,7 @@ from .base import (
     make_sound_horizon_drag_traced,
     make_recombination_redshift_traced,
 )
+
 LCDM.compute_grid_traced = staticmethod(make_compute_grid_traced(LCDM._E_z_static))
 LCDM.sound_horizon_traced = staticmethod(make_sound_horizon_traced())
 LCDM.sound_horizon_drag_traced = staticmethod(make_sound_horizon_drag_traced())

@@ -52,4 +52,6 @@ def __getattr__(name: str) -> Any:  # pragma: no cover - simple trampoline
 
 
 def __dir__() -> list[str]:  # pragma: no cover - trivial helper
-    return sorted(list(__all__) + [k for k in globals().keys() if not k.startswith("_")])
+    return sorted(
+        list(__all__) + [k for k in globals().keys() if not k.startswith("_")]
+    )

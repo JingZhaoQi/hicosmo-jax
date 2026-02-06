@@ -27,7 +27,9 @@ def _collect_versions() -> Dict[str, str]:
     return versions
 
 
-def write_run_manifest(output_dir: Path, config: Dict[str, Any], *, chain_name: str) -> Path:
+def write_run_manifest(
+    output_dir: Path, config: Dict[str, Any], *, chain_name: str
+) -> Path:
     """Write a run manifest JSON file for reproducibility."""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

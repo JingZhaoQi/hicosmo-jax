@@ -46,12 +46,12 @@ def compute_omega_r(params: Dict) -> float:
     Formula: Omega_gamma * h^2 = 2.47e-5 * (T_cmb / 2.7255)^4
     The factor 0.2271 accounts for relativistic neutrinos.
     """
-    if 'Omega_r' in params:
-        return params['Omega_r']
+    if "Omega_r" in params:
+        return params["Omega_r"]
 
-    H0 = params['H0']
-    T_cmb = params.get('T_cmb', 2.7255)
-    N_eff = params.get('N_eff', 3.046)
+    H0 = params["H0"]
+    T_cmb = params.get("T_cmb", 2.7255)
+    N_eff = params.get("N_eff", 3.046)
     h = H0 / 100.0
     theta = T_cmb / 2.7255
     Omega_gamma_h2 = 2.47e-5 * theta**4
@@ -61,11 +61,11 @@ def compute_omega_r(params: Dict) -> float:
 class CosmologyBase(ABC):
     """
     Minimal abstract base class for all cosmological models.
-    
+
     Defines the essential interface that all models must implement,
     without any concrete implementations to avoid code duplication.
     """
-    
+
     def __init__(self, **params):
         """
         Initialize cosmological model with parameters.
@@ -74,8 +74,9 @@ class CosmologyBase(ABC):
         before calling super().__init__() to enable unified parameter management.
         """
         # If subclass hasn't created cosmology_params, fall back to simple dict
-        if not hasattr(self, 'cosmology_params'):
+        if not hasattr(self, "cosmology_params"):
             from .unified_parameters import CosmologicalParameters
+
             self.cosmology_params = CosmologicalParameters(**params)
 
         # Make params a reference to cosmology_params for backward compatibility
@@ -83,48 +84,56 @@ class CosmologyBase(ABC):
         self.params = self.cosmology_params
 
         self._validate_params()
-        
+
     @abstractmethod
     def _validate_params(self) -> None:
         """Validate input parameters for physical consistency."""
         pass
-    
+
     # ==================== Core Interface ====================
-    
+
     @abstractmethod
     def E_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
         """
         Dimensionless Hubble parameter E(z) = H(z)/H0.
-        
+
         This is the fundamental quantity that defines the cosmological model.
         All other quantities are derived from this.
         """
         pass
-    
+
     @abstractmethod
-    def comoving_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def comoving_distance(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """
         Comoving distance in Mpc.
-        
+
         Must be implemented with high performance integration.
         """
         pass
-    
-    @abstractmethod  
-    def angular_diameter_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+
+    @abstractmethod
+    def angular_diameter_distance(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """Angular diameter distance in Mpc."""
         pass
-    
+
     @abstractmethod
-    def luminosity_distance(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def luminosity_distance(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """Luminosity distance in Mpc."""
         pass
-    
+
     @abstractmethod
-    def distance_modulus(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
+    def distance_modulus(
+        self, z: Union[float, jnp.ndarray]
+    ) -> Union[float, jnp.ndarray]:
         """Distance modulus in magnitudes."""
         pass
-    
+
     # ==================== Optional Interface ====================
 
     def w_z(self, z: Union[float, jnp.ndarray]) -> Union[float, jnp.ndarray]:
@@ -190,11 +199,11 @@ class CosmologyBase(ABC):
         >>> print(labels['rd_h'])  # 'r_d h\\,[\\mathrm{Mpc}]'
         """
         return {}
-    
+
     def get_parameters(self) -> Dict[str, float]:
         """Get copy of model parameters."""
         return self.params.copy()
-    
+
     def update_parameters(self, new_params: Dict[str, float]) -> None:
         """
         Update model parameters.
@@ -205,7 +214,9 @@ class CosmologyBase(ABC):
         self._validate_params()
 
     @staticmethod
-    def normalize_params(params: Dict[str, Any], *, dtype: Any = None) -> Dict[str, Any]:
+    def normalize_params(
+        params: Dict[str, Any], *, dtype: Any = None
+    ) -> Dict[str, Any]:
         """
         Normalize common parameter bases (h, omega_b_h2, omega_m_h2) into H0/Omega_*.
 
@@ -215,27 +226,31 @@ class CosmologyBase(ABC):
 
         def _to_array(value):
             if isinstance(value, (int, float, jnp.ndarray)):
-                return jnp.asarray(value, dtype=dtype) if dtype is not None else jnp.asarray(value)
+                return (
+                    jnp.asarray(value, dtype=dtype)
+                    if dtype is not None
+                    else jnp.asarray(value)
+                )
             return value
 
-        if 'H0' not in params and 'h' in params:
-            params['H0'] = _to_array(params['h']) * 100.0
+        if "H0" not in params and "h" in params:
+            params["H0"] = _to_array(params["h"]) * 100.0
 
-        if 'Omega_m' not in params and 'H0' in params:
-            if 'omega_m_h2' in params:
-                h = _to_array(params['H0']) / 100.0
-                params['Omega_m'] = _to_array(params['omega_m_h2']) / (h**2)
-            elif 'Omega_m_h2' in params:
-                h = _to_array(params['H0']) / 100.0
-                params['Omega_m'] = _to_array(params['Omega_m_h2']) / (h**2)
+        if "Omega_m" not in params and "H0" in params:
+            if "omega_m_h2" in params:
+                h = _to_array(params["H0"]) / 100.0
+                params["Omega_m"] = _to_array(params["omega_m_h2"]) / (h**2)
+            elif "Omega_m_h2" in params:
+                h = _to_array(params["H0"]) / 100.0
+                params["Omega_m"] = _to_array(params["Omega_m_h2"]) / (h**2)
 
-        if 'Omega_b' not in params and 'H0' in params:
-            if 'omega_b_h2' in params:
-                h = _to_array(params['H0']) / 100.0
-                params['Omega_b'] = _to_array(params['omega_b_h2']) / (h**2)
-            elif 'Omega_b_h2' in params:
-                h = _to_array(params['H0']) / 100.0
-                params['Omega_b'] = _to_array(params['Omega_b_h2']) / (h**2)
+        if "Omega_b" not in params and "H0" in params:
+            if "omega_b_h2" in params:
+                h = _to_array(params["H0"]) / 100.0
+                params["Omega_b"] = _to_array(params["omega_b_h2"]) / (h**2)
+            elif "Omega_b_h2" in params:
+                h = _to_array(params["H0"]) / 100.0
+                params["Omega_b"] = _to_array(params["Omega_b_h2"]) / (h**2)
 
         # Ensure numeric values are JAX arrays with requested dtype
         normalized = {}
@@ -249,8 +264,7 @@ class CosmologyBase(ABC):
     # to generate this method after class definition. See make_compute_grid_traced().
     @staticmethod
     def compute_grid_traced(
-        z_grid: jnp.ndarray,
-        params: Dict[str, float]
+        z_grid: jnp.ndarray, params: Dict[str, float]
     ) -> Dict[str, jnp.ndarray]:
         """
         **NumPyro traced-aware** batch cosmology computation.
@@ -323,10 +337,7 @@ class CosmologyBase(ABC):
         )
 
     @staticmethod
-    def sound_horizon_traced(
-        z: jnp.ndarray,
-        params: Dict[str, float]
-    ) -> jnp.ndarray:
+    def sound_horizon_traced(z: jnp.ndarray, params: Dict[str, float]) -> jnp.ndarray:
         """Return sound horizon at redshift z from traced params."""
         raise NotImplementedError(
             "Subclasses must implement sound_horizon_traced using "
@@ -334,9 +345,7 @@ class CosmologyBase(ABC):
         )
 
     @staticmethod
-    def sound_horizon_drag_traced(
-        params: Dict[str, float]
-    ) -> jnp.ndarray:
+    def sound_horizon_drag_traced(params: Dict[str, float]) -> jnp.ndarray:
         """Return sound horizon at drag epoch from traced params."""
         raise NotImplementedError(
             "Subclasses must implement sound_horizon_drag_traced using "
@@ -344,9 +353,7 @@ class CosmologyBase(ABC):
         )
 
     @staticmethod
-    def recombination_redshift_traced(
-        params: Dict[str, float]
-    ) -> jnp.ndarray:
+    def recombination_redshift_traced(params: Dict[str, float]) -> jnp.ndarray:
         """Return recombination redshift z_* from traced params."""
         raise NotImplementedError(
             "Subclasses must implement recombination_redshift_traced using "
@@ -355,7 +362,11 @@ class CosmologyBase(ABC):
 
     def recombination_redshift(self) -> float:
         """Return recombination redshift z_* using model parameters."""
-        params = self.params.to_dict() if hasattr(self.params, "to_dict") else dict(self.params)
+        params = (
+            self.params.to_dict()
+            if hasattr(self.params, "to_dict")
+            else dict(self.params)
+        )
         return float(self.__class__.recombination_redshift_traced(params))
 
 
@@ -405,10 +416,10 @@ def make_compute_grid_traced(E_z_func: Callable) -> Callable:
     ...     make_compute_grid_traced(LCDM._E_z_static)
     ... )
     """
+
     @jit
     def compute_grid_traced(
-        z_grid: jnp.ndarray,
-        params: Dict[str, float]
+        z_grid: jnp.ndarray, params: Dict[str, float]
     ) -> Dict[str, jnp.ndarray]:
         """
         NumPyro traced-aware batch cosmology computation.
@@ -420,20 +431,20 @@ def make_compute_grid_traced(E_z_func: Callable) -> Callable:
         E_z_grid = E_z_func(z_grid, params)
 
         # Extract cosmological parameters for distance calculations
-        H0 = params['H0']
-        Omega_k = params.get('Omega_k', 0.0)
+        H0 = params["H0"]
+        Omega_k = params.get("Omega_k", 0.0)
 
         # Use shared distance computation (now with curvature support)
         distances = compute_distances_from_E_z(z_grid, E_z_grid, H0, Omega_k)
 
         return {
-            'd_L': distances['d_L'],
-            'D_M': distances['D_M'],  # Transverse comoving distance (for BAO)
-            'D_H': distances['D_H'],  # Hubble distance c/H(z) (for BAO)
-            'dVc_dz': distances['dVc_dz'],
-            'ddL_dz': distances['ddL_dz'],
-            'E_z': E_z_grid,
-            'd_C': distances['d_C']
+            "d_L": distances["d_L"],
+            "D_M": distances["D_M"],  # Transverse comoving distance (for BAO)
+            "D_H": distances["D_H"],  # Hubble distance c/H(z) (for BAO)
+            "dVc_dz": distances["dVc_dz"],
+            "ddL_dz": distances["ddL_dz"],
+            "E_z": E_z_grid,
+            "d_C": distances["d_C"],
         }
 
     return compute_grid_traced
@@ -454,10 +465,10 @@ def make_sound_horizon_traced() -> Callable:
         params: Dict[str, float],
     ) -> jnp.ndarray:
         return sound_horizon_eh98(
-            params['H0'],
-            params['Omega_m'],
-            params['Omega_b'],
-            params.get('T_cmb', 2.7255),
+            params["H0"],
+            params["Omega_m"],
+            params["Omega_b"],
+            params.get("T_cmb", 2.7255),
             z,
         )
 
@@ -472,11 +483,11 @@ def make_sound_horizon_drag_traced() -> Callable:
 
     @jit
     def sound_horizon_drag_traced(params: Dict[str, float]) -> jnp.ndarray:
-        T_cmb = params.get('T_cmb', 2.7255)
+        T_cmb = params.get("T_cmb", 2.7255)
         return sound_horizon_drag_eh98(
-            params['H0'],
-            params['Omega_m'],
-            params['Omega_b'],
+            params["H0"],
+            params["Omega_m"],
+            params["Omega_b"],
             T_cmb,
         )
 
@@ -487,6 +498,7 @@ def make_recombination_redshift_traced() -> Callable:
     """
     Factory for recombination redshift z_* (Hu & Sugiyama 1996 fitting formula).
     """
+
     @jit
     def recombination_redshift_traced(params: Dict[str, float]) -> jnp.ndarray:
         H0 = params["H0"]
@@ -497,9 +509,13 @@ def make_recombination_redshift_traced() -> Callable:
         omega_b_h2 = Omega_b * h**2
         omega_m_h2 = Omega_m * h**2
 
-        g1 = 0.0783 * omega_b_h2**(-0.238) / (1.0 + 39.5 * omega_b_h2**0.763)
+        g1 = 0.0783 * omega_b_h2 ** (-0.238) / (1.0 + 39.5 * omega_b_h2**0.763)
         g2 = 0.560 / (1.0 + 21.1 * omega_b_h2**1.81)
-        z_star = 1048.0 * (1.0 + 0.00124 * omega_b_h2**(-0.738)) * (1.0 + g1 * omega_m_h2**g2)
+        z_star = (
+            1048.0
+            * (1.0 + 0.00124 * omega_b_h2 ** (-0.738))
+            * (1.0 + g1 * omega_m_h2**g2)
+        )
         return z_star
 
     return recombination_redshift_traced
@@ -507,10 +523,7 @@ def make_recombination_redshift_traced() -> Callable:
 
 @jit
 def compute_distances_from_E_z(
-    z_grid: jnp.ndarray,
-    E_z_grid: jnp.ndarray,
-    H0: float,
-    Omega_k: float = 0.0
+    z_grid: jnp.ndarray, E_z_grid: jnp.ndarray, H0: float, Omega_k: float = 0.0
 ) -> Dict[str, jnp.ndarray]:
     """
     Compute cosmological distances from E(z) grid.
@@ -605,12 +618,12 @@ def compute_distances_from_E_z(
     ddL_dz_grid = gradient_1d(d_L_grid, z_grid)
 
     return {
-        'd_C': d_C_grid,
-        'D_M': D_M_grid,
-        'd_L': d_L_grid,
-        'D_H': D_H_grid,
-        'dVc_dz': dVc_dz_grid,
-        'ddL_dz': ddL_dz_grid
+        "d_C": d_C_grid,
+        "D_M": D_M_grid,
+        "d_L": d_L_grid,
+        "D_H": D_H_grid,
+        "dVc_dz": dVc_dz_grid,
+        "ddL_dz": ddL_dz_grid,
     }
 
 
@@ -621,6 +634,7 @@ Parameters = Dict[str, float]
 
 
 # ==================== Model Registration Decorator ====================
+
 
 def register_cosmology_model(cls):
     """
@@ -650,24 +664,31 @@ def register_cosmology_model(cls):
     ...         return jnp.full_like(jnp.asarray(z), self.params['w'])
     """
     # Check if user defined E_z as staticmethod (new API)
-    if 'E_z' in cls.__dict__ and isinstance(cls.__dict__['E_z'], staticmethod):
+    if "E_z" in cls.__dict__ and isinstance(cls.__dict__["E_z"], staticmethod):
         # User defined static E_z(z, params) - convert to kernel
-        E_z_static_func = cls.__dict__['E_z'].__func__
+        E_z_static_func = cls.__dict__["E_z"].__func__
         cls._E_z_kernel = staticmethod(E_z_static_func)
 
         # Create instance method that calls static version
         def E_z_instance(self, z):
             return self.__class__._E_z_kernel(z, self.params)
+
         cls.E_z = E_z_instance
 
     # Fall back to _E_z_kernel if defined (backward compatibility)
-    elif hasattr(cls, '_E_z_kernel'):
+    elif hasattr(cls, "_E_z_kernel"):
         E_z_static_func = cls._E_z_kernel
     else:
-        raise TypeError(f"{cls.__name__} must define either E_z(z, params) or _E_z_kernel(z, params)")
+        raise TypeError(
+            f"{cls.__name__} must define either E_z(z, params) or _E_z_kernel(z, params)"
+        )
 
     # Generate JIT-compiled _E_z_static
-    kernel = cls._E_z_kernel if isinstance(cls._E_z_kernel, staticmethod) else cls._E_z_kernel
+    kernel = (
+        cls._E_z_kernel
+        if isinstance(cls._E_z_kernel, staticmethod)
+        else cls._E_z_kernel
+    )
 
     @jit
     def _E_z_static(z_grid: jnp.ndarray, params: Dict[str, float]) -> jnp.ndarray:
@@ -681,6 +702,8 @@ def register_cosmology_model(cls):
     cls.compute_grid_traced = staticmethod(make_compute_grid_traced(_E_z_static))
     cls.sound_horizon_traced = staticmethod(make_sound_horizon_traced())
     cls.sound_horizon_drag_traced = staticmethod(make_sound_horizon_drag_traced())
-    cls.recombination_redshift_traced = staticmethod(make_recombination_redshift_traced())
+    cls.recombination_redshift_traced = staticmethod(
+        make_recombination_redshift_traced()
+    )
 
     return cls

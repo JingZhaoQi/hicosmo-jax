@@ -109,8 +109,8 @@ class UnifiedParameterCollector:
         latex_label: Optional[str] = None,
         description: Optional[str] = None,
         bounds: Optional[tuple] = None,
-        source: str = "user"
-    ) -> 'UnifiedParameterCollector':
+        source: str = "user",
+    ) -> "UnifiedParameterCollector":
         """
         Add a custom parameter to the collection.
 
@@ -161,14 +161,16 @@ class UnifiedParameterCollector:
             prior=prior,
             latex_label=latex_label,
             description=description,
-            bounds=bounds
+            bounds=bounds,
         )
 
         self._params[name] = param
         self._sources[name] = source
         return self
 
-    def add_from_likelihood(self, likelihood, override: bool = False) -> 'UnifiedParameterCollector':
+    def add_from_likelihood(
+        self, likelihood, override: bool = False
+    ) -> "UnifiedParameterCollector":
         """
         Automatically collect nuisance parameters from a likelihood object.
 
@@ -196,7 +198,7 @@ class UnifiedParameterCollector:
         >>> # Now collector has M_B parameter (if defined in pantheon.nuisance_parameters)
         """
         # Check if likelihood has nuisance_parameters property
-        if not hasattr(likelihood, 'nuisance_parameters'):
+        if not hasattr(likelihood, "nuisance_parameters"):
             return self
 
         nuisance_attr = likelihood.nuisance_parameters
@@ -249,8 +251,8 @@ class UnifiedParameterCollector:
         self,
         model_class: Type,
         free_params: Optional[List[str]] = None,
-        fixed_params: Optional[Dict[str, float]] = None
-    ) -> 'UnifiedParameterCollector':
+        fixed_params: Optional[Dict[str, float]] = None,
+    ) -> "UnifiedParameterCollector":
         """
         Collect parameters from a cosmology model class.
 
@@ -273,7 +275,7 @@ class UnifiedParameterCollector:
         >>> from hicosmo.models import LCDM
         >>> collector.add_from_model(LCDM, free_params=['H0', 'Omega_m'])
         """
-        if not hasattr(model_class, 'get_parameters'):
+        if not hasattr(model_class, "get_parameters"):
             warnings.warn(
                 f"Model {model_class.__name__} does not have get_parameters() method. "
                 f"Cannot auto-discover parameters."
@@ -303,7 +305,7 @@ class UnifiedParameterCollector:
                 prior=param.prior if is_free else None,
                 latex_label=param.latex_label,
                 description=param.description,
-                bounds=param.bounds
+                bounds=param.bounds,
             )
 
             if param.name not in self._params:
@@ -312,7 +314,9 @@ class UnifiedParameterCollector:
 
         return self
 
-    def add_from_dict(self, params_dict: Dict[str, Dict[str, Any]]) -> 'UnifiedParameterCollector':
+    def add_from_dict(
+        self, params_dict: Dict[str, Dict[str, Any]]
+    ) -> "UnifiedParameterCollector":
         """
         Add parameters from a user-friendly dictionary format.
 
@@ -343,7 +347,7 @@ class UnifiedParameterCollector:
 
         return self
 
-    def set_free(self, param_names: List[str]) -> 'UnifiedParameterCollector':
+    def set_free(self, param_names: List[str]) -> "UnifiedParameterCollector":
         """
         Set specified parameters as free (to be sampled).
 
@@ -370,7 +374,7 @@ class UnifiedParameterCollector:
 
         return self
 
-    def set_fixed(self, param_names: List[str]) -> 'UnifiedParameterCollector':
+    def set_fixed(self, param_names: List[str]) -> "UnifiedParameterCollector":
         """
         Set specified parameters as fixed.
 
@@ -457,7 +461,9 @@ class UnifiedParameterCollector:
     def __repr__(self) -> str:
         n_free = len(self.get_free_names())
         n_fixed = len(self.get_fixed_names())
-        return f"UnifiedParameterCollector('{self.name}', {n_free} free, {n_fixed} fixed)"
+        return (
+            f"UnifiedParameterCollector('{self.name}', {n_free} free, {n_fixed} fixed)"
+        )
 
     def __contains__(self, name: str) -> bool:
         return name in self._params

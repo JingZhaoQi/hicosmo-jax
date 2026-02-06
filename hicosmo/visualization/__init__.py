@@ -37,13 +37,13 @@ from .information_criteria import (
 )
 
 __all__ = [
-    'Plotter',
-    'apply_style',
-    'qstyle',
-    'aic',
-    'bic',
-    'log_evidence_harmonic_mean',
-    'information_criteria',
+    "Plotter",
+    "apply_style",
+    "qstyle",
+    "aic",
+    "bic",
+    "log_evidence_harmonic_mean",
+    "information_criteria",
 ]
 
-__version__ = '3.0.0'
+__version__ = "3.0.0"

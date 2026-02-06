@@ -82,6 +82,7 @@ def available_bao_datasets() -> List[str]:
     # Add discovered datasets from data directory
     try:
         from ...data_registry import DataRegistry
+
         registry = DataRegistry()
         discovered = set(registry.bao())
         # Merge registered and discovered (registered takes priority for naming)

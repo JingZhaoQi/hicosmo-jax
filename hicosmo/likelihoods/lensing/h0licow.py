@@ -40,6 +40,7 @@ def _get_default_data_path() -> Path:
 @dataclass
 class LensConfig:
     """Configuration for a single lens system."""
+
     name: str
     zlens: float
     zsource: float
@@ -55,8 +56,9 @@ class LensConfig:
 
 
 @jit
-def _skewed_lognormal_logpdf(value: jnp.ndarray, mu: float, sigma: float,
-                              lam: float, explim: float) -> jnp.ndarray:
+def _skewed_lognormal_logpdf(
+    value: jnp.ndarray, mu: float, sigma: float, lam: float, explim: float
+) -> jnp.ndarray:
     """Skewed log-normal probability density function."""
     value = jnp.asarray(value, dtype=jnp.float64)
     shifted = value - lam
@@ -64,13 +66,19 @@ def _skewed_lognormal_logpdf(value: jnp.ndarray, mu: float, sigma: float,
     safe_log = jnp.where(valid, jnp.log(shifted), 0.0)
     exponent = -0.5 * ((safe_log - mu) / sigma) ** 2
     valid = jnp.logical_and(valid, (-exponent) <= explim)
-    log_norm = jnp.log(jnp.sqrt(2.0 * jnp.pi) * sigma) + jnp.where(valid, jnp.log(shifted), 0.0)
+    log_norm = jnp.log(jnp.sqrt(2.0 * jnp.pi) * sigma) + jnp.where(
+        valid, jnp.log(shifted), 0.0
+    )
     logpdf = exponent - log_norm
     return jnp.where(valid, logpdf, -jnp.inf)
 
 
-def _build_kde_logpdf_1d(points: jnp.ndarray, log_weights: jnp.ndarray,
-                         log_weight_sum: jnp.ndarray, bandwidth: float) -> Callable[[jnp.ndarray], jnp.ndarray]:
+def _build_kde_logpdf_1d(
+    points: jnp.ndarray,
+    log_weights: jnp.ndarray,
+    log_weight_sum: jnp.ndarray,
+    bandwidth: float,
+) -> Callable[[jnp.ndarray], jnp.ndarray]:
     """Build 1D KDE log-PDF evaluator."""
     scalar_points = jnp.asarray(points[:, 0], dtype=jnp.float64)
     bw = jnp.asarray(bandwidth, dtype=jnp.float64)
@@ -90,8 +98,12 @@ def _build_kde_logpdf_1d(points: jnp.ndarray, log_weights: jnp.ndarray,
     return evaluate
 
 
-def _build_kde_logpdf_2d(points: jnp.ndarray, log_weights: jnp.ndarray,
-                         log_weight_sum: jnp.ndarray, bandwidth: float) -> Callable[[jnp.ndarray], jnp.ndarray]:
+def _build_kde_logpdf_2d(
+    points: jnp.ndarray,
+    log_weights: jnp.ndarray,
+    log_weight_sum: jnp.ndarray,
+    bandwidth: float,
+) -> Callable[[jnp.ndarray], jnp.ndarray]:
     """Build 2D KDE log-PDF evaluator."""
     pts = jnp.asarray(points, dtype=jnp.float64)
     bw = jnp.asarray(bandwidth, dtype=jnp.float64)
@@ -116,8 +128,9 @@ def _build_kde_logpdf_2d(points: jnp.ndarray, log_weights: jnp.ndarray,
 class KDEEstimator:
     """Simple isotropic Gaussian KDE helper implemented with JAX."""
 
-    def __init__(self, points: np.ndarray, weights: Optional[np.ndarray],
-                 bandwidth: float) -> None:
+    def __init__(
+        self, points: np.ndarray, weights: Optional[np.ndarray], bandwidth: float
+    ) -> None:
         if weights is None:
             weights = np.ones(points.shape[0], dtype=np.float64)
         pts = np.asarray(points, dtype=np.float64)
@@ -132,10 +145,12 @@ class KDEEstimator:
         self._logpdf_2d_fn = None
         if self.points.shape[1] == 1:
             self._logpdf_1d_fn = _build_kde_logpdf_1d(
-                self.points, self.log_weights, self.log_weight_sum, self.bandwidth)
+                self.points, self.log_weights, self.log_weight_sum, self.bandwidth
+            )
         elif self.points.shape[1] == 2:
             self._logpdf_2d_fn = _build_kde_logpdf_2d(
-                self.points, self.log_weights, self.log_weight_sum, self.bandwidth)
+                self.points, self.log_weights, self.log_weight_sum, self.bandwidth
+            )
 
     def logpdf_1d(self, value: float) -> jnp.ndarray:
         if self._logpdf_1d_fn is None:
@@ -152,8 +167,9 @@ class KDEEstimator:
         return result[0] if result.shape == (1,) else result
 
 
-def _compress_histogram(samples: np.ndarray, weights: np.ndarray,
-                        nbins: int) -> Tuple[np.ndarray, np.ndarray]:
+def _compress_histogram(
+    samples: np.ndarray, weights: np.ndarray, nbins: int
+) -> Tuple[np.ndarray, np.ndarray]:
     """Compress samples into histogram for efficient KDE."""
     hist, edges = np.histogram(samples, bins=nbins, weights=weights)
     centers = 0.5 * (edges[:-1] + edges[1:])
@@ -161,8 +177,9 @@ def _compress_histogram(samples: np.ndarray, weights: np.ndarray,
     return centers[mask], hist[mask]
 
 
-def _compress_histogram_2d(dd: np.ndarray, ddt: np.ndarray, weights: np.ndarray,
-                           nbins: int) -> Tuple[np.ndarray, np.ndarray]:
+def _compress_histogram_2d(
+    dd: np.ndarray, ddt: np.ndarray, weights: np.ndarray, nbins: int
+) -> Tuple[np.ndarray, np.ndarray]:
     """Compress 2D samples into histogram for efficient KDE."""
     hist, x_edges, y_edges = np.histogram2d(dd, ddt, bins=nbins, weights=weights)
     x_centers = 0.5 * (x_edges[:-1] + x_edges[1:])
@@ -217,7 +234,9 @@ class H0LiCOWLens:
                 samples = df[cols.get("ddt", df.columns[0])].to_numpy(dtype=np.float64)
                 weights = df[weights_col].to_numpy(dtype=np.float64)
             else:
-                samples = np.loadtxt(path, dtype=np.float64, comments=cols.get("comment", "#"))
+                samples = np.loadtxt(
+                    path, dtype=np.float64, comments=cols.get("comment", "#")
+                )
                 if samples.ndim > 1:
                     samples = samples[:, 0]
                 weights = np.ones_like(samples)
@@ -225,14 +244,20 @@ class H0LiCOWLens:
                 mask = (samples > 0) & (samples < self.config.max_ddt)
                 samples = samples[mask]
                 weights = weights[mask]
-            centers, hist_weights = _compress_histogram(samples, weights, self.config.nbins or 200)
+            centers, hist_weights = _compress_histogram(
+                samples, weights, self.config.nbins or 200
+            )
             self._kde = KDEEstimator(centers.reshape(-1, 1), hist_weights, bw)
         elif kind in {"kde_hist_2d", "kde_full_2d"}:
             if kind == "kde_full_2d":
                 kwargs = dict(self.config.read_csv_kwargs or {})
                 kwargs.setdefault("header", 0)
                 df = pd.read_csv(path, **kwargs)
-                points = df[[cols.get("dd", "dd"), cols.get("ddt", "ddt")]].dropna().to_numpy(dtype=np.float64)
+                points = (
+                    df[[cols.get("dd", "dd"), cols.get("ddt", "ddt")]]
+                    .dropna()
+                    .to_numpy(dtype=np.float64)
+                )
                 weights = np.ones(points.shape[0], dtype=np.float64)
             else:
                 weights_col = cols.get("weight")
@@ -248,7 +273,9 @@ class H0LiCOWLens:
                     dd = data[:, 0]
                     ddt = data[:, 1]
                     weights = np.ones_like(dd)
-                points, weights = _compress_histogram_2d(dd, ddt, weights, self.config.nbins or 80)
+                points, weights = _compress_histogram_2d(
+                    dd, ddt, weights, self.config.nbins or 80
+                )
             self._kde = KDEEstimator(points, weights, bw)
             self._uses_dd = True
         else:
@@ -258,16 +285,26 @@ class H0LiCOWLens:
         kind = self.kind
         params = self.config.params
         if kind == "skewed_lognormal":
-            return _skewed_lognormal_logpdf(ddt, params["mu"], params["sigma"], params["lam"], self.explim)
+            return _skewed_lognormal_logpdf(
+                ddt, params["mu"], params["sigma"], params["lam"], self.explim
+            )
         if kind == "skewed_lognormal_dd":
-            ll_dt = _skewed_lognormal_logpdf(ddt, params["mu"], params["sigma"], params["lam"], self.explim)
-            ll_dd = _skewed_lognormal_logpdf(dd, params["mu_dd"], params["sigma_dd"], params["lam_dd"], self.explim)
+            ll_dt = _skewed_lognormal_logpdf(
+                ddt, params["mu"], params["sigma"], params["lam"], self.explim
+            )
+            ll_dd = _skewed_lognormal_logpdf(
+                dd, params["mu_dd"], params["sigma_dd"], params["lam_dd"], self.explim
+            )
             return ll_dt + ll_dd
         if kind == "skewed_lognormal_dd_only":
-            return _skewed_lognormal_logpdf(dd, params["mu_dd"], params["sigma_dd"], params["lam_dd"], self.explim)
+            return _skewed_lognormal_logpdf(
+                dd, params["mu_dd"], params["sigma_dd"], params["lam_dd"], self.explim
+            )
         if kind == "gaussian":
             residual = (ddt - params["mu"]) / params["sigma"]
-            return -0.5 * residual**2 - jnp.log(jnp.sqrt(2.0 * jnp.pi) * params["sigma"])
+            return -0.5 * residual**2 - jnp.log(
+                jnp.sqrt(2.0 * jnp.pi) * params["sigma"]
+            )
         if self._kde is None:
             raise RuntimeError(f"Lens {self.name} was not initialised correctly.")
         if kind == "kde_hist_1d":
@@ -335,17 +372,25 @@ class H0LiCOWLikelihood:
             logger.info(f"H0LiCOW loaded: {len(self.lenses)} lenses")
             lens_list = ", ".join(lens.name for lens in self.lenses)
             logger.info(f"Lenses: {lens_list}")
-            z_range = (min(lens.zlens for lens in self.lenses),
-                       max(lens.zsource for lens in self.lenses))
+            z_range = (
+                min(lens.zlens for lens in self.lenses),
+                max(lens.zsource for lens in self.lenses),
+            )
             logger.info(f"Redshift range: {z_range[0]:.3f} - {z_range[1]:.3f}")
 
     def _load_data(self) -> None:
         """Load lens configurations and data."""
         if not self.data_path.exists():
-            raise FileNotFoundError(f"H0LiCOW data directory not found: {self.data_path}")
+            raise FileNotFoundError(
+                f"H0LiCOW data directory not found: {self.data_path}"
+            )
 
         configs = self._get_default_lens_configs()
-        selected = [cfg for cfg in configs if self.lens_names is None or cfg.name in self.lens_names]
+        selected = [
+            cfg
+            for cfg in configs
+            if self.lens_names is None or cfg.name in self.lens_names
+        ]
 
         if not selected:
             available = ", ".join(cfg.name for cfg in configs)
@@ -373,7 +418,7 @@ class H0LiCOWLikelihood:
 
         def compute_distances(params: Dict[str, float]):
             cosmo = cosmology_class.compute_grid_traced(z_grid, params)
-            d_c_grid = cosmo['d_C']
+            d_c_grid = cosmo["d_C"]
             d_c_l = jnp.interp(z_l, z_grid, d_c_grid)
             d_c_s = jnp.interp(z_s, z_grid, d_c_grid)
             dd = d_c_l / (1.0 + z_l)
@@ -419,10 +464,10 @@ class H0LiCOWLikelihood:
         """
         # Ensure required parameters exist with defaults
         cosmo_params = {
-            'H0': params.get('H0'),
-            'Omega_m': params.get('Omega_m'),
-            'Omega_k': params.get('Omega_k', 0.0),
-            'Omega_r': params.get('Omega_r', 0.0),
+            "H0": params.get("H0"),
+            "Omega_m": params.get("Omega_m"),
+            "Omega_k": params.get("Omega_k", 0.0),
+            "Omega_r": params.get("Omega_r", 0.0),
         }
         dd, ddt = self._distance_interp(cosmo_params)
         return self._lens_evaluator(dd, ddt)
@@ -482,12 +527,12 @@ class H0LiCOWLikelihood:
     def get_info(self) -> Dict:
         """Get dataset information."""
         return {
-            'name': 'H0LiCOW',
-            'n_lenses': len(self.lenses),
-            'lenses': [lens.name for lens in self.lenses],
-            'redshift_range': (
+            "name": "H0LiCOW",
+            "n_lenses": len(self.lenses),
+            "lenses": [lens.name for lens in self.lenses],
+            "redshift_range": (
                 min(lens.zlens for lens in self.lenses),
-                max(lens.zsource for lens in self.lenses)
+                max(lens.zsource for lens in self.lenses),
             ),
         }
 
@@ -496,8 +541,10 @@ class H0LiCOWLikelihood:
     def __repr__(self):
         """String representation."""
         info = self.get_info()
-        return (f"H0LiCOWLikelihood({info['n_lenses']} lenses: "
-                f"{', '.join(info['lenses'])})")
+        return (
+            f"H0LiCOWLikelihood({info['n_lenses']} lenses: "
+            f"{', '.join(info['lenses'])})"
+        )
 
     @staticmethod
     def _get_default_lens_configs() -> List[LensConfig]:
@@ -523,7 +570,13 @@ class H0LiCOWLikelihood:
                 zsource=0.654,
                 kind="kde_hist_2d",
                 data_file="h0licow_distance_chains/RXJ1131_AO+HST_Dd_Ddt.dat",
-                read_csv_kwargs={"sep": r"\\s+", "comment": "#", "names": ["dd", "ddt"], "header": None, "engine": "python"},
+                read_csv_kwargs={
+                    "sep": r"\\s+",
+                    "comment": "#",
+                    "names": ["dd", "ddt"],
+                    "header": None,
+                    "engine": "python",
+                },
                 columns={"dd": "dd", "ddt": "ddt"},
                 bandwidth=20.0,
                 nbins=80,
@@ -534,7 +587,12 @@ class H0LiCOWLikelihood:
                 zsource=1.693,
                 kind="kde_hist_1d",
                 data_file="h0licow_distance_chains/HE0435_Ddt_AO+HST.dat",
-                read_csv_kwargs={"sep": r"\\s+", "names": ["ddt"], "header": None, "engine": "python"},
+                read_csv_kwargs={
+                    "sep": r"\\s+",
+                    "names": ["ddt"],
+                    "header": None,
+                    "engine": "python",
+                },
                 columns={"ddt": "ddt"},
                 bandwidth=20.0,
                 nbins=400,
@@ -567,7 +625,13 @@ class H0LiCOWLikelihood:
                 zsource=1.722,
                 kind="kde_hist_2d",
                 data_file="h0licow_distance_chains/PG1115_AO+HST_Dd_Ddt.dat",
-                read_csv_kwargs={"sep": r"\\s+", "comment": "#", "names": ["dd", "ddt"], "header": None, "engine": "python"},
+                read_csv_kwargs={
+                    "sep": r"\\s+",
+                    "comment": "#",
+                    "names": ["dd", "ddt"],
+                    "header": None,
+                    "engine": "python",
+                },
                 columns={"dd": "dd", "ddt": "ddt"},
                 bandwidth=20.0,
                 nbins=80,
