@@ -29,15 +29,18 @@ autosectionlabel_prefix_document = True
 
 autodoc_mock_imports = []
 
-# Read the Docs 环境默认不提供科学计算依赖，按需 mock
+# CI / Read the Docs 环境不提供科学计算依赖，mock 所有外部依赖
 if os.environ.get("READTHEDOCS", "").lower() == "true":
     autodoc_mock_imports = [
+        "numpy",
         "jax",
         "jaxlib",
         "numpyro",
         "getdist",
         "matplotlib",
         "scipy",
+        "astropy",
+        "h5py",
         "torch",
         "camb",
         "classy",
@@ -46,7 +49,12 @@ if os.environ.get("READTHEDOCS", "").lower() == "true":
         "corner",
         "pandas",
         "tqdm",
+        "rich",
+        "yaml",
+        "hicosmo",
     ]
+    # 禁用 autodoc/autosummary 在无依赖环境中的代码导入
+    autosummary_generate = False
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
