@@ -1,0 +1,998 @@
+似然函数
+========
+
+HIcosmo 提供丰富的观测数据似然函数，涵盖超新星、BAO、CMB、强引力透镜等多种宇宙学探针。所有似然函数都遵循统一的 API 设计，支持 JAX JIT 编译优化。
+
+似然函数概览
+------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 22 60
+
+   * - 类型
+     - 数据集
+     - 描述
+   * - **超新星 Ia**
+     - Pantheon+ (2022)
+     - 1701 个 SNe Ia，红移 :math:`z < 2.3`
+   * - **BAO**
+     - DESI 2024
+     - 最新 BAO 约束，6 个红移 bin，默认使用 :math:`H_0 r_d` 作为 nuisance
+   * - **BAO**
+     - SDSS/BOSS DR12
+     - 经典 BAO 数据集
+   * - **CMB**
+     - Planck 2018
+     - 压缩距离先验 :math:`(R, l_a, \omega_b h^2)`
+   * - **强透镜**
+     - H0LiCOW
+     - 6 个透镜系统的时延距离
+   * - **强透镜**
+     - TDCOSMO
+     - 层次贝叶斯分析，含 MST 效应
+   * - **局部 H0**
+     - SH0ES
+     - 造父变星距离阶梯
+
+统一 API 设计
+-------------
+
+所有似然函数都遵循统一的接口设计：
+
+**快捷接口**（推荐）：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import SN_likelihood, BAO_likelihood
+   from hicosmo.models import LCDM
+
+   # 字符串指定数据集
+   sne = SN_likelihood(LCDM, "pantheon+")
+   bao = BAO_likelihood(LCDM, "desi2024")  # 默认 H0_rd 模式
+
+   # 直接调用计算 log-likelihood
+   # 注意：BAO 需要 H0_rd nuisance 参数
+   log_L = sne(H0=70, Omega_m=0.3) + bao(H0=70, Omega_m=0.3, H0_rd=100)
+
+**类接口**（高级用法）：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import PantheonPlusLikelihood, DESI2024BAO
+
+   sne = PantheonPlusLikelihood(cosmology_class=LCDM)
+   bao = DESI2024BAO(cosmology_class=LCDM)
+
+超新星 Ia (SNe Ia)
+------------------
+
+Pantheon+ 数据集
+~~~~~~~~~~~~~~~~
+
+Pantheon+ (Brout et al. 2022) 包含 1701 个 Ia 型超新星，是目前最大的 SNe Ia 样本。
+
+**似然函数**：
+
+.. math::
+
+   -2 \ln \mathcal{L} = \Delta \boldsymbol{\mu}^T \, C^{-1} \, \Delta \boldsymbol{\mu}
+
+其中：
+
+- :math:`\Delta \boldsymbol{\mu} = \mu_{\rm obs} - \mu_{\rm theory}`
+- :math:`\mu_{\rm theory} = 5 \log_{10}(d_L/\text{Mpc}) + 25`
+- :math:`C` 是完整协方差矩阵（统计 + 系统误差）
+
+**基本用法**：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import SN_likelihood
+   from hicosmo.models import LCDM
+
+   # Pantheon+ (无 SH0ES Cepheid 标校)
+   sne = SN_likelihood(LCDM, "pantheon+", M_B="marginalize")
+
+   # Pantheon+SH0ES (含 Cepheid 标校)
+   sne_shoes = SN_likelihood(LCDM, "pantheon+shoes", M_B="marginalize")
+
+   # 计算 log-likelihood
+   log_L = sne(H0=70.0, Omega_m=0.3)
+   print(f"log L = {log_L:.2f}")
+
+**绝对星等处理**：
+
+超新星分析需要处理绝对星等 :math:`\mathcal{M}_B = M_B + 5\log_{10}(c/H_0) + 25`：
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - 选项
+     - 说明
+   * - ``M_B="marginalize"``
+     - 解析边际化（推荐，默认）
+   * - ``M_B="free"``
+     - 作为自由参数采样
+
+.. code-block:: python
+
+   # 解析边际化 M_B (默认，推荐)
+   sne = SN_likelihood(LCDM, "pantheon+", M_B="marginalize")
+   log_L = sne(H0=70, Omega_m=0.3)  # 无需提供 M_B
+
+   # M_B 作为自由参数
+   sne = SN_likelihood(LCDM, "pantheon+", M_B="free")
+   log_L = sne(H0=70, Omega_m=0.3, M_B=-19.3)  # 需提供 M_B
+
+**高级选项**：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import PantheonPlusLikelihood
+
+   sne = PantheonPlusLikelihood(
+       cosmology_class=LCDM,
+       include_shoes=True,          # 使用 SH0ES Cepheid 数据
+       include_systematics=True,    # 包含系统误差 (默认)
+       z_min=0.01,                  # 最小红移截断
+       z_max=None,                  # 最大红移截断
+       marginalize_M_B=True         # 边际化绝对星等
+   )
+
+BAO (重子声学振荡)
+------------------
+
+BAO 提供对 :math:`H(z) r_d` 和 :math:`D_M(z)/r_d` 的精确测量，是宇宙学距离阶梯的关键环节。
+
+观测量
+~~~~~~
+
+HIcosmo 支持以下 BAO 观测量：
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - 观测量
+     - 物理含义
+   * - :math:`D_M/r_d`
+     - 横向共动距离 / 声音视界
+   * - :math:`D_H/r_d = c/(H(z) r_d)`
+     - 径向 Hubble 距离 / 声音视界
+   * - :math:`D_V/r_d`
+     - 球平均距离 :math:`[z D_M^2 D_H]^{1/3} / r_d`
+
+**球平均距离**：
+
+.. math::
+
+   D_V(z) = \left[ z \, D_M^2(z) \, D_H(z) \right]^{1/3}
+
+可用数据集
+~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
+
+   * - 数据集
+     - 年份
+     - 参考文献
+   * - ``desi2024``
+     - 2024
+     - DESI Collaboration 2024
+   * - ``sdss_dr12``
+     - 2017
+     - Alam et al. 2017, MNRAS 470, 2617
+   * - ``sdss_dr16``
+     - 2020
+     - eBOSS Collaboration 2020
+   * - ``boss_dr12``
+     - 2017
+     - Alam et al. 2017
+   * - ``sixdf``
+     - 2011
+     - Beutler et al. 2011
+
+DESI 2024
+~~~~~~~~~
+
+DESI 2024 提供 6 个红移 bin 的 BAO 测量：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import BAO_likelihood
+   from hicosmo.models import LCDM
+
+   bao = BAO_likelihood(LCDM, "desi2024")
+
+   # 计算 log-likelihood（需要提供 H0_rd nuisance 参数）
+   log_L = bao(H0=67.36, Omega_m=0.3, H0_rd=100.0)
+   print(f"DESI BAO log L = {log_L:.2f}")
+
+**声视界处理模式 (omega_b_mode)**：
+
+BAO 测量约束的是 :math:`D_M/r_d` 和 :math:`D_H/r_d`，其中声视界 :math:`r_d` 依赖于 :math:`\Omega_b`。
+BAO 数据单独只能约束 :math:`H_0 r_d` 这个组合量，而无法单独约束 :math:`H_0`。
+
+HIcosmo 提供多种处理模式：
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 20 62
+
+   * - 模式
+     - Nuisance 参数
+     - 说明
+   * - ``'h0rd'`` (默认)
+     - ``H0_rd``
+     - 直接采样 :math:`H_0 r_d / (100\,{\rm km\,s^{-1}})`，推荐用于 BAO-only 分析
+   * - ``'bbn_prior'``
+     - ``Omega_b``
+     - 使用 BBN 先验 (:math:`\omega_b = 0.02218 \pm 0.00055`)
+   * - ``'fixed'``
+     - 无
+     - 固定 :math:`\Omega_b` 为 Planck 2018 值 (0.0493)
+
+**使用示例**：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import BAO_likelihood
+   from hicosmo.models import LCDM
+
+   # 默认模式：H0_rd 作为 nuisance parameter（推荐用于 BAO-only）
+   bao = BAO_likelihood(LCDM, "desi2024")
+   # nuisance: H0_rd, prior: [95, 110]
+
+   # 使用 BBN 先验
+   bao_bbn = BAO_likelihood(LCDM, "desi2024", omega_b_mode='bbn_prior')
+   # nuisance: Omega_b, 并对 Omega_b*h^2 施加 BBN 约束
+
+   # 固定 Omega_b（使用 Planck 值）
+   bao_fixed = BAO_likelihood(LCDM, "desi2024", omega_b_mode='fixed')
+   # 无 nuisance 参数
+
+**物理说明**：
+
+:math:`H_0 r_d` 的典型值约 :math:`10000\,{\rm km\,s^{-1}}`（对应 :math:`H_0 \approx 70`，:math:`r_d \approx 147\,{\rm Mpc}`）。
+``H0_rd`` 参数定义为 :math:`H_0 r_d / (100\,{\rm km\,s^{-1}})`，数值约为 100。
+
+**红移分布**：
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 20 60
+
+   * - 红移 bin
+     - 有效红移
+     - 观测量
+   * - BGS
+     - :math:`z = 0.30`
+     - :math:`D_V/r_d`
+   * - LRG1
+     - :math:`z = 0.51`
+     - :math:`D_M/r_d, D_H/r_d`
+   * - LRG2
+     - :math:`z = 0.71`
+     - :math:`D_M/r_d, D_H/r_d`
+   * - LRG3+ELG
+     - :math:`z = 0.93`
+     - :math:`D_M/r_d, D_H/r_d`
+   * - ELG
+     - :math:`z = 1.32`
+     - :math:`D_M/r_d, D_H/r_d`
+   * - QSO
+     - :math:`z = 1.49`
+     - :math:`D_M/r_d, D_H/r_d`
+
+多数据集联合
+~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import BAO_likelihood
+
+   # 单独使用
+   desi = BAO_likelihood(LCDM, "desi2024")
+   sdss = BAO_likelihood(LCDM, "sdss_dr12")
+
+   # 联合约束
+   log_L = desi(H0=67, Omega_m=0.3) + sdss(H0=67, Omega_m=0.3)
+
+CMB 距离先验
+------------
+
+Planck 2018
+~~~~~~~~~~~
+
+HIcosmo 使用 Planck 2018 压缩距离先验，包含三个观测量：
+
+**压缩似然观测量**：
+
+.. math::
+
+   \boldsymbol{x} = \begin{pmatrix} R \\ l_a \\ \omega_b h^2 \end{pmatrix}
+
+其中：
+
+- :math:`R = \sqrt{\Omega_m H_0^2} \, D_M(z_*) / c`：位移参数
+- :math:`l_a = \pi D_M(z_*) / r_s(z_*)`：声学尺度
+- :math:`\omega_b h^2 = \Omega_b h^2`：重子密度参数
+
+:math:`z_* \approx 1090` 是最后散射面红移。
+
+**Planck 2018 中心值**：
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 25 50
+
+   * - 观测量
+     - 值
+     - 说明
+   * - :math:`R`
+     - 1.7502
+     - 位移参数
+   * - :math:`l_a`
+     - 301.47
+     - 声学尺度
+   * - :math:`\omega_b h^2`
+     - 0.02236
+     - 重子密度
+
+**基本用法**：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import Planck
+   from hicosmo.models import LCDM
+
+   cmb = Planck(LCDM)
+
+   # 需要提供 Omega_b
+   log_L = cmb(H0=67.36, Omega_m=0.315, Omega_b=0.049)
+   print(f"Planck log L = {log_L:.2f}")
+
+**注意**：Planck 距离先验需要 ``Omega_b`` 参数。
+
+强引力透镜
+----------
+
+强引力透镜时延宇宙学提供独立于距离阶梯的 :math:`H_0` 测量。
+
+H0LiCOW
+~~~~~~~
+
+H0LiCOW (Wong et al. 2019) 使用 6 个透镜系统的时延距离约束 :math:`H_0`。
+
+**时延距离**：
+
+.. math::
+
+   D_{\Delta t} = (1 + z_{\rm lens}) \frac{D_{\rm lens} D_{\rm source}}{D_{\rm lens,source}}
+
+其中 :math:`D_{\rm lens,source}` 是透镜到源的角直径距离。
+
+**基本用法**：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import H0LiCOW
+   from hicosmo.models import LCDM
+
+   lensing = H0LiCOW(LCDM)
+
+   log_L = lensing(H0=73.3, Omega_m=0.3)
+   print(f"H0LiCOW log L = {log_L:.2f}")
+
+**透镜系统**：
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 20 20 35
+
+   * - 系统名
+     - :math:`z_{\rm lens}`
+     - :math:`z_{\rm source}`
+     - 类型
+   * - B1608+656
+     - 0.630
+     - 1.394
+     - KDE
+   * - RXJ1131-1231
+     - 0.295
+     - 0.654
+     - Skewed log-normal
+   * - HE0435-1223
+     - 0.454
+     - 1.693
+     - KDE
+   * - SDSS1206+4332
+     - 0.745
+     - 1.789
+     - KDE
+   * - WFI2033-4723
+     - 0.661
+     - 1.662
+     - KDE
+   * - PG1115+080
+     - 0.311
+     - 1.722
+     - KDE
+
+TDCOSMO
+~~~~~~~
+
+TDCOSMO 提供层次贝叶斯分析，正确处理质量面变换 (MST) 和恒星速度弥散的系统误差。
+
+**关键参数**：
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 15 60
+
+   * - 参数
+     - 默认值
+     - 描述
+   * - ``lambda_int_mean``
+     - 1.0
+     - 内部 MST 群体均值
+   * - ``lambda_int_sigma``
+     - 0.05
+     - 内部 MST 散布
+   * - ``a_ani_mean``
+     - 1.0
+     - 恒星各向异性均值
+   * - ``a_ani_sigma``
+     - 0.1
+     - 各向异性散布
+
+**基本用法**：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import TDCOSMO
+   from hicosmo.models import LCDM
+
+   tdcosmo = TDCOSMO(LCDM)
+
+   # 获取 nuisance 参数
+   for p in tdcosmo.nuisance_parameters:
+       print(f"{p.name}: {p.value} ({p.prior['min']}, {p.prior['max']})")
+
+   # 计算 log-likelihood（含 nuisance 参数）
+   log_L = tdcosmo(
+       H0=73.0,
+       Omega_m=0.3,
+       lambda_int_mean=1.0,
+       a_ani_mean=1.0
+   )
+
+SH0ES
+-----
+
+SH0ES 提供基于造父变星的局部 :math:`H_0` 测量。
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import SH0ESLikelihood
+   from hicosmo.models import LCDM
+
+   shoes = SH0ESLikelihood(cosmology_class=LCDM)
+
+   log_L = shoes(H0=73.0)
+   print(f"SH0ES log L = {log_L:.2f}")
+
+**SH0ES 约束**：
+
+.. math::
+
+   H_0 = 73.04 \pm 1.04 \text{ km/s/Mpc}
+
+联合似然
+--------
+
+HIcosmo 支持多种方式组合似然函数。
+
+加法运算符
+~~~~~~~~~~
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import SN_likelihood, BAO_likelihood, Planck
+   from hicosmo.models import LCDM
+
+   # 创建各似然
+   sne = SN_likelihood(LCDM, "pantheon+")
+   bao = BAO_likelihood(LCDM, "desi2024")  # 默认 H0_rd 模式
+   cmb = Planck(LCDM)
+
+   # 联合似然 = 各似然之和
+   # 注意：BAO 需要 H0_rd，CMB 需要 Omega_b
+   params = {'H0': 67.36, 'Omega_m': 0.315, 'Omega_b': 0.049, 'H0_rd': 100.0}
+   log_L_joint = (
+       sne(**params) +
+       bao(**params) +
+       cmb(**params)
+   )
+
+CombinedLikelihood 类
+~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import CombinedLikelihood
+
+   joint = CombinedLikelihood([sne, bao, cmb])
+   log_L = joint(H0=67.36, Omega_m=0.315, Omega_b=0.049, H0_rd=100.0)
+
+Nuisance 参数
+-------------
+
+某些似然函数包含需要采样的 nuisance 参数。
+
+获取 Nuisance 参数
+~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import BAO_likelihood, TDCOSMO
+   from hicosmo.models import LCDM
+
+   # BAO 默认使用 H0_rd 作为 nuisance 参数
+   bao = BAO_likelihood(LCDM, "desi2024")
+   for p in bao.nuisance_parameters:
+       print(f"{p.name}: {p.value}, prior: {p.prior}")
+   # 输出: H0_rd: 102.5, prior: {'dist': 'uniform', 'min': 95.0, 'max': 110.0}
+
+   # TDCOSMO 有多个 nuisance 参数
+   tdcosmo = TDCOSMO(LCDM)
+   for p in tdcosmo.nuisance_parameters:
+       print(f"{p.name}:")
+       print(f"  Default: {p.value}")
+       print(f"  Prior: {p.prior}")
+       print(f"  LaTeX: {p.latex_label}")
+
+**Nuisance 参数自动收集**：
+
+在 MCMC 采样时，nuisance 参数会自动收集：
+
+.. code-block:: python
+
+   from hicosmo.samplers import MCMC
+
+   # 宇宙学参数
+   params = {
+       'H0': (70.0, 60.0, 80.0),
+       'Omega_m': (0.3, 0.1, 0.5),
+   }
+
+   # MCMC 自动从 likelihood 收集 nuisance 参数
+   mcmc = MCMC(params, tdcosmo)
+   samples = mcmc.run(num_samples=2000)
+
+与 MCMC 结合
+------------
+
+完整 MCMC 示例
+~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from hicosmo import hicosmo
+
+   # 快捷 API：3 行完成
+   inf = hicosmo(
+       cosmology="LCDM",
+       likelihood=["sn", "bao", "cmb"],
+       free_params=["H0", "Omega_m"]
+   )
+   samples = inf.run()
+   inf.summary()
+
+类接口示例
+~~~~~~~~~~
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import SN_likelihood, BAO_likelihood
+   from hicosmo.samplers import MCMC
+   from hicosmo.models import LCDM
+
+   # 创建联合似然
+   sne = SN_likelihood(LCDM, "pantheon+")
+   bao = BAO_likelihood(LCDM, "desi2024")
+
+   def joint_likelihood(**params):
+       return sne(**params) + bao(**params)
+
+   # 配置 MCMC
+   params = {
+       'H0': (70.0, 60.0, 80.0),
+       'Omega_m': (0.3, 0.1, 0.5),
+   }
+
+   mcmc = MCMC(params, joint_likelihood, chain_name="sn_bao")
+   samples = mcmc.run(num_samples=4000, num_chains=4)
+
+   mcmc.print_summary()
+
+Traced-Aware 接口
+~~~~~~~~~~~~~~~~~
+
+似然函数内部使用 traced-aware 接口与 NumPyro 兼容：
+
+.. code-block:: python
+
+   import numpyro
+   import numpyro.distributions as dist
+   from hicosmo.models import LCDM
+
+   def numpyro_model(z_obs, mu_obs, mu_err):
+       H0 = numpyro.sample('H0', dist.Uniform(60, 80))
+       Omega_m = numpyro.sample('Omega_m', dist.Uniform(0.1, 0.5))
+
+       params = {'H0': H0, 'Omega_m': Omega_m}
+       grid = LCDM.compute_grid_traced(z_obs, params)
+       d_L = grid['d_L']
+       mu_theory = 5 * jnp.log10(d_L) + 25
+
+       numpyro.sample('obs', dist.Normal(mu_theory, mu_err), obs=mu_obs)
+
+性能优化
+--------
+
+JIT 编译
+~~~~~~~~
+
+所有似然函数的核心计算都经过 JAX JIT 编译：
+
+.. code-block:: python
+
+   # 首次调用：含编译
+   %timeit sne(H0=70, Omega_m=0.3)  # ~100ms
+
+   # 后续调用：已编译
+   %timeit sne(H0=70, Omega_m=0.3)  # ~1ms
+
+协方差矩阵预计算
+~~~~~~~~~~~~~~~~
+
+协方差矩阵逆在初始化时预计算：
+
+.. code-block:: python
+
+   # 协方差矩阵逆只计算一次
+   sne = PantheonPlusLikelihood()  # 预计算 C^{-1}
+
+   # 后续调用直接使用
+   log_L = sne(H0=70, Omega_m=0.3)
+
+性能基准
+~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 25 25 20
+
+   * - 似然函数
+     - 首次调用
+     - 后续调用
+     - 数据量
+   * - Pantheon+
+     - 150 ms
+     - 1.2 ms
+     - 1701 SNe
+   * - DESI BAO
+     - 50 ms
+     - 0.5 ms
+     - 12 点
+   * - Planck
+     - 30 ms
+     - 0.3 ms
+     - 3 点
+
+添加自定义似然函数
+------------------
+
+HIcosmo 的基类设计使创建自定义似然函数变得非常简单。
+
+最小实现
+~~~~~~~~
+
+只需继承 ``Likelihood`` 并实现 ``log_likelihood`` 方法：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import Likelihood
+   from hicosmo.models import LCDM
+   import jax.numpy as jnp
+
+   class MyDistanceModulusLikelihood(Likelihood):
+       """自定义距离模数似然函数示例。"""
+
+       def __init__(self, cosmology_class=LCDM, **kwargs):
+           super().__init__(**kwargs)
+           self._cosmology_class = cosmology_class
+
+           # 你的观测数据
+           self.z_data = jnp.array([0.5, 1.0, 1.5, 2.0])
+           self.mu_obs = jnp.array([42.5, 44.1, 45.2, 46.0])
+           self.sigma = jnp.array([0.1, 0.15, 0.12, 0.18])
+
+       def log_likelihood(self, model, **kwargs):
+           """计算 log-likelihood。
+
+           Parameters
+           ----------
+           model : CosmologyBase
+               宇宙学模型实例（自动从参数构建）
+           **kwargs
+               附加参数（如 nuisance 参数）
+
+           Returns
+           -------
+           float
+               Log-likelihood 值
+           """
+           mu_theory = model.distance_modulus(self.z_data)
+           chi2 = jnp.sum(((self.mu_obs - mu_theory) / self.sigma)**2)
+           return -0.5 * chi2
+
+   # 使用
+   my_lik = MyDistanceModulusLikelihood()
+   log_L = my_lik(H0=70, Omega_m=0.3)  # 宇宙学模型自动构建
+
+**关键点**：
+
+1. 设置 ``self._cosmology_class`` 使基类自动构建宇宙学模型
+2. ``log_likelihood(model, **kwargs)`` 接收已构建的模型实例
+3. 无需重写 ``__call__``、``__add__`` 等方法，基类已提供
+
+含 Nuisance 参数
+~~~~~~~~~~~~~~~~
+
+添加需要采样的 nuisance 参数：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import Likelihood, NuisanceList
+   from hicosmo.parameters import Parameter
+   from hicosmo.models import LCDM
+   import jax.numpy as jnp
+
+   class SNeLikelihoodWithMB(Likelihood):
+       """含绝对星等 nuisance 参数的超新星似然。"""
+
+       def __init__(self, cosmology_class=LCDM, **kwargs):
+           super().__init__(**kwargs)
+           self._cosmology_class = cosmology_class
+
+           # 观测数据
+           self.z_data = jnp.array([0.1, 0.3, 0.5, 0.8, 1.0])
+           self.m_obs = jnp.array([23.5, 26.2, 27.8, 29.1, 29.8])  # 视星等
+           self.sigma = jnp.array([0.15, 0.12, 0.10, 0.12, 0.15])
+
+       @property
+       def nuisance_parameters(self):
+           """声明 nuisance 参数。
+
+           MCMC 采样器会自动收集这些参数并采样。
+           """
+           return NuisanceList([
+               Parameter(
+                   name='M_B',
+                   value=-19.3,
+                   free=True,
+                   prior={'dist': 'uniform', 'min': -20.0, 'max': -18.0},
+                   latex_label=r'$\mathcal{M}_B$',
+                   description='SNe Ia 绝对星等'
+               )
+           ])
+
+       def log_likelihood(self, model, M_B=-19.3, **kwargs):
+           """计算 log-likelihood。
+
+           Parameters
+           ----------
+           model : CosmologyBase
+               宇宙学模型实例
+           M_B : float
+               绝对星等（nuisance 参数）
+           """
+           mu_theory = model.distance_modulus(self.z_data)
+           m_theory = mu_theory + M_B
+           chi2 = jnp.sum(((self.m_obs - m_theory) / self.sigma)**2)
+           return -0.5 * chi2
+
+   # 使用
+   sne = SNeLikelihoodWithMB()
+
+   # 获取 nuisance 参数信息
+   for p in sne.nuisance_parameters:
+       print(f"{p.name}: {p.value}, prior: {p.prior}")
+
+   # MCMC 自动采样 nuisance 参数
+   from hicosmo.samplers import MCMC
+
+   params = {
+       'H0': (70.0, 60.0, 80.0),
+       'Omega_m': (0.3, 0.1, 0.5),
+   }
+   mcmc = MCMC(params, sne)  # M_B 自动加入采样
+   samples = mcmc.run(num_samples=2000)
+
+联合似然
+~~~~~~~~
+
+自定义似然可与内置似然组合：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import BAO_likelihood
+
+   # 组合自定义 + 内置
+   my_lik = MyDistanceModulusLikelihood()
+   bao = BAO_likelihood(LCDM, "desi2024")
+
+   joint = my_lik + bao
+
+   # MCMC 采样
+   mcmc = MCMC(params, joint)
+   samples = mcmc.run()
+
+使用协方差矩阵
+~~~~~~~~~~~~~~
+
+对于需要完整协方差矩阵的似然：
+
+.. code-block:: python
+
+   class CorrelatedDataLikelihood(Likelihood):
+       """带协方差矩阵的似然函数。"""
+
+       def __init__(self, cosmology_class=LCDM, **kwargs):
+           super().__init__(**kwargs)
+           self._cosmology_class = cosmology_class
+
+           # 数据
+           self.z_data = jnp.array([0.3, 0.5, 0.7, 0.9])
+           self.obs = jnp.array([1.02, 1.05, 1.08, 1.12])
+
+           # 协方差矩阵
+           cov = jnp.array([
+               [0.01, 0.002, 0.001, 0.0],
+               [0.002, 0.012, 0.003, 0.001],
+               [0.001, 0.003, 0.015, 0.002],
+               [0.0, 0.001, 0.002, 0.018]
+           ])
+           self.inv_cov = jnp.linalg.inv(cov)
+
+       def log_likelihood(self, model, **kwargs):
+           # 理论预测
+           theory = model.E_z(self.z_data)
+
+           # 带协方差的 chi2
+           diff = self.obs - theory
+           chi2 = diff @ self.inv_cov @ diff
+           return -0.5 * chi2
+
+高级：JIT 编译优化
+~~~~~~~~~~~~~~~~~~
+
+对于性能关键的似然，使用 traced 接口：
+
+.. code-block:: python
+
+   from jax import jit
+   import jax.numpy as jnp
+
+   class FastTracedLikelihood(Likelihood):
+       """使用 traced 接口的高性能似然。"""
+
+       def __init__(self, cosmology_class=LCDM, **kwargs):
+           super().__init__(**kwargs)
+           self._cosmology_class = cosmology_class
+
+           self.z_data = jnp.array([0.1, 0.3, 0.5, 0.7, 1.0, 1.5, 2.0])
+           self.mu_obs = jnp.array([38.5, 41.2, 42.8, 43.9, 44.9, 46.1, 46.8])
+           self.sigma = jnp.array([0.1, 0.1, 0.1, 0.1, 0.15, 0.15, 0.2])
+
+           # 预编译 JIT 函数
+           self._build_jit_loglike()
+
+       def _build_jit_loglike(self):
+           z = self.z_data
+           mu_obs = self.mu_obs
+           sigma = self.sigma
+           cosmo_class = self._cosmology_class
+
+           @jit
+           def _loglike_impl(params):
+               # 使用 traced 接口直接计算
+               grid = cosmo_class.compute_grid_traced(z, params)
+               d_L = grid['d_L']
+               mu_theory = 5 * jnp.log10(d_L) + 25
+               chi2 = jnp.sum(((mu_obs - mu_theory) / sigma)**2)
+               return -0.5 * chi2
+
+           self._loglike_jit = _loglike_impl
+
+       def __call__(self, **params):
+           # 准备 JAX 参数
+           params_jax = self._prepare_params_for_jax(params)
+           return self._loglike_jit(params_jax)
+
+设计原则
+~~~~~~~~
+
+创建自定义似然时，请遵循以下原则：
+
+1. **只覆盖必要的方法**
+   - 必须：``__init__`` 和 ``log_likelihood``
+   - 可选：``nuisance_parameters`` （如有 nuisance 参数）
+
+2. **使用 JAX 数组**
+   - 数据存储使用 ``jnp.array``
+   - 计算使用 JAX 函数
+
+3. **设置 cosmology_class**
+   - ``self._cosmology_class = cosmology_class``
+   - 使基类 ``__call__`` 自动构建模型
+
+4. **勿重复造轮子**
+   - ``__add__``/``__radd__`` 已由基类提供
+   - 协方差处理可用 ``_prepare_params_for_jax``
+
+5. **nuisance 参数必须有 LaTeX 标签**
+   - 用于绘图显示
+   - 见 ``nuisance-parameters.md`` 规范
+
+常见模式
+~~~~~~~~
+
+**BAO 类型（观测量 / r_d）**：
+
+.. code-block:: python
+
+   def log_likelihood(self, model, **kwargs):
+       DM = model.transverse_comoving_distance(self.z)
+       DH = model.hubble_distance(self.z)
+       rd = model.sound_horizon_drag()
+
+       DM_rd_theory = DM / rd
+       DH_rd_theory = DH / rd
+
+       chi2 = ...
+       return -0.5 * chi2
+
+**CMB 距离先验类型**：
+
+.. code-block:: python
+
+   def log_likelihood(self, model, **kwargs):
+       z_star = model.recombination_redshift()
+       DA = model.angular_diameter_distance(z_star)
+       rs = model.sound_horizon(z_star)
+
+       # 计算 R, l_a 等
+       ...
+
+**强透镜类型**：
+
+.. code-block:: python
+
+   def log_likelihood(self, model, **kwargs):
+       Ddt = model.time_delay_distance(z_lens, z_source)
+       # 与观测 Ddt 比较
+       ...
+
+下一步
+------
+
+- `采样器 <samplers.html>`_：学习 MCMC 配置和运行
+- `可视化 <visualization.html>`_：生成出版级图表
+- `Fisher 预报 <fisher.html>`_：进行巡天预测
