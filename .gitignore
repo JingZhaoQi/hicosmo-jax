@@ -1,4 +1,4 @@
-# HIcosmo Repository - Only sync: hicosmo/, examples/, tutorials/, README.md
+# HIcosmo Repository
 
 # Ignore everything by default
 *
@@ -21,8 +21,19 @@
 !docs_zh/**
 !docs_en/
 !docs_en/**
+!pyproject.toml
+!requirements.txt
 
-# Python artifacts (always ignore within allowed dirs)
+# Large data files (never commit)
+hicosmo/data/
+examples/data/
+*.h5
+*.hdf5
+*.pkl
+*.p
+*.npy
+
+# Python artifacts
 __pycache__/
 *.py[cod]
 *.egg-info/
