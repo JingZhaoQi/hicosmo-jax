@@ -27,6 +27,9 @@
 # Large data files (never commit)
 hicosmo/data/
 examples/data/
+
+# Incomplete modules (not ready for release)
+hicosmo/likelihoods/gw/
 *.h5
 *.hdf5
 *.pkl

@@ -41,16 +41,9 @@ HIcosmo 提供自动发现数据集的功能，用户可以轻松查看所有可
      --------------------------------------------------
        • planck2018_distance : Planck 2018 distance priors (built-in)
 
-     H0 (Direct Hubble Measurements)
-     --------------------------------------------------
-       • h0licow          : H0LiCOW strong lensing time delays (6 lenses)
-
-     GW (Gravitational Waves)
-     --------------------------------------------------
-       • gwtc-3           : GWTC-3 gravitational wave catalog
-
      Lensing (Strong Gravitational Lensing)
      --------------------------------------------------
+       • h0licow          : H0LiCOW strong lensing time delays (6 lenses)
        • tdcosmo          : TDCOSMO hierarchical strong lensing (7 lenses)
        • tdcosmo2025      : TDCOSMO 2025 updated analysis
 
@@ -90,8 +83,8 @@ HIcosmo 提供自动发现数据集的功能，用户可以轻松查看所有可
    # 只显示 BAO 数据集
    show_available_datasets('bao')
 
-   # 只显示引力波数据集
-   show_available_datasets('gw')
+   # 只显示强透镜数据集
+   show_available_datasets('lensing')
 
 类方法查询
 ~~~~~~~~~~
@@ -135,13 +128,10 @@ HIcosmo 支持以下类别的观测数据：
      - Planck 2018 距离先验
    * - ``h0``
      - Direct H0 Measurements
-     - H0LiCOW, SH0ES
-   * - ``gw``
-     - Gravitational Waves
-     - GWTC-3
+     - SH0ES
    * - ``lensing``
      - Strong Gravitational Lensing
-     - TDCOSMO, TDCOSMO 2025
+     - H0LiCOW, TDCOSMO, TDCOSMO 2025
 
 
 使用发现的数据集
@@ -204,8 +194,7 @@ HIcosmo 支持以下类别的观测数据：
    │   ├── Pantheon+SH0ES.dat
    │   └── Pantheon+SH0ES_STAT+SYS.cov
    ├── h0licow/
-   ├── tdcosmo/
-   └── gwtc-3/
+   └── tdcosmo/
 
 
 添加新数据集

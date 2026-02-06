@@ -26,7 +26,7 @@
 
 - **Minimal API**: 3 lines of code for cosmological inference
 - **JAX Native**: Automatic differentiation, JIT compilation, GPU/TPU acceleration
-- **Multi-probe Analysis**: Supernovae, BAO, CMB, Strong Lensing, Gravitational Waves
+- **Multi-probe Analysis**: Supernovae, BAO, CMB, Strong Lensing Time Delays
 - **High-performance Sampling**: NumPyro NUTS + emcee dual backends
 - **Fisher Forecasting**: 21cm intensity mapping survey predictions
 - **Publication-quality Visualization**: GetDist integration
@@ -287,9 +287,8 @@ hicosmo/
 │   ├── sn/                 # Supernovae (Pantheon+)
 │   ├── bao/                # BAO (DESI, SDSS, 6dFGS)
 │   ├── cmb/                # CMB distance priors
-│   ├── h0/                 # H0 (H0LiCOW, SH0ES)
-│   ├── lensing/            # Strong lensing (TDCOSMO)
-│   └── gw/                 # Gravitational waves
+│   ├── h0/                 # Direct H0 (SH0ES)
+│   └── lensing/            # Strong lensing time delays (H0LiCOW, TDCOSMO)
 │
 ├── samplers/               # MCMC sampling system
 │   ├── inference.py        # MCMC high-level API

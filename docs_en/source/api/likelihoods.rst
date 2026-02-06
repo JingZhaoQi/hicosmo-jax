@@ -1,7 +1,7 @@
 Likelihoods API
 ===============
 
-Contains likelihood interfaces for SN / BAO / CMB / H0LiCOW / GW and more.
+Contains likelihood interfaces for SN / BAO / CMB / H0LiCOW / TDCOSMO and more.
 
 Main Entry Point
 ----------------

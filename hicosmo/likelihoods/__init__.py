@@ -8,9 +8,8 @@ Submodules:
 - bao/: Baryon Acoustic Oscillations
 - sn/: Type Ia Supernovae
 - cmb/: Cosmic Microwave Background
-- h0/: Direct H0 measurements
-- gw/: Gravitational Wave Standard Sirens
-- lensing/: Strong Gravitational Lensing
+- h0/: Direct H0 measurements (SH0ES)
+- lensing/: Strong Gravitational Lensing (H0LiCOW, TDCOSMO)
 
 Quick Start:
     >>> from hicosmo.likelihoods import SN_likelihood, BAO_likelihood
@@ -63,40 +62,12 @@ from .sn import (
 from .cmb import Planck2018DistancePriorsLikelihood
 
 # H0 submodule
-from .h0 import H0LiCOWLikelihood, SH0ESLikelihood
+from .h0 import SH0ESLikelihood
 
-# GW submodule
-from .gw import (
-    BNSMassPrior,
-    BrokenPowerLawMass,
-    CosmologyAdapter,
-    GWCatalogData,
-    GWEventData,
-    GWGalaxyCatalog,
-    GWInjectionSet,
-    GWPopulationRateModel,
-    GWRateModel,
-    GWStandardSirenLikelihood,
-    Injections,
-    MadauRate,
-    MadauRateEvaluator,
-    MassPriorEvaluator,
-    PowerLawMass,
-    PowerLawPeak,
-    create_mock_gw_catalog,
-    detector2source,
-    detector2source_jacobian,
-    detector2source_jacobian_q,
-    detector2source_jacobian_single_mass,
-    load_gw_event_hdf5,
-    load_gw_injections,
-    load_gwtc3_catalog,
-    load_gwtc3_events,
-)
-
-# Lensing submodule
+# Lensing submodule (strong lensing time delays: H0LiCOW, TDCOSMO)
 from .lensing import (
     ExternalLensLikelihood,
+    H0LiCOWLikelihood,
     HierarchicalGWLikelihood,
     HierarchicalTDCOSMO,
     KappaPrior,
@@ -133,42 +104,16 @@ __all__ = [
     "BAOLikelihoodFactory",
     "register_bao_dataset",
     "available_bao_datasets",
-    # Strong lensing
-    "H0LiCOWLikelihood",
     # CMB distance priors
     "Planck2018DistancePriorsLikelihood",
+    # H0 direct measurement
     "SH0ESLikelihood",
+    # Strong lensing time delays
+    "H0LiCOWLikelihood",
     "TDCOSMOLikelihood",
     "KappaPrior",
     "ExternalLensLikelihood",
     "HierarchicalTDCOSMO",
-    # Gravitational Waves
-    "GWStandardSirenLikelihood",
-    "GWEventData",
-    "GWCatalogData",
-    "GWInjectionSet",
-    "GWGalaxyCatalog",
-    "PowerLawMass",
-    "BrokenPowerLawMass",
-    "PowerLawPeak",
-    "BNSMassPrior",
-    "MadauRate",
-    "GWRateModel",
-    "create_mock_gw_catalog",
-    "load_gw_injections",
-    "load_gw_event_hdf5",
-    "load_gwtc3_catalog",
-    "load_gwtc3_events",
-    "Injections",
-    "HierarchicalGWLikelihood",
-    "CosmologyAdapter",
-    "detector2source",
-    "detector2source_jacobian",
-    "detector2source_jacobian_q",
-    "detector2source_jacobian_single_mass",
-    "MassPriorEvaluator",
-    "MadauRateEvaluator",
-    "GWPopulationRateModel",
     # Convenience aliases (short names)
     "H0LiCOW",
     "Planck",
@@ -317,7 +262,7 @@ def list_all_datasets(refresh: bool = False):
     -------
     dict
         Dictionary mapping category to list of dataset names.
-        Categories: 'bao', 'sn', 'cmb', 'h0', 'gw', 'lensing'
+        Categories: 'bao', 'sn', 'cmb', 'h0', 'lensing'
 
     Examples
     --------
@@ -327,9 +272,8 @@ def list_all_datasets(refresh: bool = False):
     {'bao': ['boss_dr12', 'desi_2024', 'sdss_dr12', 'sdss_dr16', 'sixdf'],
      'sn': ['pantheon+shoes'],
      'cmb': ['planck2018_distance'],
-     'h0': ['h0licow'],
-     'gw': ['gwtc-3'],
-     'lensing': ['tdcosmo', 'tdcosmo2025']}
+     'h0': ['shoes'],
+     'lensing': ['h0licow', 'tdcosmo', 'tdcosmo2025']}
 
     >>> # Use discovered datasets
     >>> bao = BAO_likelihood(LCDM, datasets['bao'][0])
@@ -350,7 +294,7 @@ def show_available_datasets(category=None):
     ----------
     category : str, optional
         If specified, show only datasets for this category.
-        Options: 'bao', 'sn', 'cmb', 'h0', 'gw', 'lensing'
+        Options: 'bao', 'sn', 'cmb', 'h0', 'lensing'
 
     Examples
     --------

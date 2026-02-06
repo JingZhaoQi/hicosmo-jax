@@ -1,7 +1,7 @@
 似然 API
 ========
 
-包含 SN / BAO / CMB / H0LiCOW / GW 等似然接口。
+包含 SN / BAO / CMB / 强引力透镜（H0LiCOW, TDCOSMO）/ SH0ES 等似然接口。
 
 主入口
 ------
