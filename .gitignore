@@ -21,6 +21,8 @@
 !docs_zh/**
 !docs_en/
 !docs_en/**
+!tests/
+!tests/**
 !pyproject.toml
 !requirements.txt
 

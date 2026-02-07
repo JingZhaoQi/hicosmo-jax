@@ -9,6 +9,9 @@ description = "HIcosmo - Cosmological Parameter Estimation with JAX"
 requires-python = ">=3.9"
 dynamic = ["dependencies"]
 
+[project.scripts]
+hicosmo = "hicosmo.cli:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",

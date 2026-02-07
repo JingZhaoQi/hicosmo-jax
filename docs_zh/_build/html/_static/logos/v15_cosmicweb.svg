@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 140">
+  <defs>
+    <linearGradient id="v15_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a14"/>
+      <stop offset="50%" style="stop-color:#0f0f1a"/>
+      <stop offset="100%" style="stop-color:#1a1a2e"/>
+    </linearGradient>
+    <filter id="v15_glow">
+      <feGaussianBlur stdDeviation="1"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="420" height="140" fill="url(#v15_bg)"/>
+
+  <!-- Cosmic web structure -->
+  <g transform="translate(65, 70)">
+    <!-- Filaments -->
+    <g stroke="#4ecdc4" stroke-width="0.5" opacity="0.3">
+      <line x1="-40" y1="-35" x2="-15" y2="-10"/>
+      <line x1="-15" y1="-10" x2="10" y2="-25"/>
+      <line x1="10" y1="-25" x2="35" y2="-5"/>
+      <line x1="-35" y1="30" x2="-10" y2="10"/>
+      <line x1="-10" y1="10" x2="15" y2="25"/>
+      <line x1="15" y1="25" x2="40" y2="10"/>
+      <line x1="-15" y1="-10" x2="-10" y2="10"/>
+      <line x1="10" y1="-25" x2="15" y2="25"/>
+      <line x1="35" y1="-5" x2="40" y2="10"/>
+      <line x1="-40" y1="-35" x2="-35" y2="30"/>
+      <line x1="-15" y1="-10" x2="0" y2="0"/>
+      <line x1="0" y1="0" x2="10" y2="-25"/>
+      <line x1="0" y1="0" x2="15" y2="25"/>
+      <line x1="0" y1="0" x2="-10" y2="10"/>
+    </g>
+
+    <!-- Galaxy clusters (nodes) -->
+    <g fill="#e94560" filter="url(#v15_glow)">
+      <circle cx="-40" cy="-35" r="3" opacity="0.6"/>
+      <circle cx="-15" cy="-10" r="4" opacity="0.7"/>
+      <circle cx="10" cy="-25" r="3.5" opacity="0.65"/>
+      <circle cx="35" cy="-5" r="3" opacity="0.6"/>
+      <circle cx="-35" cy="30" r="2.5" opacity="0.5"/>
+      <circle cx="-10" cy="10" r="4" opacity="0.7"/>
+      <circle cx="15" cy="25" r="3" opacity="0.6"/>
+      <circle cx="40" cy="10" r="2.5" opacity="0.5"/>
+    </g>
+
+    <!-- Central supercluster -->
+    <circle cx="0" cy="0" r="6" fill="#e94560" filter="url(#v15_glow)"/>
+    <circle cx="0" cy="0" r="3" fill="#ffffff" opacity="0.3"/>
+
+    <!-- Void regions (subtle) -->
+    <circle cx="-25" cy="-30" r="12" fill="none" stroke="#4ecdc4" stroke-width="0.2" stroke-dasharray="2,4" opacity="0.15"/>
+    <circle cx="25" cy="20" r="10" fill="none" stroke="#4ecdc4" stroke-width="0.2" stroke-dasharray="2,4" opacity="0.15"/>
+  </g>
+
+  <!-- Typography -->
+  <text x="135" y="50" font-family="Helvetica Neue, Arial" font-size="32" font-weight="300" fill="#ffffff" letter-spacing="4">
+    HICOSMO
+  </text>
+
+  <!-- Subtitle -->
+  <text x="135" y="72" font-family="Helvetica Neue, Arial" font-size="10" fill="#4ecdc4" opacity="0.7" letter-spacing="1">
+    LARGE SCALE STRUCTURE · GALAXY CLUSTERING
+  </text>
+
+  <!-- JAX branding -->
+  <g transform="translate(135, 88)">
+    <rect x="0" y="0" width="38" height="16" rx="3" fill="#e94560" opacity="0.15"/>
+    <text x="19" y="11.5" text-anchor="middle" font-family="SF Mono, monospace" font-size="10" fill="#e94560" font-weight="600">JAX</text>
+    <text x="48" y="11.5" font-family="Helvetica" font-size="9" fill="#4ecdc4" opacity="0.6">Power Spectrum Analysis</text>
+  </g>
+</svg>

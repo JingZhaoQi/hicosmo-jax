@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(python -m pytest tests/ -v --tb=no)",
+      "Bash(cat:*)",
+      "WebFetch(domain:cobaya.readthedocs.io)",
+      "Bash(python:*)",
+      "Bash(find:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "WebFetch(domain:num.pyro.ai)",
+      "WebFetch(domain:getdist.readthedocs.io)",
+      "WebFetch(domain:seaborn.pydata.org)",
+      "Bash(grep:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(python3:*)",
+      "Skill(numpyro)",
+      "Bash(git log:*)",
+      "Bash(sed:*)",
+      "Bash(tee:*)",
+      "Bash(lsof:*)",
+      "Bash(sample 14221 1 2:*)",
+      "Skill(jax)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

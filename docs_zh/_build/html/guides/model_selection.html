@@ -1,0 +1,656 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="zh-CN" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>模型选择与信息判据 &mdash; HIcosmo 中文文档</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=d786bb5c"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/translations.js?v=beaddf03"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="搜索" href="../search.html" />
+    <link rel="next" title="Fisher 预报" href="fisher.html" />
+    <link rel="prev" title="可视化" href="visualization.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            HIcosmo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="搜索文档" aria-label="搜索文档" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="导航菜单">
+              <p class="caption" role="heading"><span class="caption-text">入门</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">安装指南</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">快速开始</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">核心概念</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../jax_introduction.html">JAX 技术详解</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">使用指南</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="data.html">数据与路径</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">宇宙学模型</a></li>
+<li class="toctree-l1"><a class="reference internal" href="likelihoods.html">似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="samplers.html">采样与推断</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_likelihood.html">自定义似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">配置驱动</a></li>
+<li class="toctree-l1"><a class="reference internal" href="visualization.html">可视化</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">模型选择与信息判据</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id2">信息判据概览</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">快速开始</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id4">公式详解</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id5">卡方统计量</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aic-akaike-information-criterion">AIC (Akaike Information Criterion)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#bic-bayesian-information-criterion">BIC (Bayesian Information Criterion)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id6">贝叶斯证据</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id7">归一化常数的处理</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id8">为什么需要归一化常数？</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#hicosmo">HIcosmo 的实现</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id9">对模型对比的影响</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#api">API 接口</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#information-criteria">information_criteria 函数</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#aic-bic">aic 和 bic 函数</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id10">完整示例</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id11">单模型信息判据</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id12">多模型比较</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id13">贝叶斯证据比较</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id14">常见问题</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#q-aic-bic">Q: AIC/BIC 值为负数是否正确？</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id15">Q: 应该使用 AIC 还是 BIC？</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#q">Q: 贝叶斯证据估计不稳定怎么办？</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id16">Q: 归一化常数是否影响模型对比？</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id17">下一步</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="fisher.html">Fisher 预报</a></li>
+<li class="toctree-l1"><a class="reference internal" href="jax_tools.html">JAX 数值工具参考</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API 接口（完整）</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API 接口详细介绍</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="移动版导航菜单" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">HIcosmo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="页面导航">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">模型选择与信息判据</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/guides/model_selection.rst.txt" rel="nofollow"> 查看页面源码</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="id1">
+<h1>模型选择与信息判据<a class="headerlink" href="#id1" title="Link to this heading"></a></h1>
+<p>HIcosmo 提供完整的模型选择工具，包括 AIC、BIC 和贝叶斯证据计算。这些工具帮助比较不同宇宙学模型的拟合优度。</p>
+<section id="id2">
+<h2>信息判据概览<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 25%" />
+<col style="width: 30%" />
+<col style="width: 30%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>判据</p></th>
+<th class="head"><p>公式</p></th>
+<th class="head"><p>适用场景</p></th>
+<th class="head"><p>解释</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>AIC</strong></p></td>
+<td><p><span class="math notranslate nohighlight">\(\chi^2_{\min} + 2k\)</span></p></td>
+<td><p>小样本、探索性分析</p></td>
+<td><p>较小值表示更好的模型</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>BIC</strong></p></td>
+<td><p><span class="math notranslate nohighlight">\(\chi^2_{\min} + k \ln N\)</span></p></td>
+<td><p>大样本、模型选择</p></td>
+<td><p>对参数数量惩罚更强</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>贝叶斯证据</strong></p></td>
+<td><p><span class="math notranslate nohighlight">\(\int L(\theta) \pi(\theta) d\theta\)</span></p></td>
+<td><p>贝叶斯模型比较</p></td>
+<td><p>考虑先验体积</p></td>
+</tr>
+</tbody>
+</table>
+<p>其中：</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(k\)</span> = 自由参数数量</p></li>
+<li><p><span class="math notranslate nohighlight">\(N\)</span> = 数据点数量</p></li>
+<li><p><span class="math notranslate nohighlight">\(\chi^2_{\min}\)</span> = 最小卡方值</p></li>
+</ul>
+</section>
+<section id="id3">
+<h2>快速开始<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
+<p><strong>3 行计算信息判据</strong>：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">information_criteria</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">information_criteria</span><span class="p">(</span><span class="s1">&#39;my_chain&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;AIC = </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;aic&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, BIC = </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;bic&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h2>公式详解<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
+<section id="id5">
+<h3>卡方统计量<a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
+<p>对于高斯似然函数：</p>
+<div class="math notranslate nohighlight">
+\[\log L = -\frac{\chi^2}{2} + \text{normalization constant}\]</div>
+<p>其中归一化常数包括：</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(-\frac{1}{2} \log |C|\)</span>：协方差矩阵行列式</p></li>
+<li><p>其他与参数无关的常数</p></li>
+</ul>
+<p>从 log-likelihood 提取 <span class="math notranslate nohighlight">\(\chi^2\)</span>：</p>
+<div class="math notranslate nohighlight">
+\[\chi^2 = -2 \times (\log L - \text{normalization constant})\]</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>HIcosmo 自动处理归一化常数，确保 AIC/BIC 值正确。用户无需手动干预。</p>
+</div>
+</section>
+<section id="aic-akaike-information-criterion">
+<h3>AIC (Akaike Information Criterion)<a class="headerlink" href="#aic-akaike-information-criterion" title="Link to this heading"></a></h3>
+<p>赤池信息准则：</p>
+<div class="math notranslate nohighlight">
+\[\text{AIC} = \chi^2_{\min} + 2k\]</div>
+<p><strong>特点</strong>：</p>
+<ul class="simple">
+<li><p>惩罚项与样本量无关</p></li>
+<li><p>适合小样本情况</p></li>
+<li><p>趋向于选择更复杂的模型</p></li>
+</ul>
+<p><strong>解释 ΔAIC</strong>：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30%" />
+<col style="width: 70%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>ΔAIC</p></th>
+<th class="head"><p>解释</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>&lt; 2</p></td>
+<td><p>无显著差异</p></td>
+</tr>
+<tr class="row-odd"><td><p>2 - 4</p></td>
+<td><p>弱证据支持较小 AIC 模型</p></td>
+</tr>
+<tr class="row-even"><td><p>4 - 7</p></td>
+<td><p>中等证据</p></td>
+</tr>
+<tr class="row-odd"><td><p>&gt; 10</p></td>
+<td><p>强证据</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="bic-bayesian-information-criterion">
+<h3>BIC (Bayesian Information Criterion)<a class="headerlink" href="#bic-bayesian-information-criterion" title="Link to this heading"></a></h3>
+<p>贝叶斯信息准则：</p>
+<div class="math notranslate nohighlight">
+\[\text{BIC} = \chi^2_{\min} + k \ln N\]</div>
+<p><strong>特点</strong>：</p>
+<ul class="simple">
+<li><p>惩罚项随样本量增加</p></li>
+<li><p>对过拟合惩罚更强</p></li>
+<li><p>一致性估计（样本足够大时选择真实模型）</p></li>
+</ul>
+<p><strong>Jeffreys 尺度解释 ΔBIC</strong>：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30%" />
+<col style="width: 70%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>ΔBIC</p></th>
+<th class="head"><p>证据强度</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>&lt; 2</p></td>
+<td><p>不足以区分</p></td>
+</tr>
+<tr class="row-odd"><td><p>2 - 6</p></td>
+<td><p>正面证据 (Positive)</p></td>
+</tr>
+<tr class="row-even"><td><p>6 - 10</p></td>
+<td><p>强证据 (Strong)</p></td>
+</tr>
+<tr class="row-odd"><td><p>&gt; 10</p></td>
+<td><p>决定性证据 (Decisive)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id6">
+<h3>贝叶斯证据<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
+<p>贝叶斯证据（边际似然）：</p>
+<div class="math notranslate nohighlight">
+\[Z = \int L(\theta) \pi(\theta) d\theta\]</div>
+<p>其中 <span class="math notranslate nohighlight">\(\pi(\theta)\)</span> 是先验分布。</p>
+<p><strong>贝叶斯因子</strong>：</p>
+<div class="math notranslate nohighlight">
+\[B_{12} = \frac{Z_1}{Z_2} = \exp(\log Z_1 - \log Z_2)\]</div>
+<p><strong>Jeffreys 尺度</strong>：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30%" />
+<col style="width: 30%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Δlog Z</p></th>
+<th class="head"><p>贝叶斯因子 B</p></th>
+<th class="head"><p>证据强度</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>&lt; 1.0</p></td>
+<td><p>&lt; 2.7</p></td>
+<td><p>不足以区分</p></td>
+</tr>
+<tr class="row-odd"><td><p>1.0 - 2.5</p></td>
+<td><p>2.7 - 12</p></td>
+<td><p>弱证据</p></td>
+</tr>
+<tr class="row-even"><td><p>2.5 - 5.0</p></td>
+<td><p>12 - 150</p></td>
+<td><p>中等证据</p></td>
+</tr>
+<tr class="row-odd"><td><p>&gt; 5.0</p></td>
+<td><p>&gt; 150</p></td>
+<td><p>强证据</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">警告</p>
+<p>HIcosmo 使用 <strong>Harmonic Mean Estimator</strong> 计算贝叶斯证据。此方法可能不稳定，
+对于精确的贝叶斯证据计算，建议使用 nested sampling（如 dynesty）。</p>
+</div>
+</section>
+</section>
+<section id="id7">
+<h2>归一化常数的处理<a class="headerlink" href="#id7" title="Link to this heading"></a></h2>
+<section id="id8">
+<h3>为什么需要归一化常数？<a class="headerlink" href="#id8" title="Link to this heading"></a></h3>
+<p>考虑高斯似然函数的完整形式：</p>
+<div class="math notranslate nohighlight">
+\[\log L = -\frac{1}{2} (d - t)^T C^{-1} (d - t) - \frac{1}{2} \log |C| - \frac{N}{2} \log(2\pi)\]</div>
+<p>其中：</p>
+<ul class="simple">
+<li><p>第一项 <span class="math notranslate nohighlight">\(-\frac{\chi^2}{2}\)</span> 依赖于模型参数</p></li>
+<li><p>后两项是归一化常数，不依赖于模型参数</p></li>
+</ul>
+<p><strong>问题</strong>：如果直接使用 <span class="math notranslate nohighlight">\(\log L\)</span> 计算 AIC/BIC：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 错误！</span>
+<span class="n">aic</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">k</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">log_likelihood</span>  <span class="c1"># 会得到负值</span>
+</pre></div>
+</div>
+<p><strong>解决方案</strong>：提取 <span class="math notranslate nohighlight">\(\chi^2\)</span> 后再计算：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 正确</span>
+<span class="n">chi2</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">log_likelihood</span> <span class="o">-</span> <span class="n">normalization_constant</span><span class="p">)</span>
+<span class="n">aic</span> <span class="o">=</span> <span class="n">chi2</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">k</span>  <span class="c1"># 正值</span>
+</pre></div>
+</div>
+</section>
+<section id="hicosmo">
+<h3>HIcosmo 的实现<a class="headerlink" href="#hicosmo" title="Link to this heading"></a></h3>
+<p>HIcosmo 自动处理归一化常数，用户无需手动干预：</p>
+<ol class="arabic simple">
+<li><p><strong>似然函数提供归一化常数</strong>：</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">PantheonPlusLikelihood</span><span class="p">(</span><span class="n">Likelihood</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_normalization_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;返回归一化常数&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_det_cov</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p><strong>MCMC 保存时自动存储</strong>：</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 保存链时自动包含归一化常数</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">save_results</span><span class="p">(</span><span class="s1">&#39;my_chain&#39;</span><span class="p">)</span>
+<span class="c1"># metadata 中包含 normalization_constant</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p><strong>信息判据自动读取</strong>：</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">information_criteria</span><span class="p">(</span><span class="s1">&#39;my_chain&#39;</span><span class="p">)</span>
+<span class="c1"># 自动从 metadata 读取归一化常数</span>
+</pre></div>
+</div>
+</section>
+<section id="id9">
+<h3>对模型对比的影响<a class="headerlink" href="#id9" title="Link to this heading"></a></h3>
+<p><strong>重要结论</strong>：归一化常数对 <strong>模型对比结果无影响</strong>！</p>
+<div class="math notranslate nohighlight">
+\[\Delta\text{AIC} = \text{AIC}_1 - \text{AIC}_2 = (\chi^2_1 + 2k_1) - (\chi^2_2 + 2k_2)\]</div>
+<p>归一化常数相同（使用相同数据），在差值中被抵消。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 验证</span>
+<span class="n">delta_aic_without_norm</span> <span class="o">=</span> <span class="n">aic1</span> <span class="o">-</span> <span class="n">aic2</span>
+<span class="n">delta_aic_with_norm</span> <span class="o">=</span> <span class="n">aic1_corrected</span> <span class="o">-</span> <span class="n">aic2_corrected</span>
+<span class="c1"># 两者相等！</span>
+</pre></div>
+</div>
+<p>但是，<strong>绝对值</strong> AIC/BIC 需要正确的归一化才能有意义：</p>
+<ul class="simple">
+<li><p>约化 <span class="math notranslate nohighlight">\(\chi^2 = \chi^2_{\min}/N \approx 1\)</span> 表示良好拟合</p></li>
+<li><p>AIC、BIC 必须是正数</p></li>
+</ul>
+</section>
+</section>
+<section id="api">
+<h2>API 接口<a class="headerlink" href="#api" title="Link to this heading"></a></h2>
+<section id="information-criteria">
+<h3>information_criteria 函数<a class="headerlink" href="#information-criteria" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">information_criteria</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">information_criteria</span><span class="p">(</span>
+    <span class="n">samples</span><span class="o">=</span><span class="s1">&#39;my_chain&#39;</span><span class="p">,</span>           <span class="c1"># 链名称、路径或样本字典</span>
+    <span class="n">num_params</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>              <span class="c1"># 自由参数数（自动推断）</span>
+    <span class="n">num_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>                <span class="c1"># 数据点数（自动推断）</span>
+    <span class="n">log_likelihood_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>       <span class="c1"># 似然函数（可选）</span>
+    <span class="n">evidence_method</span><span class="o">=</span><span class="s1">&#39;harmonic_mean&#39;</span><span class="p">,</span>  <span class="c1"># 证据估计方法</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>返回值</strong>：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s1">&#39;num_params&#39;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>                    <span class="c1"># 自由参数数 k</span>
+    <span class="s1">&#39;num_data&#39;</span><span class="p">:</span> <span class="mi">1580</span><span class="p">,</span>                   <span class="c1"># 数据点数 N</span>
+    <span class="s1">&#39;n_samples&#39;</span><span class="p">:</span> <span class="mi">10000</span><span class="p">,</span>                 <span class="c1"># MCMC 样本数</span>
+    <span class="s1">&#39;log_likelihood_max&#39;</span><span class="p">:</span> <span class="mf">2300.68</span><span class="p">,</span>      <span class="c1"># 最大 log-likelihood</span>
+    <span class="s1">&#39;normalization_constant&#39;</span><span class="p">:</span> <span class="mf">2994.34</span><span class="p">,</span>  <span class="c1"># 归一化常数</span>
+    <span class="s1">&#39;chi2_min&#39;</span><span class="p">:</span> <span class="mf">1387.32</span><span class="p">,</span>                <span class="c1"># 最小卡方值</span>
+    <span class="s1">&#39;aic&#39;</span><span class="p">:</span> <span class="mf">1395.32</span><span class="p">,</span>                     <span class="c1"># AIC</span>
+    <span class="s1">&#39;bic&#39;</span><span class="p">:</span> <span class="mf">1417.88</span><span class="p">,</span>                     <span class="c1"># BIC</span>
+    <span class="s1">&#39;log_evidence&#39;</span><span class="p">:</span> <span class="mf">2298.5</span><span class="p">,</span>             <span class="c1"># log(贝叶斯证据)</span>
+    <span class="s1">&#39;log_evidence_method&#39;</span><span class="p">:</span> <span class="s1">&#39;harmonic_mean&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="aic-bic">
+<h3>aic 和 bic 函数<a class="headerlink" href="#aic-bic" title="Link to this heading"></a></h3>
+<p>独立计算 AIC 或 BIC：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.visualization.information_criteria</span><span class="w"> </span><span class="kn">import</span> <span class="n">aic</span><span class="p">,</span> <span class="n">bic</span>
+
+<span class="c1"># 计算 AIC</span>
+<span class="n">aic_value</span> <span class="o">=</span> <span class="n">aic</span><span class="p">(</span>
+    <span class="n">log_likelihood_max</span><span class="o">=</span><span class="mf">2300.68</span><span class="p">,</span>
+    <span class="n">num_params</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">normalization_constant</span><span class="o">=</span><span class="mf">2994.34</span>
+<span class="p">)</span>
+
+<span class="c1"># 计算 BIC</span>
+<span class="n">bic_value</span> <span class="o">=</span> <span class="n">bic</span><span class="p">(</span>
+    <span class="n">log_likelihood_max</span><span class="o">=</span><span class="mf">2300.68</span><span class="p">,</span>
+    <span class="n">num_params</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">num_data</span><span class="o">=</span><span class="mi">1580</span><span class="p">,</span>
+    <span class="n">normalization_constant</span><span class="o">=</span><span class="mf">2994.34</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id10">
+<h2>完整示例<a class="headerlink" href="#id10" title="Link to this heading"></a></h2>
+<section id="id11">
+<h3>单模型信息判据<a class="headerlink" href="#id11" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCMC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods</span><span class="w"> </span><span class="kn">import</span> <span class="n">SN_likelihood</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">information_criteria</span>
+
+<span class="c1"># 运行 MCMC</span>
+<span class="n">likelihood</span> <span class="o">=</span> <span class="n">SN_likelihood</span><span class="p">(</span><span class="n">LCDM</span><span class="p">,</span> <span class="s1">&#39;pantheon+&#39;</span><span class="p">)</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;H0&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">67.0</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">,</span> <span class="mf">80.0</span><span class="p">),</span>
+    <span class="s1">&#39;Omega_m&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">,</span> <span class="n">chain_name</span><span class="o">=</span><span class="s1">&#39;lcdm_pantheon&#39;</span><span class="p">)</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">num_chains</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+<span class="c1"># 计算信息判据</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">information_criteria</span><span class="p">(</span><span class="s1">&#39;lcdm_pantheon&#39;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;自由参数数 k = </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;num_params&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;数据点数 N = </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;num_data&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;χ²_min = </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;chi2_min&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;约化 χ² = </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;chi2_min&#39;</span><span class="p">]</span><span class="o">/</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;num_data&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;AIC = </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;aic&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;BIC = </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;bic&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id12">
+<h3>多模型比较<a class="headerlink" href="#id12" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCMC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span><span class="p">,</span> <span class="n">wCDM</span><span class="p">,</span> <span class="n">CPL</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods</span><span class="w"> </span><span class="kn">import</span> <span class="n">SN_likelihood</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">information_criteria</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="c1"># 定义三个模型</span>
+<span class="n">models</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;LCDM&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">LCDM</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;H0&#39;</span><span class="p">,</span> <span class="s1">&#39;Omega_m&#39;</span><span class="p">]),</span>
+    <span class="s1">&#39;wCDM&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">wCDM</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;H0&#39;</span><span class="p">,</span> <span class="s1">&#39;Omega_m&#39;</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">]),</span>
+    <span class="s1">&#39;CPL&#39;</span><span class="p">:</span> <span class="p">(</span><span class="n">CPL</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;H0&#39;</span><span class="p">,</span> <span class="s1">&#39;Omega_m&#39;</span><span class="p">,</span> <span class="s1">&#39;w0&#39;</span><span class="p">,</span> <span class="s1">&#39;wa&#39;</span><span class="p">]),</span>
+<span class="p">}</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
+
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">model_class</span><span class="p">,</span> <span class="n">free_params</span><span class="p">)</span> <span class="ow">in</span> <span class="n">models</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="c1"># 构建参数配置</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="p">(</span><span class="mf">67.0</span> <span class="k">if</span> <span class="n">p</span> <span class="o">==</span> <span class="s1">&#39;H0&#39;</span> <span class="k">else</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">free_params</span><span class="p">}</span>
+    <span class="k">if</span> <span class="s1">&#39;w&#39;</span> <span class="ow">in</span> <span class="n">free_params</span><span class="p">:</span>
+        <span class="n">params</span><span class="p">[</span><span class="s1">&#39;w&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s1">&#39;w0&#39;</span> <span class="ow">in</span> <span class="n">free_params</span><span class="p">:</span>
+        <span class="n">params</span><span class="p">[</span><span class="s1">&#39;w0&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">params</span><span class="p">[</span><span class="s1">&#39;wa&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+    <span class="c1"># 运行 MCMC</span>
+    <span class="n">likelihood</span> <span class="o">=</span> <span class="n">SN_likelihood</span><span class="p">(</span><span class="n">model_class</span><span class="p">,</span> <span class="s1">&#39;pantheon+&#39;</span><span class="p">)</span>
+    <span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">,</span> <span class="n">chain_name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s1">_chain&#39;</span><span class="p">)</span>
+    <span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">num_chains</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+    <span class="c1"># 计算信息判据</span>
+    <span class="n">results</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">information_criteria</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s1">_chain&#39;</span><span class="p">)</span>
+
+<span class="c1"># 打印比较表格</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">模型选择结果&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;模型&#39;</span><span class="si">:</span><span class="s2">&lt;8</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;k&#39;</span><span class="si">:</span><span class="s2">&lt;4</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;χ²_min&#39;</span><span class="si">:</span><span class="s2">&lt;12</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;AIC&#39;</span><span class="si">:</span><span class="s2">&lt;12</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;BIC&#39;</span><span class="si">:</span><span class="s2">&lt;12</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;ΔBIC&#39;</span><span class="si">:</span><span class="s2">&lt;10</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+
+<span class="n">bic_ref</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;LCDM&#39;</span><span class="p">][</span><span class="s1">&#39;bic&#39;</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">ic</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">delta_bic</span> <span class="o">=</span> <span class="n">ic</span><span class="p">[</span><span class="s1">&#39;bic&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">bic_ref</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;8</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">ic</span><span class="p">[</span><span class="s1">&#39;num_params&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&lt;4</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">ic</span><span class="p">[</span><span class="s1">&#39;chi2_min&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&lt;12.2f</span><span class="si">}</span><span class="s2"> &quot;</span>
+          <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ic</span><span class="p">[</span><span class="s1">&#39;aic&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&lt;12.2f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">ic</span><span class="p">[</span><span class="s1">&#39;bic&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&lt;12.2f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">delta_bic</span><span class="si">:</span><span class="s2">&lt;+10.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">70</span><span class="p">)</span>
+
+<span class="c1"># 解释结果</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">模型选择解释 (Jeffreys 尺度):&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">ic</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;LCDM&#39;</span><span class="p">:</span>
+        <span class="k">continue</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ic</span><span class="p">[</span><span class="s1">&#39;bic&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">bic_ref</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">delta</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">strength</span> <span class="o">=</span> <span class="s2">&quot;不足以区分&quot;</span>
+    <span class="k">elif</span> <span class="n">delta</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">:</span>
+        <span class="n">strength</span> <span class="o">=</span> <span class="s2">&quot;正面证据&quot;</span>
+    <span class="k">elif</span> <span class="n">delta</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>
+        <span class="n">strength</span> <span class="o">=</span> <span class="s2">&quot;强证据&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">strength</span> <span class="o">=</span> <span class="s2">&quot;决定性证据&quot;</span>
+    <span class="n">better</span> <span class="o">=</span> <span class="s2">&quot;ΛCDM&quot;</span> <span class="k">if</span> <span class="n">ic</span><span class="p">[</span><span class="s1">&#39;bic&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">bic_ref</span> <span class="k">else</span> <span class="n">name</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> vs ΛCDM: |ΔBIC| = </span><span class="si">{</span><span class="n">delta</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> → </span><span class="si">{</span><span class="n">strength</span><span class="si">}</span><span class="s2">支持 </span><span class="si">{</span><span class="n">better</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id13">
+<h3>贝叶斯证据比较<a class="headerlink" href="#id13" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">information_criteria</span>
+
+<span class="c1"># 假设已运行多个模型的 MCMC</span>
+<span class="n">chains</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;lcdm_chain&#39;</span><span class="p">,</span> <span class="s1">&#39;wcdm_chain&#39;</span><span class="p">,</span> <span class="s1">&#39;cpl_chain&#39;</span><span class="p">]</span>
+<span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;ΛCDM&#39;</span><span class="p">,</span> <span class="s1">&#39;wCDM&#39;</span><span class="p">,</span> <span class="s1">&#39;CPL&#39;</span><span class="p">]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">贝叶斯证据比较&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="s1">&#39;模型&#39;</span><span class="si">:</span><span class="s2">&lt;8</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;log(Z)&#39;</span><span class="si">:</span><span class="s2">&lt;15</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;Δlog(Z)&#39;</span><span class="si">:</span><span class="s2">&lt;15</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;B&#39;</span><span class="si">:</span><span class="s2">&lt;10</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+
+<span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">information_criteria</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">chains</span><span class="p">]</span>
+<span class="n">log_z_ref</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;log_evidence&#39;</span><span class="p">]</span>
+
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">ic</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">ic</span><span class="p">[</span><span class="s1">&#39;log_evidence&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">log_z_ref</span>
+    <span class="n">bayes_factor</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">delta</span><span class="p">)</span> <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">delta</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">100</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">&lt;8</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">ic</span><span class="p">[</span><span class="s1">&#39;log_evidence&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">&lt;15.4f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">delta</span><span class="si">:</span><span class="s2">&lt;+15.4f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">bayes_factor</span><span class="si">:</span><span class="s2">&lt;10.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">*</span> <span class="mi">60</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Jeffreys 尺度: |Δlog(Z)| &gt; 5 表示强证据&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id14">
+<h2>常见问题<a class="headerlink" href="#id14" title="Link to this heading"></a></h2>
+<section id="q-aic-bic">
+<h3>Q: AIC/BIC 值为负数是否正确？<a class="headerlink" href="#q-aic-bic" title="Link to this heading"></a></h3>
+<p><strong>不正确</strong>。AIC = χ² + 2k 和 BIC = χ² + k·ln(N) 必须是正数，因为 χ² ≥ 0。</p>
+<p>如果您看到负值，可能是使用了未修正的 log-likelihood。HIcosmo 已自动处理此问题。</p>
+</section>
+<section id="id15">
+<h3>Q: 应该使用 AIC 还是 BIC？<a class="headerlink" href="#id15" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>AIC</strong>：适合小样本、探索性分析，对复杂模型惩罚较轻</p></li>
+<li><p><strong>BIC</strong>：适合大样本、模型选择，对过拟合惩罚更强</p></li>
+</ul>
+<p>宇宙学中通常推荐 <strong>BIC</strong>，因为数据集通常很大（N &gt; 1000）。</p>
+</section>
+<section id="q">
+<h3>Q: 贝叶斯证据估计不稳定怎么办？<a class="headerlink" href="#q" title="Link to this heading"></a></h3>
+<p>Harmonic Mean Estimator 确实可能不稳定。建议：</p>
+<ol class="arabic simple">
+<li><p>增加 MCMC 样本数</p></li>
+<li><p>使用多条链取平均</p></li>
+<li><p>对于精确计算，使用 nested sampling（如 dynesty、polychord）</p></li>
+</ol>
+</section>
+<section id="id16">
+<h3>Q: 归一化常数是否影响模型对比？<a class="headerlink" href="#id16" title="Link to this heading"></a></h3>
+<p><strong>不影响</strong>。当比较使用相同数据的模型时，归一化常数相同，在 ΔAIC、ΔBIC 中被抵消。</p>
+<p>但归一化常数对 <strong>绝对值</strong> 有影响：</p>
+<ul class="simple">
+<li><p>确保 χ² &gt; 0</p></li>
+<li><p>确保 AIC、BIC 为正数</p></li>
+<li><p>约化 χ² ≈ 1 表示良好拟合</p></li>
+</ul>
+</section>
+</section>
+<section id="id17">
+<h2>下一步<a class="headerlink" href="#id17" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="visualization.html">可视化</a>：绘制约束图</p></li>
+<li><p><a class="reference external" href="samplers.html">采样器</a>：了解 MCMC 配置</p></li>
+<li><p><a class="reference external" href="fisher.html">Fisher 预报</a>：进行巡天预测</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="页脚">
+        <a href="visualization.html" class="btn btn-neutral float-left" title="可视化" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> 上一页</a>
+        <a href="fisher.html" class="btn btn-neutral float-right" title="Fisher 预报" accesskey="n" rel="next">下一页 <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; 版权所有 。</p>
+  </div>
+
+  利用 <a href="https://www.sphinx-doc.org/">Sphinx</a> 构建，使用的 
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">主题</a>
+    由 <a href="https://readthedocs.org">Read the Docs</a> 开发.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

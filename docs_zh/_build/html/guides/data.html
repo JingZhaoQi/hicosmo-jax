@@ -1,0 +1,435 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="zh-CN" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>数据集管理 &mdash; HIcosmo 中文文档</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=d786bb5c"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/translations.js?v=beaddf03"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="搜索" href="../search.html" />
+    <link rel="next" title="宇宙学模型" href="models.html" />
+    <link rel="prev" title="JAX 技术详解" href="../jax_introduction.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            HIcosmo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="搜索文档" aria-label="搜索文档" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="导航菜单">
+              <p class="caption" role="heading"><span class="caption-text">入门</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">安装指南</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">快速开始</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">核心概念</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../jax_introduction.html">JAX 技术详解</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">使用指南</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">数据集管理</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id2">查看可用数据集</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id3">快速查看</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id4">程序化获取</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id5">按类别查看</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id6">类方法查询</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id7">数据集分类</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id8">使用发现的数据集</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id9">默认数据目录</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id10">目录结构</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id11">添加新数据集</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataregistry">DataRegistry 高级用法</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id12">完整示例</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">宇宙学模型</a></li>
+<li class="toctree-l1"><a class="reference internal" href="likelihoods.html">似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="samplers.html">采样与推断</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_likelihood.html">自定义似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parallel.html">并行与加速配置</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">配置驱动</a></li>
+<li class="toctree-l1"><a class="reference internal" href="visualization.html">可视化</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_selection.html">模型选择与信息判据</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fisher.html">Fisher 预报</a></li>
+<li class="toctree-l1"><a class="reference internal" href="jax_tools.html">JAX 数值工具参考</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API 接口（完整）</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API 接口详细介绍</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="移动版导航菜单" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">HIcosmo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="页面导航">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">数据集管理</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/guides/data.rst.txt" rel="nofollow"> 查看页面源码</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="id1">
+<h1>数据集管理<a class="headerlink" href="#id1" title="Link to this heading"></a></h1>
+<p>HIcosmo 提供自动发现数据集的功能，用户可以轻松查看所有可用的观测数据。
+无需硬编码 —— 当您添加新数据集到数据目录时，系统会自动识别。</p>
+<section id="id2">
+<h2>查看可用数据集<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
+<section id="id3">
+<h3>快速查看<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<p>最简单的方式是调用 <code class="docutils literal notranslate"><span class="pre">show_available_datasets()</span></code>：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods</span><span class="w"> </span><span class="kn">import</span> <span class="n">show_available_datasets</span>
+
+<span class="c1"># 显示所有可用数据集</span>
+<span class="n">show_available_datasets</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>输出示例:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>======================================================================
+                    HIcosmo Available Datasets
+======================================================================
+
+  BAO (Baryon Acoustic Oscillations)
+  --------------------------------------------------
+    • desi_2024        : DESI 2024 DR1 BAO measurements (z=0.3-2.3)
+    • boss_dr12        : BOSS DR12 Luminous Red Galaxy BAO
+    • sdss_dr12        : SDSS DR12 consensus BAO
+    • sdss_dr16        : SDSS DR16 LRG and QSO BAO
+    • sixdf            : 6dF Galaxy Survey BAO (z=0.1)
+
+  SN (Type Ia Supernovae)
+  --------------------------------------------------
+    • pantheon+shoes   : Pantheon+ with SH0ES Cepheid calibration
+
+  CMB (Cosmic Microwave Background)
+  --------------------------------------------------
+    • planck2018_distance : Planck 2018 distance priors (built-in)
+
+  H0 (Direct Hubble Measurements)
+  --------------------------------------------------
+    • h0licow          : H0LiCOW strong lensing time delays (6 lenses)
+
+  GW (Gravitational Waves)
+  --------------------------------------------------
+    • gwtc-3           : GWTC-3 gravitational wave catalog
+
+  Lensing (Strong Gravitational Lensing)
+  --------------------------------------------------
+    • tdcosmo          : TDCOSMO hierarchical strong lensing (7 lenses)
+    • tdcosmo2025      : TDCOSMO 2025 updated analysis
+
+======================================================================
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h3>程序化获取<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
+<p>如果需要在代码中使用数据集列表：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods</span><span class="w"> </span><span class="kn">import</span> <span class="n">list_all_datasets</span>
+
+<span class="c1"># 获取所有数据集（字典形式）</span>
+<span class="n">datasets</span> <span class="o">=</span> <span class="n">list_all_datasets</span><span class="p">()</span>
+
+<span class="c1"># 查看 BAO 数据集</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">datasets</span><span class="p">[</span><span class="s1">&#39;bao&#39;</span><span class="p">])</span>
+<span class="c1"># [&#39;desi_2024&#39;, &#39;boss_dr12&#39;, &#39;sdss_dr12&#39;, &#39;sdss_dr16&#39;, &#39;sixdf&#39;]</span>
+
+<span class="c1"># 查看 SN 数据集</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">datasets</span><span class="p">[</span><span class="s1">&#39;sn&#39;</span><span class="p">])</span>
+<span class="c1"># [&#39;pantheon+shoes&#39;]</span>
+
+<span class="c1"># 动态选择数据集</span>
+<span class="k">for</span> <span class="n">bao_name</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">[</span><span class="s1">&#39;bao&#39;</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;可用 BAO 数据集: </span><span class="si">{</span><span class="n">bao_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id5">
+<h3>按类别查看<a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
+<p>只查看特定类别的数据集：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 只显示 BAO 数据集</span>
+<span class="n">show_available_datasets</span><span class="p">(</span><span class="s1">&#39;bao&#39;</span><span class="p">)</span>
+
+<span class="c1"># 只显示引力波数据集</span>
+<span class="n">show_available_datasets</span><span class="p">(</span><span class="s1">&#39;gw&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id6">
+<h3>类方法查询<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
+<p>每个 Likelihood 类也提供 <code class="docutils literal notranslate"><span class="pre">available_datasets()</span></code> 方法：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods.bao</span><span class="w"> </span><span class="kn">import</span> <span class="n">DESI2024BAO</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods.sn</span><span class="w"> </span><span class="kn">import</span> <span class="n">PantheonPlusLikelihood</span>
+
+<span class="c1"># BAO 类的可用数据集</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">DESI2024BAO</span><span class="o">.</span><span class="n">available_datasets</span><span class="p">())</span>
+<span class="c1"># [&#39;desi_2024&#39;, &#39;boss_dr12&#39;, &#39;sdss_dr12&#39;, &#39;sdss_dr16&#39;, &#39;sixdf&#39;]</span>
+
+<span class="c1"># SN 类的可用数据集</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">PantheonPlusLikelihood</span><span class="o">.</span><span class="n">available_datasets</span><span class="p">())</span>
+<span class="c1"># [&#39;pantheon+shoes&#39;]</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id7">
+<h2>数据集分类<a class="headerlink" href="#id7" title="Link to this heading"></a></h2>
+<p>HIcosmo 支持以下类别的观测数据：</p>
+<table class="docutils align-default" id="id13">
+<caption><span class="caption-text">数据集分类</span><a class="headerlink" href="#id13" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 35%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>类别</p></th>
+<th class="head"><p>全称</p></th>
+<th class="head"><p>包含数据集</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">bao</span></code></p></td>
+<td><p>Baryon Acoustic Oscillations</p></td>
+<td><p>DESI 2024, BOSS DR12, SDSS DR12/16, 6dF</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sn</span></code></p></td>
+<td><p>Type Ia Supernovae</p></td>
+<td><p>Pantheon+, Pantheon+SH0ES</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cmb</span></code></p></td>
+<td><p>Cosmic Microwave Background</p></td>
+<td><p>Planck 2018 距离先验</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">h0</span></code></p></td>
+<td><p>Direct H0 Measurements</p></td>
+<td><p>H0LiCOW, SH0ES</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gw</span></code></p></td>
+<td><p>Gravitational Waves</p></td>
+<td><p>GWTC-3</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lensing</span></code></p></td>
+<td><p>Strong Gravitational Lensing</p></td>
+<td><p>TDCOSMO, TDCOSMO 2025</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id8">
+<h2>使用发现的数据集<a class="headerlink" href="#id8" title="Link to this heading"></a></h2>
+<p>将发现的数据集用于 MCMC 分析：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BAO_likelihood</span><span class="p">,</span> <span class="n">SN_likelihood</span><span class="p">,</span>
+    <span class="n">list_all_datasets</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span>
+
+<span class="c1"># 1. 查看可用数据集</span>
+<span class="n">datasets</span> <span class="o">=</span> <span class="n">list_all_datasets</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;BAO 数据集:&quot;</span><span class="p">,</span> <span class="n">datasets</span><span class="p">[</span><span class="s1">&#39;bao&#39;</span><span class="p">])</span>
+
+<span class="c1"># 2. 选择数据集创建 likelihood</span>
+<span class="n">bao</span> <span class="o">=</span> <span class="n">BAO_likelihood</span><span class="p">(</span><span class="n">LCDM</span><span class="p">,</span> <span class="s1">&#39;desi_2024&#39;</span><span class="p">)</span>
+<span class="n">sn</span> <span class="o">=</span> <span class="n">SN_likelihood</span><span class="p">(</span><span class="n">LCDM</span><span class="p">,</span> <span class="s1">&#39;pantheon+shoes&#39;</span><span class="p">)</span>
+
+<span class="c1"># 3. 联合分析</span>
+<span class="n">joint</span> <span class="o">=</span> <span class="n">bao</span> <span class="o">+</span> <span class="n">sn</span>
+
+<span class="c1"># 4. 运行 MCMC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCMC</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;H0&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">70.0</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">,</span> <span class="mf">80.0</span><span class="p">),</span>
+    <span class="s1">&#39;Omega_m&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span>
+<span class="p">}</span>
+<span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">joint</span><span class="p">,</span> <span class="n">chain_name</span><span class="o">=</span><span class="s1">&#39;joint_analysis&#39;</span><span class="p">)</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id9">
+<h2>默认数据目录<a class="headerlink" href="#id9" title="Link to this heading"></a></h2>
+<p>数据文件存储位置：</p>
+<ul class="simple">
+<li><p><strong>默认路径</strong>：<code class="docutils literal notranslate"><span class="pre">hicosmo/data/</span></code></p></li>
+<li><p><strong>环境变量</strong>：可通过 <code class="docutils literal notranslate"><span class="pre">HICOSMO_DATA</span></code> 指定自定义路径</p></li>
+</ul>
+<section id="id10">
+<h3>目录结构<a class="headerlink" href="#id10" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>hicosmo/data/
+├── bao_data/
+│   ├── desi_2024/
+│   │   ├── desi_2024_gaussian_bao_ALL_GCcomb_mean.txt
+│   │   └── desi_2024_gaussian_bao_ALL_GCcomb_cov.txt
+│   ├── boss_dr12/
+│   ├── sdss_dr12/
+│   ├── sdss_dr16/
+│   └── sixdf/
+├── sne/
+│   ├── Pantheon+SH0ES.dat
+│   └── Pantheon+SH0ES_STAT+SYS.cov
+├── h0licow/
+├── tdcosmo/
+└── gwtc-3/
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id11">
+<h2>添加新数据集<a class="headerlink" href="#id11" title="Link to this heading"></a></h2>
+<p>添加新数据集非常简单 —— 只需将数据文件放入正确的目录：</p>
+<ol class="arabic simple">
+<li><p><strong>BAO 数据</strong>：在 <code class="docutils literal notranslate"><span class="pre">bao_data/</span></code> 下创建新目录</p></li>
+<li><p><strong>SN 数据</strong>：放入 <code class="docutils literal notranslate"><span class="pre">sne/</span></code> 目录</p></li>
+<li><p><strong>其他</strong>：放入对应类别目录</p></li>
+</ol>
+<p>示例：添加新的 BAO 数据集</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 创建新数据集目录</span>
+mkdir<span class="w"> </span>hicosmo/data/bao_data/my_new_survey
+
+<span class="c1"># 复制数据文件</span>
+cp<span class="w"> </span>my_data.txt<span class="w"> </span>hicosmo/data/bao_data/my_new_survey/
+</pre></div>
+</div>
+<p>然后刷新数据注册表：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods</span><span class="w"> </span><span class="kn">import</span> <span class="n">list_all_datasets</span>
+
+<span class="c1"># 强制刷新，发现新数据集</span>
+<span class="n">datasets</span> <span class="o">=</span> <span class="n">list_all_datasets</span><span class="p">(</span><span class="n">refresh</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">datasets</span><span class="p">[</span><span class="s1">&#39;bao&#39;</span><span class="p">])</span>
+<span class="c1"># [..., &#39;my_new_survey&#39;]  # 新数据集已自动发现！</span>
+</pre></div>
+</div>
+</section>
+<section id="dataregistry">
+<h2>DataRegistry 高级用法<a class="headerlink" href="#dataregistry" title="Link to this heading"></a></h2>
+<p>对于更复杂的需求，可以直接使用 <code class="docutils literal notranslate"><span class="pre">DataRegistry</span></code> 类：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.data_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataRegistry</span>
+
+<span class="c1"># 创建注册表实例</span>
+<span class="n">registry</span> <span class="o">=</span> <span class="n">DataRegistry</span><span class="p">()</span>
+
+<span class="c1"># 获取详细信息</span>
+<span class="n">info</span> <span class="o">=</span> <span class="n">registry</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="s1">&#39;bao&#39;</span><span class="p">,</span> <span class="s1">&#39;desi_2024&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;名称: </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;描述: </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;文件数: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">files</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;路径: </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 导出为字典（可序列化为 JSON）</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">registry</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="id12">
+<h2>完整示例<a class="headerlink" href="#id12" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="sd">&quot;&quot;&quot;数据集发现与使用完整示例&quot;&quot;&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">show_available_datasets</span><span class="p">,</span>
+    <span class="n">list_all_datasets</span><span class="p">,</span>
+    <span class="n">BAO_likelihood</span><span class="p">,</span>
+    <span class="n">SN_likelihood</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span>
+
+<span class="c1"># 1. 查看所有可用数据集</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Step 1: 查看可用数据集&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
+<span class="n">show_available_datasets</span><span class="p">()</span>
+
+<span class="c1"># 2. 程序化获取</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Step 2: 获取数据集列表&quot;</span><span class="p">)</span>
+<span class="n">datasets</span> <span class="o">=</span> <span class="n">list_all_datasets</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">category</span><span class="p">,</span> <span class="n">names</span> <span class="ow">in</span> <span class="n">datasets</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">names</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">category</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 3. 创建 likelihood</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Step 3: 创建 Likelihood&quot;</span><span class="p">)</span>
+<span class="n">bao</span> <span class="o">=</span> <span class="n">BAO_likelihood</span><span class="p">(</span><span class="n">LCDM</span><span class="p">,</span> <span class="n">datasets</span><span class="p">[</span><span class="s1">&#39;bao&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># 使用第一个 BAO 数据集</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  已创建: </span><span class="si">{</span><span class="n">bao</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># 4. 测试 likelihood</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Step 4: 测试 Likelihood&quot;</span><span class="p">)</span>
+<span class="n">log_L</span> <span class="o">=</span> <span class="n">bao</span><span class="p">(</span><span class="n">H0</span><span class="o">=</span><span class="mf">70.0</span><span class="p">,</span> <span class="n">Omega_m</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  log(L) = </span><span class="si">{</span><span class="n">log_L</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="页脚">
+        <a href="../jax_introduction.html" class="btn btn-neutral float-left" title="JAX 技术详解" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> 上一页</a>
+        <a href="models.html" class="btn btn-neutral float-right" title="宇宙学模型" accesskey="n" rel="next">下一页 <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; 版权所有 。</p>
+  </div>
+
+  利用 <a href="https://www.sphinx-doc.org/">Sphinx</a> 构建，使用的 
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">主题</a>
+    由 <a href="https://readthedocs.org">Read the Docs</a> 开发.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

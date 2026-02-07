@@ -12,19 +12,13 @@ This launches an interactive Python session with HIcosmo pre-loaded.
 """
 
 import sys
-import os
+import importlib.util
 from pathlib import Path
 import code
 import readline
 import rlcompleter
 
-try:
-    from rich.console import Console
-    from rich.text import Text
-
-    RICH_AVAILABLE = True
-except ImportError:
-    RICH_AVAILABLE = False
+RICH_AVAILABLE = importlib.util.find_spec("rich") is not None
 
 
 def get_default_output_paths():

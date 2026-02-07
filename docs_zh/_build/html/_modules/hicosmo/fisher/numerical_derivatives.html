@@ -1,0 +1,249 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="zh-CN" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hicosmo.fisher.numerical_derivatives &mdash; HIcosmo 中文文档</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d786bb5c"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../_static/translations.js?v=beaddf03"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../../../genindex.html" />
+    <link rel="search" title="搜索" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            HIcosmo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="搜索文档" aria-label="搜索文档" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="导航菜单">
+              <p class="caption" role="heading"><span class="caption-text">入门</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">安装指南</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">快速开始</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../concepts.html">核心概念</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../jax_introduction.html">JAX 技术详解</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">使用指南</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/data.html">数据与路径</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/models.html">宇宙学模型</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/likelihoods.html">似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/samplers.html">采样与推断</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/custom_likelihood.html">自定义似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/config.html">配置驱动</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/visualization.html">可视化</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/model_selection.html">模型选择与信息判据</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/fisher.html">Fisher 预报</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/jax_tools.html">JAX 数值工具参考</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API 接口（完整）</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API 接口详细介绍</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="移动版导航菜单" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">HIcosmo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="页面导航">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">模块代码</a></li>
+      <li class="breadcrumb-item active">hicosmo.fisher.numerical_derivatives</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>hicosmo.fisher.numerical_derivatives 源代码</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Numerical derivative utilities for Fisher matrix calculations.</span>
+
+<span class="sd">Provides reusable, JAX-friendly finite-difference routines for gradients,</span>
+<span class="sd">Hessians, and Jacobians. Designed to work with scalar or vector-valued</span>
+<span class="sd">functions of cosmological parameters while respecting HIcosmo&#39;s precision</span>
+<span class="sd">requirements.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span> <span class="k">as</span> <span class="n">jax_config</span>
+
+
+<span class="n">_X64_ENABLED</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">jax_config</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">))</span>
+<span class="n">_DEFAULT_DTYPE</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">float64</span> <span class="k">if</span> <span class="n">_X64_ENABLED</span> <span class="k">else</span> <span class="n">jnp</span><span class="o">.</span><span class="n">float32</span>
+
+<span class="n">ArrayLikeFunc</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="n">ScalarFunc</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="nb">float</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="compute_step_sizes">
+<a class="viewcode-back" href="../../../api/fisher.html#hicosmo.fisher.compute_step_sizes">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_step_sizes</span><span class="p">(</span>
+    <span class="n">fiducial</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">base_step</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;adaptive&quot;</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return per-parameter step sizes for finite differencing.&quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">fiducial</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_DEFAULT_DTYPE</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;fixed&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">base_step</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;relative&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">base_step</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;optimal&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">base_step</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-8</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;adaptive&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">base_step</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown step method &#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="finite_difference_gradient">
+<a class="viewcode-back" href="../../../api/fisher.html#hicosmo.fisher.finite_difference_gradient">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">finite_difference_gradient</span><span class="p">(</span>
+    <span class="n">func</span><span class="p">:</span> <span class="n">ScalarFunc</span><span class="p">,</span>
+    <span class="n">point</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">steps</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Central-difference gradient of a scalar function.&quot;&quot;&quot;</span>
+    <span class="n">point</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_DEFAULT_DTYPE</span><span class="p">)</span>
+    <span class="n">steps</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_DEFAULT_DTYPE</span><span class="p">)</span>
+    <span class="n">grad</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">point</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+        <span class="n">direction</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">f_plus</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">point</span> <span class="o">+</span> <span class="n">direction</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+        <span class="n">f_minus</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">point</span> <span class="o">-</span> <span class="n">direction</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+        <span class="n">grad_val</span> <span class="o">=</span> <span class="p">(</span><span class="n">f_plus</span> <span class="o">-</span> <span class="n">f_minus</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+        <span class="n">grad</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">grad_val</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">grad</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="finite_difference_hessian">
+<a class="viewcode-back" href="../../../api/fisher.html#hicosmo.fisher.finite_difference_hessian">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">finite_difference_hessian</span><span class="p">(</span>
+    <span class="n">func</span><span class="p">:</span> <span class="n">ScalarFunc</span><span class="p">,</span>
+    <span class="n">point</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">steps</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Central-difference Hessian of a scalar function.&quot;&quot;&quot;</span>
+    <span class="n">point</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_DEFAULT_DTYPE</span><span class="p">)</span>
+    <span class="n">steps</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_DEFAULT_DTYPE</span><span class="p">)</span>
+    <span class="n">n_params</span> <span class="o">=</span> <span class="n">point</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">f0</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+    <span class="n">hessian</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_params</span><span class="p">,</span> <span class="n">n_params</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_DEFAULT_DTYPE</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_params</span><span class="p">):</span>
+        <span class="n">ei</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">f_plus</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">point</span> <span class="o">+</span> <span class="n">ei</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">f_minus</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">point</span> <span class="o">-</span> <span class="n">ei</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">second_derivative</span> <span class="o">=</span> <span class="p">(</span><span class="n">f_plus</span> <span class="o">-</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">f0</span> <span class="o">+</span> <span class="n">f_minus</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">steps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">hessian</span> <span class="o">=</span> <span class="n">hessian</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">second_derivative</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_params</span><span class="p">):</span>
+            <span class="n">ej</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+            <span class="n">f_pp</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">point</span> <span class="o">+</span> <span class="n">ei</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">ej</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">f_pm</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">point</span> <span class="o">+</span> <span class="n">ei</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">ej</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">f_mp</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">point</span> <span class="o">-</span> <span class="n">ei</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">ej</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">f_mm</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">point</span> <span class="o">-</span> <span class="n">ei</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">ej</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">mixed</span> <span class="o">=</span> <span class="p">(</span><span class="n">f_pp</span> <span class="o">-</span> <span class="n">f_pm</span> <span class="o">-</span> <span class="n">f_mp</span> <span class="o">+</span> <span class="n">f_mm</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+            <span class="n">hessian</span> <span class="o">=</span> <span class="n">hessian</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">mixed</span><span class="p">)</span>
+            <span class="n">hessian</span> <span class="o">=</span> <span class="n">hessian</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">mixed</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">hessian</span></div>
+
+
+
+<div class="viewcode-block" id="finite_difference_jacobian">
+<a class="viewcode-back" href="../../../api/fisher.html#hicosmo.fisher.finite_difference_jacobian">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">finite_difference_jacobian</span><span class="p">(</span>
+    <span class="n">func</span><span class="p">:</span> <span class="n">ArrayLikeFunc</span><span class="p">,</span>
+    <span class="n">point</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">steps</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Central-difference Jacobian for vector-valued functions.&quot;&quot;&quot;</span>
+    <span class="n">point</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_DEFAULT_DTYPE</span><span class="p">)</span>
+    <span class="n">steps</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_DEFAULT_DTYPE</span><span class="p">)</span>
+    <span class="n">baseline</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="n">point</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_DEFAULT_DTYPE</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">baseline</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Jacobian calculation expects 1D output vector&quot;</span><span class="p">)</span>
+
+    <span class="n">m</span> <span class="o">=</span> <span class="n">baseline</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">point</span><span class="o">.</span><span class="n">size</span>
+    <span class="n">jacobian</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">m</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">_DEFAULT_DTYPE</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">direction</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">f_plus</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="n">point</span> <span class="o">+</span> <span class="n">direction</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+        <span class="n">f_minus</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">func</span><span class="p">(</span><span class="n">point</span> <span class="o">-</span> <span class="n">direction</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">idx</span><span class="p">]))</span>
+        <span class="n">column</span> <span class="o">=</span> <span class="p">(</span><span class="n">f_plus</span> <span class="o">-</span> <span class="n">f_minus</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">steps</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+        <span class="n">jacobian</span> <span class="o">=</span> <span class="n">jacobian</span><span class="o">.</span><span class="n">at</span><span class="p">[:,</span> <span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">column</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">jacobian</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; 版权所有 。</p>
+  </div>
+
+  利用 <a href="https://www.sphinx-doc.org/">Sphinx</a> 构建，使用的 
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">主题</a>
+    由 <a href="https://readthedocs.org">Read the Docs</a> 开发.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

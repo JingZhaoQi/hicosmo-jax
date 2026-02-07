@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 140">
+  <defs>
+    <linearGradient id="v14_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#000000"/>
+      <stop offset="100%" style="stop-color:#0a0a14"/>
+    </linearGradient>
+    <filter id="v14_glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="420" height="140" fill="url(#v14_bg)"/>
+
+  <!-- w(z) evolution diagram -->
+  <g transform="translate(20, 115)">
+    <!-- Axes -->
+    <line x1="0" y1="0" x2="95" y2="0" stroke="#4ecdc4" stroke-width="0.4" opacity="0.4"/>
+    <line x1="0" y1="-90" x2="0" y2="10" stroke="#4ecdc4" stroke-width="0.4" opacity="0.4"/>
+
+    <!-- w = -1 reference line (cosmological constant) -->
+    <line x1="0" y1="-45" x2="95" y2="-45" stroke="#ffffff" stroke-width="0.3" stroke-dasharray="3,3" opacity="0.3"/>
+    <text x="98" y="-42" font-family="Times, serif" font-size="7" fill="#ffffff" opacity="0.4">w = -1</text>
+
+    <!-- w(z) curve (CPL evolution) -->
+    <path d="M 0,-50 Q 20,-48 40,-45 T 90,-38" stroke="#e94560" stroke-width="2" fill="none" filter="url(#v14_glow)"/>
+
+    <!-- Uncertainty band -->
+    <path d="M 0,-55 Q 20,-52 40,-48 T 90,-42 L 90,-34 Q 40,-42 20,-44 T 0,-45 Z" fill="#e94560" opacity="0.15"/>
+
+    <!-- Labels -->
+    <text x="92" y="12" font-family="Times, serif" font-size="8" fill="#4ecdc4" opacity="0.5" font-style="italic">z</text>
+    <text x="-18" y="-45" font-family="Times, serif" font-size="8" fill="#4ecdc4" opacity="0.5" font-style="italic">w(z)</text>
+  </g>
+
+  <!-- Typography -->
+  <text x="135" y="50" font-family="Helvetica Neue, Arial" font-size="32" font-weight="200" fill="#ffffff" letter-spacing="5">
+    HICOSMO
+  </text>
+
+  <!-- Equation -->
+  <text x="135" y="72" font-family="Times, serif" font-size="12" fill="#4ecdc4" opacity="0.8" font-style="italic">
+    w(z) = w<tspan baseline-shift="sub" font-size="8">0</tspan> + w<tspan baseline-shift="sub" font-size="8">a</tspan> · z/(1+z)
+  </text>
+
+  <!-- Dark energy label -->
+  <text x="135" y="90" font-family="Helvetica Neue, Arial" font-size="9" fill="#ffffff" opacity="0.4" letter-spacing="3">
+    DARK ENERGY EVOLUTION
+  </text>
+
+  <!-- JAX branding -->
+  <g transform="translate(320, 85)">
+    <rect x="0" y="0" width="38" height="16" rx="3" fill="#e94560" opacity="0.2"/>
+    <text x="19" y="11.5" text-anchor="middle" font-family="SF Mono, monospace" font-size="10" fill="#e94560" font-weight="600">JAX</text>
+    <text x="48" y="11.5" font-family="Helvetica" font-size="9" fill="#4ecdc4" opacity="0.6">CPL</text>
+  </g>
+</svg>

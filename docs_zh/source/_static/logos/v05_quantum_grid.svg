@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 140">
+  <defs>
+    <pattern id="v5_grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#4ecdc4" stroke-width="0.3" opacity="0.15"/>
+    </pattern>
+  </defs>
+
+  <rect width="420" height="140" fill="#0a0a12"/>
+  <rect width="420" height="140" fill="url(#v5_grid)"/>
+
+  <!-- Parameter nodes -->
+  <g fill="#e94560">
+    <circle cx="35" cy="70" r="6"/><circle cx="70" cy="45" r="4"/>
+    <circle cx="70" cy="95" r="4"/><circle cx="105" cy="70" r="5"/>
+  </g>
+
+  <!-- Connections -->
+  <g stroke="#e94560" stroke-width="1" opacity="0.4">
+    <line x1="35" y1="70" x2="70" y2="45"/><line x1="35" y1="70" x2="70" y2="95"/>
+    <line x1="70" y1="45" x2="105" y2="70"/><line x1="70" y1="95" x2="105" y2="70"/>
+  </g>
+
+  <!-- Node labels -->
+  <g font-family="Courier, monospace" font-size="6" fill="#4ecdc4" opacity="0.7">
+    <text x="35" y="85">H₀</text><text x="70" y="38">Ωₘ</text>
+    <text x="70" y="110">Ωₖ</text><text x="105" y="85">σ₈</text>
+  </g>
+
+  <!-- Main typography -->
+  <text x="145" y="52" font-family="SF Mono, Menlo, Courier" font-size="30" font-weight="600" fill="#ffffff" letter-spacing="2">
+    HICOSMO
+  </text>
+
+  <!-- Brackets -->
+  <text x="133" y="52" font-family="SF Mono, Courier" font-size="30" font-weight="200" fill="#4ecdc4">[</text>
+  <text x="330" y="52" font-family="SF Mono, Courier" font-size="30" font-weight="200" fill="#4ecdc4">]</text>
+
+  <!-- Tech stack -->
+  <g transform="translate(145, 68)">
+    <rect x="0" y="0" width="35" height="14" rx="2" fill="#e94560"/>
+    <text x="17.5" y="10" text-anchor="middle" font-family="SF Mono" font-size="9" fill="#fff" font-weight="700">JAX</text>
+
+    <rect x="42" y="0" width="55" height="14" rx="2" fill="#4ecdc4" opacity="0.2"/>
+    <text x="69.5" y="10" text-anchor="middle" font-family="SF Mono" font-size="8" fill="#4ecdc4">NumPyro</text>
+
+    <rect x="104" y="0" width="50" height="14" rx="2" fill="#4ecdc4" opacity="0.2"/>
+    <text x="129" y="10" text-anchor="middle" font-family="SF Mono" font-size="8" fill="#4ecdc4">GetDist</text>
+  </g>
+
+  <!-- Status -->
+  <g transform="translate(145, 95)">
+    <rect x="0" y="0" width="6" height="6" fill="#4ecdc4"/>
+    <text x="10" y="5" font-family="Courier" font-size="7" fill="#fff" opacity="0.5">JIT_COMPILED</text>
+    <rect x="90" y="0" width="6" height="6" fill="#e94560"/>
+    <text x="100" y="5" font-family="Courier" font-size="7" fill="#fff" opacity="0.5">GPU_READY</text>
+  </g>
+</svg>

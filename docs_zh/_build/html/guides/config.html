@@ -1,0 +1,191 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="zh-CN" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>配置驱动 &mdash; HIcosmo 中文文档</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=d786bb5c"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/translations.js?v=beaddf03"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="搜索" href="../search.html" />
+    <link rel="next" title="可视化" href="visualization.html" />
+    <link rel="prev" title="自定义似然函数" href="custom_likelihood.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            HIcosmo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="搜索文档" aria-label="搜索文档" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="导航菜单">
+              <p class="caption" role="heading"><span class="caption-text">入门</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">安装指南</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">快速开始</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">核心概念</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../jax_introduction.html">JAX 技术详解</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">使用指南</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="data.html">数据与路径</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">宇宙学模型</a></li>
+<li class="toctree-l1"><a class="reference internal" href="likelihoods.html">似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="samplers.html">采样与推断</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_likelihood.html">自定义似然函数</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">配置驱动</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id2">并行初始化</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#yaml">YAML 配置示例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">运行配置</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="visualization.html">可视化</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_selection.html">模型选择与信息判据</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fisher.html">Fisher 预报</a></li>
+<li class="toctree-l1"><a class="reference internal" href="jax_tools.html">JAX 数值工具参考</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API 接口（完整）</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API 接口详细介绍</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="移动版导航菜单" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">HIcosmo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="页面导航">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">配置驱动</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/guides/config.rst.txt" rel="nofollow"> 查看页面源码</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="id1">
+<h1>配置驱动<a class="headerlink" href="#id1" title="Link to this heading"></a></h1>
+<p>HIcosmo 支持类似 Cobaya 的 YAML 配置。</p>
+<section id="id2">
+<h2>并行初始化<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
+<p>在运行任何配置前，先初始化并行环境：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>  <span class="c1"># 8 个并行设备</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p><code class="docutils literal notranslate"><span class="pre">hc.init(N)</span></code> 创建 N 个 JAX 逻辑设备，实现 N 条链真正并行。</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">hc.init(8)</span></code> - 8 个并行设备（推荐）</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hc.init()</span></code> - 自动检测（最多 8 个）</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hc.init(&quot;GPU&quot;)</span></code> - GPU 模式</p></li>
+</ul>
+</div>
+</section>
+<section id="yaml">
+<h2>YAML 配置示例<a class="headerlink" href="#yaml" title="Link to this heading"></a></h2>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">joint_sn_bao</span>
+<span class="nt">theory</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LCDM</span>
+<span class="nt">likelihood</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sn</span>
+<span class="w">    </span><span class="nt">dataset</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pantheon+</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bao</span>
+<span class="w">    </span><span class="nt">dataset</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sdss_dr12</span>
+
+<span class="nt">params</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">H0</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">prior</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">dist</span><span class="p">:</span><span class="w"> </span><span class="nv">uniform</span><span class="p p-Indicator">,</span><span class="nt"> min</span><span class="p">:</span><span class="w"> </span><span class="nv">50</span><span class="p p-Indicator">,</span><span class="nt"> max</span><span class="p">:</span><span class="w"> </span><span class="nv">100</span><span class="p p-Indicator">},</span><span class="nt"> ref</span><span class="p">:</span><span class="w"> </span><span class="nv">70.0</span><span class="p p-Indicator">}</span>
+<span class="w">  </span><span class="nt">Omega_m</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">prior</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">dist</span><span class="p">:</span><span class="w"> </span><span class="nv">uniform</span><span class="p p-Indicator">,</span><span class="nt"> min</span><span class="p">:</span><span class="w"> </span><span class="nv">0.1</span><span class="p p-Indicator">,</span><span class="nt"> max</span><span class="p">:</span><span class="w"> </span><span class="nv">0.5</span><span class="p p-Indicator">},</span><span class="nt"> ref</span><span class="p">:</span><span class="w"> </span><span class="nv">0.3</span><span class="p p-Indicator">}</span>
+
+<span class="nt">sampler</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">numpyro</span>
+<span class="w">  </span><span class="nt">num_samples</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000</span>
+<span class="w">  </span><span class="nt">num_chains</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span><span class="w">         </span><span class="c1"># 默认 = 设备数</span>
+<span class="w">  </span><span class="nt">num_warmup</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
+
+<span class="nt">output</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">results</span>
+<span class="w">  </span><span class="nt">chain_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">joint_sn_bao</span>
+</pre></div>
+</div>
+</section>
+<section id="id3">
+<h2>运行配置<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. 先初始化</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="c1"># 2. 运行配置</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_from_config</span>
+<span class="n">run_from_config</span><span class="p">(</span><span class="s2">&quot;examples/tutorials/configs/joint_sn_bao.yaml&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="页脚">
+        <a href="custom_likelihood.html" class="btn btn-neutral float-left" title="自定义似然函数" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> 上一页</a>
+        <a href="visualization.html" class="btn btn-neutral float-right" title="可视化" accesskey="n" rel="next">下一页 <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; 版权所有 。</p>
+  </div>
+
+  利用 <a href="https://www.sphinx-doc.org/">Sphinx</a> 构建，使用的 
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">主题</a>
+    由 <a href="https://readthedocs.org">Read the Docs</a> 开发.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

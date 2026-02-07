@@ -1,0 +1,235 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="zh-CN" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hicosmo.runner.executor &mdash; HIcosmo 中文文档</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d786bb5c"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../_static/translations.js?v=beaddf03"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../../../genindex.html" />
+    <link rel="search" title="搜索" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            HIcosmo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="搜索文档" aria-label="搜索文档" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="导航菜单">
+              <p class="caption" role="heading"><span class="caption-text">入门</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">安装指南</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">快速开始</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../concepts.html">核心概念</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../jax_introduction.html">JAX 技术详解</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">使用指南</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/data.html">数据与路径</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/models.html">宇宙学模型</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/likelihoods.html">似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/samplers.html">采样与推断</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/custom_likelihood.html">自定义似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/config.html">配置驱动</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/visualization.html">可视化</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/model_selection.html">模型选择与信息判据</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/fisher.html">Fisher 预报</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/jax_tools.html">JAX 数值工具参考</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API 接口（完整）</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">API 接口详细介绍</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="移动版导航菜单" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">HIcosmo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="页面导航">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">模块代码</a></li>
+      <li class="breadcrumb-item active">hicosmo.runner.executor</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>hicosmo.runner.executor 源代码</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Run HIcosmo from a Cobaya-style configuration.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_config</span><span class="p">,</span> <span class="n">normalize_config</span><span class="p">,</span> <span class="n">validate_config</span><span class="p">,</span> <span class="n">build_parameter_registry</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">ensure_dataset</span><span class="p">,</span> <span class="n">resolve_data_root</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.components</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_likelihoods</span><span class="p">,</span> <span class="n">resolve_sampler</span><span class="p">,</span> <span class="n">resolve_theory</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.manifest</span><span class="w"> </span><span class="kn">import</span> <span class="n">write_run_manifest</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_safe_name</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ch</span> <span class="k">if</span> <span class="n">ch</span><span class="o">.</span><span class="n">isalnum</span><span class="p">()</span> <span class="ow">or</span> <span class="n">ch</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot;+&quot;</span><span class="p">}</span> <span class="k">else</span> <span class="s2">&quot;_&quot;</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">value</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="run_from_config">
+<a class="viewcode-back" href="../../../api/runner.html#hicosmo.run_from_config">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_from_config</span><span class="p">(</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">run</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">save_results</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">output_format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build and optionally execute an inference run from config.</span>
+
+<span class="sd">    Returns a dict with runner, samples (if run=True), and output paths.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">raw_cfg</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">normalize_config</span><span class="p">(</span><span class="n">raw_cfg</span><span class="p">)</span>
+    <span class="n">validate_config</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+
+    <span class="n">registry</span> <span class="o">=</span> <span class="n">build_parameter_registry</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+    <span class="n">theory_class</span> <span class="o">=</span> <span class="n">resolve_theory</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;theory&quot;</span><span class="p">))</span>
+
+    <span class="n">data_cfg</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">data_root</span> <span class="o">=</span> <span class="n">resolve_data_root</span><span class="p">(</span><span class="n">data_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;root&quot;</span><span class="p">))</span>
+    <span class="n">datasets</span> <span class="o">=</span> <span class="n">data_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;datasets&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">:</span>
+        <span class="n">ensure_dataset</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">data_root</span><span class="p">))</span>
+
+    <span class="n">likelihoods</span> <span class="o">=</span> <span class="n">build_likelihoods</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;likelihood&quot;</span><span class="p">,</span> <span class="p">[]),</span> <span class="n">theory_class</span><span class="o">=</span><span class="n">theory_class</span><span class="p">,</span> <span class="n">data_root</span><span class="o">=</span><span class="n">data_root</span><span class="p">)</span>
+
+    <span class="c1"># Auto-collect nuisance parameters</span>
+    <span class="k">for</span> <span class="n">likelihood</span> <span class="ow">in</span> <span class="n">likelihoods</span><span class="p">:</span>
+        <span class="n">registry</span><span class="o">.</span><span class="n">add_from_likelihood</span><span class="p">(</span><span class="n">likelihood</span><span class="p">)</span>
+
+    <span class="n">sampler_name</span><span class="p">,</span> <span class="n">sampler_options</span> <span class="o">=</span> <span class="n">resolve_sampler</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sampler&quot;</span><span class="p">))</span>
+
+    <span class="c1"># Derive output directory</span>
+    <span class="n">output_cfg</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;output&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;root&quot;</span><span class="p">,</span> <span class="s2">&quot;results&quot;</span><span class="p">))</span>
+    <span class="n">chain_name</span> <span class="o">=</span> <span class="n">output_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;chain_name&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;chain&quot;</span>
+    <span class="n">lik_name</span> <span class="o">=</span> <span class="n">_safe_name</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">getattr</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">l</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">likelihoods</span><span class="p">]))</span>
+    <span class="n">theory_name</span> <span class="o">=</span> <span class="n">_safe_name</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">theory_class</span><span class="p">,</span> <span class="s2">&quot;__name__&quot;</span><span class="p">,</span> <span class="s2">&quot;theory&quot;</span><span class="p">))</span>
+    <span class="n">sampler_tag</span> <span class="o">=</span> <span class="n">_safe_name</span><span class="p">(</span><span class="n">sampler_name</span><span class="p">)</span>
+    <span class="n">run_id</span> <span class="o">=</span> <span class="n">output_cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_id&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">_%H%M%S&quot;</span><span class="p">)</span>
+    <span class="n">output_dir</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">theory_name</span> <span class="o">/</span> <span class="n">lik_name</span> <span class="o">/</span> <span class="n">sampler_tag</span> <span class="o">/</span> <span class="n">run_id</span>
+    <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Construct MCMC with combined likelihood (using InferenceRunner logic)</span>
+    <span class="c1"># Use InferenceRunner to handle fixed params and mapping</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">..hicosmo</span><span class="w"> </span><span class="kn">import</span> <span class="n">InferenceRunner</span>
+
+    <span class="n">mcmc_config</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;sampler&quot;</span><span class="p">:</span> <span class="n">sampler_name</span><span class="p">,</span>
+        <span class="s2">&quot;chain_name&quot;</span><span class="p">:</span> <span class="n">chain_name</span><span class="p">,</span>
+        <span class="s2">&quot;derived&quot;</span><span class="p">:</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;derived&quot;</span><span class="p">,</span> <span class="p">[]),</span>
+    <span class="p">}</span>
+    <span class="n">mcmc_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">sampler_options</span><span class="p">)</span>
+
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">InferenceRunner</span><span class="p">(</span>
+        <span class="n">cosmology_class</span><span class="o">=</span><span class="n">theory_class</span><span class="p">,</span>
+        <span class="n">likelihoods</span><span class="o">=</span><span class="n">likelihoods</span><span class="p">,</span>
+        <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">,</span>
+        <span class="n">mcmc_config</span><span class="o">=</span><span class="n">mcmc_config</span><span class="p">,</span>
+        <span class="n">setup_mcmc</span><span class="o">=</span><span class="n">sampler_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;dynesty&quot;</span><span class="p">,</span> <span class="s2">&quot;nested&quot;</span><span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;runner&quot;</span><span class="p">:</span> <span class="n">runner</span><span class="p">,</span>
+        <span class="s2">&quot;output_dir&quot;</span><span class="p">:</span> <span class="n">output_dir</span><span class="p">,</span>
+        <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="n">cfg</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">run</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">sampler_name</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;dynesty&quot;</span><span class="p">,</span> <span class="s2">&quot;nested&quot;</span><span class="p">}:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">..samplers.nested</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_nested</span><span class="p">,</span> <span class="n">save_nested_results</span>
+
+            <span class="n">nested_results</span> <span class="o">=</span> <span class="n">run_nested</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">likelihood_func</span><span class="p">,</span> <span class="n">registry</span><span class="o">.</span><span class="n">get_free</span><span class="p">(),</span> <span class="n">sampler_options</span><span class="p">)</span>
+            <span class="n">result</span><span class="p">[</span><span class="s2">&quot;samples&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nested_results</span><span class="o">.</span><span class="n">samples</span>
+
+            <span class="k">if</span> <span class="n">save_results</span><span class="p">:</span>
+                <span class="n">filename</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">chain_name</span><span class="si">}</span><span class="s2">.npz&quot;</span>
+                <span class="n">save_nested_results</span><span class="p">(</span><span class="n">nested_results</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">filename</span><span class="p">),</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;npz&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+            <span class="n">result</span><span class="p">[</span><span class="s2">&quot;samples&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">samples</span>
+
+            <span class="k">if</span> <span class="n">save_results</span><span class="p">:</span>
+                <span class="n">filename</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="n">chain_name</span>
+                <span class="n">runner</span><span class="o">.</span><span class="n">mcmc</span><span class="o">.</span><span class="n">save_results</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">filename</span><span class="p">),</span> <span class="nb">format</span><span class="o">=</span><span class="n">output_format</span><span class="p">)</span>
+
+        <span class="n">write_run_manifest</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">cfg</span><span class="p">,</span> <span class="n">chain_name</span><span class="o">=</span><span class="n">chain_name</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">result</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; 版权所有 。</p>
+  </div>
+
+  利用 <a href="https://www.sphinx-doc.org/">Sphinx</a> 构建，使用的 
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">主题</a>
+    由 <a href="https://readthedocs.org">Read the Docs</a> 开发.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

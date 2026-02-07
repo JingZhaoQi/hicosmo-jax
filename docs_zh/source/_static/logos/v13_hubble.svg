@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 140">
+  <defs>
+    <linearGradient id="v13_bg" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0f0f1a"/>
+      <stop offset="100%" style="stop-color:#1a1a2e"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="420" height="140" fill="url(#v13_bg)"/>
+
+  <!-- Hubble diagram -->
+  <g transform="translate(20, 115)">
+    <!-- Axes -->
+    <line x1="0" y1="0" x2="95" y2="0" stroke="#4ecdc4" stroke-width="0.5" opacity="0.5"/>
+    <line x1="0" y1="0" x2="0" y2="-95" stroke="#4ecdc4" stroke-width="0.5" opacity="0.5"/>
+
+    <!-- Axis labels -->
+    <text x="92" y="12" font-family="Times, serif" font-size="8" fill="#4ecdc4" opacity="0.6" font-style="italic">z</text>
+    <text x="-12" y="-88" font-family="Times, serif" font-size="8" fill="#4ecdc4" opacity="0.6" font-style="italic">μ</text>
+
+    <!-- Data points (SNe Ia style) -->
+    <g fill="#4ecdc4" opacity="0.4">
+      <circle cx="8" cy="-12" r="1.5"/>
+      <circle cx="12" cy="-18" r="1.5"/>
+      <circle cx="18" cy="-25" r="1.5"/>
+      <circle cx="24" cy="-32" r="1.5"/>
+      <circle cx="30" cy="-38" r="1.5"/>
+      <circle cx="38" cy="-46" r="1.5"/>
+      <circle cx="46" cy="-52" r="1.5"/>
+      <circle cx="54" cy="-58" r="1.5"/>
+      <circle cx="62" cy="-64" r="1.5"/>
+      <circle cx="70" cy="-70" r="1.5"/>
+      <circle cx="78" cy="-76" r="1.5"/>
+      <circle cx="86" cy="-82" r="1.5"/>
+    </g>
+
+    <!-- Best fit curve (ΛCDM) -->
+    <path d="M 5,-8 Q 30,-35 55,-55 T 90,-85" stroke="#e94560" stroke-width="1.5" fill="none"/>
+
+    <!-- Confidence band -->
+    <path d="M 5,-6 Q 30,-32 55,-52 T 90,-82 L 90,-88 Q 55,-58 30,-38 T 5,-10 Z" fill="#e94560" opacity="0.1"/>
+  </g>
+
+  <!-- Typography -->
+  <text x="135" y="52" font-family="Helvetica Neue, Arial" font-size="32" font-weight="300" fill="#ffffff" letter-spacing="4">
+    HICOSMO
+  </text>
+
+  <!-- Subtitle -->
+  <text x="135" y="72" font-family="Helvetica Neue, Arial" font-size="10" fill="#4ecdc4" opacity="0.8" letter-spacing="1">
+    DISTANCE · REDSHIFT · DARK ENERGY
+  </text>
+
+  <!-- JAX branding -->
+  <g transform="translate(135, 88)">
+    <rect x="0" y="0" width="38" height="16" rx="3" fill="#e94560" opacity="0.15"/>
+    <text x="19" y="11.5" text-anchor="middle" font-family="SF Mono, monospace" font-size="10" fill="#e94560" font-weight="600">JAX</text>
+    <text x="48" y="11.5" font-family="Helvetica" font-size="9" fill="#4ecdc4" opacity="0.7">Precision Cosmology</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(320, 25)">
+    <line x1="0" y1="0" x2="20" y2="0" stroke="#e94560" stroke-width="1.5"/>
+    <text x="28" y="4" font-family="Helvetica" font-size="8" fill="#ffffff" opacity="0.5">ΛCDM fit</text>
+    <circle cx="10" cy="14" r="2" fill="#4ecdc4" opacity="0.5"/>
+    <text x="28" y="18" font-family="Helvetica" font-size="8" fill="#ffffff" opacity="0.5">SNe Ia</text>
+  </g>
+</svg>

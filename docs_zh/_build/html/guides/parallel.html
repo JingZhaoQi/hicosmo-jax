@@ -1,0 +1,755 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="zh-CN" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>并行与加速配置 &mdash; HIcosmo 中文文档</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=d786bb5c"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/translations.js?v=beaddf03"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="搜索" href="../search.html" />
+    <link rel="next" title="配置驱动" href="config.html" />
+    <link rel="prev" title="自定义似然函数" href="custom_likelihood.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            HIcosmo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="搜索文档" aria-label="搜索文档" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="导航菜单">
+              <p class="caption" role="heading"><span class="caption-text">入门</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">安装指南</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">快速开始</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">核心概念</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../jax_introduction.html">JAX 技术详解</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">使用指南</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="data.html">数据与路径</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">宇宙学模型</a></li>
+<li class="toctree-l1"><a class="reference internal" href="likelihoods.html">似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="samplers.html">采样与推断</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_likelihood.html">自定义似然函数</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">并行与加速配置</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id3">快速开始</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#api">初始化 API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#hc-init"><code class="docutils literal notranslate"><span class="pre">hc.init()</span></code> 函数</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#cpu">多核 CPU 并行</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id4">基本配置</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id5">工作原理</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id6">推荐配置</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#gpu">GPU 加速</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id7">基本配置</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id8">多 GPU 配置</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gpu-cpu">GPU 与 CPU 的选择</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id9">GPU 环境准备</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id10">集群配置</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#slurm">SLURM 集群</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pbs-torque">PBS/Torque 集群</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id11">GPU 集群</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id12">环境变量配置</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id13">手动配置（高级）</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id14">查看当前配置</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id15">性能调优建议</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id16">常见问题</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#q">Q: 为什么配置被忽略了？</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#q-gpu">Q: GPU 未被检测到？</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#q-jupyter-notebook">Q: 如何在 Jupyter Notebook 中使用？</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id17">Q: 内存不足怎么办？</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id18">小结</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">配置驱动</a></li>
+<li class="toctree-l1"><a class="reference internal" href="visualization.html">可视化</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_selection.html">模型选择与信息判据</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fisher.html">Fisher 预报</a></li>
+<li class="toctree-l1"><a class="reference internal" href="jax_tools.html">JAX 数值工具参考</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API 接口（完整）</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API 接口详细介绍</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="移动版导航菜单" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">HIcosmo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="页面导航">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">并行与加速配置</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/guides/parallel.rst.txt" rel="nofollow"> 查看页面源码</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="id1">
+<h1>并行与加速配置<a class="headerlink" href="#id1" title="Link to this heading"></a></h1>
+<p>HIcosmo 基于 JAX 构建，原生支持多核 CPU 并行和 GPU 加速。
+本章详细介绍如何配置并行环境，充分发挥硬件性能。</p>
+<nav class="contents local" id="id2">
+<p class="topic-title">本章目录</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#id3" id="id19">快速开始</a></p></li>
+<li><p><a class="reference internal" href="#api" id="id20">初始化 API</a></p>
+<ul>
+<li><p><a class="reference internal" href="#hc-init" id="id21"><code class="docutils literal notranslate"><span class="pre">hc.init()</span></code> 函数</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#cpu" id="id22">多核 CPU 并行</a></p>
+<ul>
+<li><p><a class="reference internal" href="#id4" id="id23">基本配置</a></p></li>
+<li><p><a class="reference internal" href="#id5" id="id24">工作原理</a></p></li>
+<li><p><a class="reference internal" href="#id6" id="id25">推荐配置</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#gpu" id="id26">GPU 加速</a></p>
+<ul>
+<li><p><a class="reference internal" href="#id7" id="id27">基本配置</a></p></li>
+<li><p><a class="reference internal" href="#id8" id="id28">多 GPU 配置</a></p></li>
+<li><p><a class="reference internal" href="#gpu-cpu" id="id29">GPU 与 CPU 的选择</a></p></li>
+<li><p><a class="reference internal" href="#id9" id="id30">GPU 环境准备</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#id10" id="id31">集群配置</a></p>
+<ul>
+<li><p><a class="reference internal" href="#slurm" id="id32">SLURM 集群</a></p></li>
+<li><p><a class="reference internal" href="#pbs-torque" id="id33">PBS/Torque 集群</a></p></li>
+<li><p><a class="reference internal" href="#id11" id="id34">GPU 集群</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#id12" id="id35">环境变量配置</a></p>
+<ul>
+<li><p><a class="reference internal" href="#id13" id="id36">手动配置（高级）</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#id14" id="id37">查看当前配置</a></p></li>
+<li><p><a class="reference internal" href="#id15" id="id38">性能调优建议</a></p></li>
+<li><p><a class="reference internal" href="#id16" id="id39">常见问题</a></p>
+<ul>
+<li><p><a class="reference internal" href="#q" id="id40">Q: 为什么配置被忽略了？</a></p></li>
+<li><p><a class="reference internal" href="#q-gpu" id="id41">Q: GPU 未被检测到？</a></p></li>
+<li><p><a class="reference internal" href="#q-jupyter-notebook" id="id42">Q: 如何在 Jupyter Notebook 中使用？</a></p></li>
+<li><p><a class="reference internal" href="#id17" id="id43">Q: 内存不足怎么办？</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#id18" id="id44">小结</a></p></li>
+</ul>
+</nav>
+<section id="id3">
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">快速开始</a><a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
+<p><strong>一行代码配置并行</strong>：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+
+<span class="c1"># 最常用：8 核并行</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="c1"># 自动检测最优配置</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+
+<span class="c1"># GPU 模式</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<p><strong>必须在导入 JAX 之前调用</strong> <code class="docutils literal notranslate"><span class="pre">hc.init()</span></code>！</p>
+<p>JAX 的设备配置在首次导入时就会固定，之后无法更改。
+因此 <code class="docutils literal notranslate"><span class="pre">hc.init()</span></code> 应该是你脚本的第一行代码。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># ✅ 正确顺序</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span>  <span class="c1"># 此时 JAX 被导入</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCMC</span>
+
+<span class="c1"># ❌ 错误顺序</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span>  <span class="c1"># JAX 已导入，设备数固定为 1</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>  <span class="c1"># ⚠️ 警告：配置被忽略</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="api">
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">初始化 API</a><a class="headerlink" href="#api" title="Link to this heading"></a></h2>
+<section id="hc-init">
+<h3><a class="toc-backref" href="#id21" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">hc.init()</span></code> 函数</a><a class="headerlink" href="#hc-init" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span>
+    <span class="n">num_devices</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span>  <span class="c1"># 设备数量</span>
+    <span class="n">device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>         <span class="c1"># 设备类型 (&#39;GPU&#39; 或 None)</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>        <span class="c1"># 是否显示配置信息</span>
+    <span class="n">force</span><span class="o">=</span><span class="kc">True</span>           <span class="c1"># 是否强制覆盖现有配置</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>参数说明</strong>：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 60%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>参数</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>说明</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">num_devices</span></code></p></td>
+<td><p>int / str / None</p></td>
+<td><div class="line-block">
+<div class="line">并行设备数量：</div>
+<div class="line">- <code class="docutils literal notranslate"><span class="pre">int</span></code>：指定数量（如 8）</div>
+<div class="line">- <code class="docutils literal notranslate"><span class="pre">'auto'</span></code>：自动检测（默认，最多 8）</div>
+<div class="line">- <code class="docutils literal notranslate"><span class="pre">'GPU'</span></code>：GPU 模式</div>
+<div class="line">- <code class="docutils literal notranslate"><span class="pre">None</span></code>：单设备向量化模式</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">device</span></code></p></td>
+<td><p>str / None</p></td>
+<td><div class="line-block">
+<div class="line">显式设备类型：</div>
+<div class="line">- <code class="docutils literal notranslate"><span class="pre">None</span></code>：CPU 模式（默认）</div>
+<div class="line">- <code class="docutils literal notranslate"><span class="pre">'GPU'</span></code> / <code class="docutils literal notranslate"><span class="pre">'cuda'</span></code>：GPU 模式</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">verbose</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>是否打印配置信息</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">force</span></code></p></td>
+<td><p>bool</p></td>
+<td><p>是否覆盖已存在的 XLA_FLAGS</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="cpu">
+<h2><a class="toc-backref" href="#id22" role="doc-backlink">多核 CPU 并行</a><a class="headerlink" href="#cpu" title="Link to this heading"></a></h2>
+<section id="id4">
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">基本配置</a><a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+
+<span class="c1"># 使用 8 个 CPU 核心</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="c1"># 运行 MCMC 时会自动使用 8 条并行链</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCMC</span>
+<span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">,</span> <span class="n">chain_name</span><span class="o">=</span><span class="s1">&#39;test&#39;</span><span class="p">)</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">num_chains</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>  <span class="c1"># 8 条链并行运行</span>
+</pre></div>
+</div>
+</section>
+<section id="id5">
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">工作原理</a><a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
+<p>当你调用 <code class="docutils literal notranslate"><span class="pre">hc.init(8)</span></code> 时，HIcosmo 会：</p>
+<ol class="arabic simple">
+<li><p><strong>设置 XLA_FLAGS</strong>：配置 JAX 使用 8 个逻辑 CPU 设备</p></li>
+<li><p><strong>配置线程池</strong>：将 CPU 核心分配给各设备</p></li>
+<li><p><strong>设置 NumPyro</strong>：告知 NumPyro 使用 8 个设备</p></li>
+</ol>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────────────┐
+│                     CPU (8 核)                          │
+├─────────┬─────────┬─────────┬─────────┬─────────────────┤
+│ Device 0│ Device 1│ Device 2│ Device 3│ ... Device 7    │
+│ (Chain 1)│ (Chain 2)│ (Chain 3)│ (Chain 4)│ ... (Chain 8)│
+└─────────┴─────────┴─────────┴─────────┴─────────────────┘
+</pre></div>
+</div>
+</section>
+<section id="id6">
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">推荐配置</a><a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30%" />
+<col style="width: 20%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>场景</p></th>
+<th class="head"><p>推荐配置</p></th>
+<th class="head"><p>说明</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>个人笔记本（4 核）</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hc.init(4)</span></code></p></td>
+<td><p>充分利用所有核心</p></td>
+</tr>
+<tr class="row-odd"><td><p>工作站（8-16 核）</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hc.init(8)</span></code></p></td>
+<td><p>8 条链足够收敛诊断</p></td>
+</tr>
+<tr class="row-even"><td><p>服务器（32+ 核）</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hc.init(8)</span></code></p></td>
+<td><p>更多链不一定更好</p></td>
+</tr>
+<tr class="row-odd"><td><p>调试/开发</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hc.init(1)</span></code></p></td>
+<td><p>单设备更容易调试</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p><strong>为什么推荐 8 条链？</strong></p>
+<ul class="simple">
+<li><p>足够计算 R-hat 收敛诊断（需要 ≥4 条链）</p></li>
+<li><p>更多链不会显著提高采样效率</p></li>
+<li><p>过多链可能导致内存压力</p></li>
+</ul>
+</div>
+</section>
+</section>
+<section id="gpu">
+<h2><a class="toc-backref" href="#id26" role="doc-backlink">GPU 加速</a><a class="headerlink" href="#gpu" title="Link to this heading"></a></h2>
+<section id="id7">
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">基本配置</a><a class="headerlink" href="#id7" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+
+<span class="c1"># 自动检测 GPU</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+
+<span class="c1"># 或显式指定</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id8">
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">多 GPU 配置</a><a class="headerlink" href="#id8" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+
+<span class="c1"># 使用 4 个 GPU（如果有）</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+
+<span class="c1"># 自动检测所有可用 GPU</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>  <span class="c1"># 自动检测 GPU 数量</span>
+</pre></div>
+</div>
+</section>
+<section id="gpu-cpu">
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">GPU 与 CPU 的选择</a><a class="headerlink" href="#gpu-cpu" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 40%" />
+<col style="width: 40%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>场景</p></th>
+<th class="head"><p>推荐</p></th>
+<th class="head"><p>原因</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>简单似然（SNe, BAO）</p></td>
+<td><p>CPU</p></td>
+<td><p>GPU 启动开销大于计算收益</p></td>
+</tr>
+<tr class="row-odd"><td><p>复杂似然（CMB 功率谱）</p></td>
+<td><p>GPU</p></td>
+<td><p>大规模矩阵运算受益于 GPU</p></td>
+</tr>
+<tr class="row-even"><td><p>大规模 Fisher 矩阵</p></td>
+<td><p>GPU</p></td>
+<td><p>矩阵求逆适合 GPU</p></td>
+</tr>
+<tr class="row-odd"><td><p>长时间 MCMC（&gt;10万样本）</p></td>
+<td><p>GPU</p></td>
+<td><p>累积收益明显</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id9">
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">GPU 环境准备</a><a class="headerlink" href="#id9" title="Link to this heading"></a></h3>
+<p>确保已安装 JAX GPU 版本：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># CUDA 12</span>
+pip<span class="w"> </span>install<span class="w"> </span>jax<span class="o">[</span>cuda12<span class="o">]</span>
+
+<span class="c1"># CUDA 11</span>
+pip<span class="w"> </span>install<span class="w"> </span>jax<span class="o">[</span>cuda11_pip<span class="o">]</span>
+</pre></div>
+</div>
+<p>验证 GPU 可用：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">devices</span><span class="p">())</span>
+<span class="c1"># [cuda(id=0), cuda(id=1), ...]  # GPU 可用</span>
+<span class="c1"># [CpuDevice(id=0)]              # 仅 CPU</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id10">
+<h2><a class="toc-backref" href="#id31" role="doc-backlink">集群配置</a><a class="headerlink" href="#id10" title="Link to this heading"></a></h2>
+<section id="slurm">
+<h3><a class="toc-backref" href="#id32" role="doc-backlink">SLURM 集群</a><a class="headerlink" href="#slurm" title="Link to this heading"></a></h3>
+<p>在 SLURM 集群上运行 HIcosmo：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="c1">#SBATCH --job-name=hicosmo</span>
+<span class="c1">#SBATCH --nodes=1</span>
+<span class="c1">#SBATCH --ntasks=1</span>
+<span class="c1">#SBATCH --cpus-per-task=8</span>
+<span class="c1">#SBATCH --mem=32G</span>
+<span class="c1">#SBATCH --time=24:00:00</span>
+
+<span class="c1"># 激活环境</span>
+<span class="nb">source</span><span class="w"> </span>activate<span class="w"> </span>hicosmo
+
+<span class="c1"># 运行脚本</span>
+python<span class="w"> </span>my_mcmc_script.py
+</pre></div>
+</div>
+<p>对应的 Python 脚本：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+
+<span class="c1"># 使用 SLURM 分配的 8 个核心</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="c1"># ... 其余代码</span>
+</pre></div>
+</div>
+</section>
+<section id="pbs-torque">
+<h3><a class="toc-backref" href="#id33" role="doc-backlink">PBS/Torque 集群</a><a class="headerlink" href="#pbs-torque" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="c1">#PBS -N hicosmo</span>
+<span class="c1">#PBS -l nodes=1:ppn=8</span>
+<span class="c1">#PBS -l mem=32gb</span>
+<span class="c1">#PBS -l walltime=24:00:00</span>
+
+<span class="nb">cd</span><span class="w"> </span><span class="nv">$PBS_O_WORKDIR</span>
+<span class="nb">source</span><span class="w"> </span>activate<span class="w"> </span>hicosmo
+python<span class="w"> </span>my_mcmc_script.py
+</pre></div>
+</div>
+</section>
+<section id="id11">
+<h3><a class="toc-backref" href="#id34" role="doc-backlink">GPU 集群</a><a class="headerlink" href="#id11" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="c1">#SBATCH --job-name=hicosmo_gpu</span>
+<span class="c1">#SBATCH --nodes=1</span>
+<span class="c1">#SBATCH --gres=gpu:4</span>
+<span class="c1">#SBATCH --mem=64G</span>
+<span class="c1">#SBATCH --time=24:00:00</span>
+
+<span class="nb">source</span><span class="w"> </span>activate<span class="w"> </span>hicosmo
+python<span class="w"> </span>my_mcmc_script.py
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+
+<span class="c1"># 使用 4 个 GPU</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id12">
+<h2><a class="toc-backref" href="#id35" role="doc-backlink">环境变量配置</a><a class="headerlink" href="#id12" title="Link to this heading"></a></h2>
+<p>HIcosmo 自动管理以下环境变量，通常不需要手动设置：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30%" />
+<col style="width: 70%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>环境变量</p></th>
+<th class="head"><p>说明</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">XLA_FLAGS</span></code></p></td>
+<td><p>JAX/XLA 编译器配置，包括设备数</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">JAX_ENABLE_X64</span></code></p></td>
+<td><p>启用 64 位精度（默认 True）</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">JAX_NUM_THREADS</span></code></p></td>
+<td><p>每设备线程数</p></td>
+</tr>
+</tbody>
+</table>
+<section id="id13">
+<h3><a class="toc-backref" href="#id36" role="doc-backlink">手动配置（高级）</a><a class="headerlink" href="#id13" title="Link to this heading"></a></h3>
+<p>如果需要更精细的控制：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># 在 shell 中设置</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">XLA_FLAGS</span><span class="o">=</span><span class="s2">&quot;--xla_force_host_platform_device_count=8&quot;</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">JAX_ENABLE_X64</span><span class="o">=</span>True
+python<span class="w"> </span>my_script.py
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;XLA_FLAGS&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;--xla_force_host_platform_device_count=8&#39;</span>
+
+<span class="c1"># 必须在设置环境变量后、导入 JAX 前</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># 不覆盖已设置的 XLA_FLAGS</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id14">
+<h2><a class="toc-backref" href="#id37" role="doc-backlink">查看当前配置</a><a class="headerlink" href="#id14" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="c1"># 查看配置状态</span>
+<span class="n">status</span> <span class="o">=</span> <span class="n">hc</span><span class="o">.</span><span class="n">Config</span><span class="o">.</span><span class="n">status</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">status</span><span class="p">)</span>
+<span class="c1"># {</span>
+<span class="c1">#     &#39;initialized&#39;: True,</span>
+<span class="c1">#     &#39;config&#39;: {&#39;num_devices&#39;: 8, &#39;device_type&#39;: &#39;cpu&#39;, ...},</span>
+<span class="c1">#     &#39;system_cores&#39;: 16,</span>
+<span class="c1">#     &#39;jax_devices&#39;: 8,</span>
+<span class="c1">#     &#39;jax_device_list&#39;: [&#39;CpuDevice(id=0)&#39;, &#39;CpuDevice(id=1)&#39;, ...]</span>
+<span class="c1"># }</span>
+
+<span class="c1"># 查看 JAX 设备</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;可用设备: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">devices</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">jax</span><span class="o">.</span><span class="n">devices</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">d</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id15">
+<h2><a class="toc-backref" href="#id38" role="doc-backlink">性能调优建议</a><a class="headerlink" href="#id15" title="Link to this heading"></a></h2>
+<ol class="arabic">
+<li><p><strong>匹配链数与设备数</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+<span class="c1"># num_chains 应该等于或小于设备数</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">num_chains</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>  <span class="c1"># ✅ 最优</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">num_chains</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>  <span class="c1"># ✅ 可以，但浪费 4 个设备</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">num_chains</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span> <span class="c1"># ⚠️ 超过设备数，会排队</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>预热 JIT 编译</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 第一次调用会触发 JIT 编译（较慢）</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">likelihood</span><span class="p">(</span><span class="n">H0</span><span class="o">=</span><span class="mi">70</span><span class="p">,</span> <span class="n">Omega_m</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+
+<span class="c1"># 后续调用使用缓存（很快）</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">likelihood</span><span class="p">(</span><span class="n">H0</span><span class="o">=</span><span class="mi">71</span><span class="p">,</span> <span class="n">Omega_m</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>内存管理</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 大规模采样时监控内存</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">clear_caches</span><span class="p">()</span>  <span class="c1"># 清理 JIT 缓存释放内存</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>避免频繁初始化</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># ❌ 不要在循环中初始化</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>  <span class="c1"># 每次都会打印警告</span>
+    <span class="o">...</span>
+
+<span class="c1"># ✅ 只初始化一次</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="id16">
+<h2><a class="toc-backref" href="#id39" role="doc-backlink">常见问题</a><a class="headerlink" href="#id16" title="Link to this heading"></a></h2>
+<section id="q">
+<h3><a class="toc-backref" href="#id40" role="doc-backlink">Q: 为什么配置被忽略了？</a><a class="headerlink" href="#q" title="Link to this heading"></a></h3>
+<p>最常见原因是 JAX 已被导入：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span>  <span class="c1"># ❌ JAX 在这里被导入</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>  <span class="c1"># ⚠️ 警告：配置被忽略</span>
+</pre></div>
+</div>
+<p>解决方法：确保 <code class="docutils literal notranslate"><span class="pre">hc.init()</span></code> 在所有 JAX 相关导入之前。</p>
+</section>
+<section id="q-gpu">
+<h3><a class="toc-backref" href="#id41" role="doc-backlink">Q: GPU 未被检测到？</a><a class="headerlink" href="#q-gpu" title="Link to this heading"></a></h3>
+<ol class="arabic">
+<li><p>检查 JAX GPU 版本是否安装：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">devices</span><span class="p">())</span>  <span class="c1"># 应该显示 cuda 设备</span>
+</pre></div>
+</div>
+</li>
+<li><p>检查 CUDA 环境：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nvidia-smi<span class="w">  </span><span class="c1"># 应该显示 GPU 信息</span>
+</pre></div>
+</div>
+</li>
+<li><p>重新安装 JAX GPU 版本：</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>uninstall<span class="w"> </span>jax<span class="w"> </span>jaxlib
+pip<span class="w"> </span>install<span class="w"> </span>jax<span class="o">[</span>cuda12<span class="o">]</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="q-jupyter-notebook">
+<h3><a class="toc-backref" href="#id42" role="doc-backlink">Q: 如何在 Jupyter Notebook 中使用？</a><a class="headerlink" href="#q-jupyter-notebook" title="Link to this heading"></a></h3>
+<p>在 notebook 的第一个单元格：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Cell 1 - 必须是第一个单元格！</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="c1"># Cell 2 - 然后导入其他模块</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCMC</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">警告</p>
+<p>如果重启 kernel，需要重新运行 <code class="docutils literal notranslate"><span class="pre">hc.init()</span></code>。</p>
+</div>
+</section>
+<section id="id17">
+<h3><a class="toc-backref" href="#id43" role="doc-backlink">Q: 内存不足怎么办？</a><a class="headerlink" href="#id17" title="Link to this heading"></a></h3>
+<ol class="arabic">
+<li><p>减少并行链数：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>  <span class="c1"># 而不是 8</span>
+</pre></div>
+</div>
+</li>
+<li><p>减少样本数：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>  <span class="c1"># 而不是 5000</span>
+</pre></div>
+</div>
+</li>
+<li><p>使用 64 位精度时尤其注意：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 32 位精度可以减少一半内存</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;JAX_ENABLE_X64&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;False&#39;</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+</section>
+<section id="id18">
+<h2><a class="toc-backref" href="#id44" role="doc-backlink">小结</a><a class="headerlink" href="#id18" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30%" />
+<col style="width: 70%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>场景</p></th>
+<th class="head"><p>推荐配置</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>快速测试</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hc.init(1)</span></code> 或不调用</p></td>
+</tr>
+<tr class="row-odd"><td><p>日常使用</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hc.init()</span></code> 自动配置</p></td>
+</tr>
+<tr class="row-even"><td><p>生产运行</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hc.init(8)</span></code> 8 核并行</p></td>
+</tr>
+<tr class="row-odd"><td><p>GPU 加速</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hc.init(&quot;GPU&quot;)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>集群提交</p></td>
+<td><p>在脚本开头 <code class="docutils literal notranslate"><span class="pre">hc.init(N)</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>记住：<strong>``hc.init()`` 必须在导入 JAX 之前调用！</strong></p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="页脚">
+        <a href="custom_likelihood.html" class="btn btn-neutral float-left" title="自定义似然函数" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> 上一页</a>
+        <a href="config.html" class="btn btn-neutral float-right" title="配置驱动" accesskey="n" rel="next">下一页 <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; 版权所有 。</p>
+  </div>
+
+  利用 <a href="https://www.sphinx-doc.org/">Sphinx</a> 构建，使用的 
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">主题</a>
+    由 <a href="https://readthedocs.org">Read the Docs</a> 开发.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

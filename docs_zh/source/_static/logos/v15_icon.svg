@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="v15i_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a14"/>
+      <stop offset="100%" style="stop-color:#1a1a2e"/>
+    </linearGradient>
+    <filter id="v15i_glow">
+      <feGaussianBlur stdDeviation="1"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="100" height="100" rx="16" fill="url(#v15i_bg)"/>
+
+  <!-- Cosmic web -->
+  <g transform="translate(50, 45)">
+    <!-- Filaments -->
+    <g stroke="#4ecdc4" stroke-width="0.6" opacity="0.4">
+      <line x1="-28" y1="-25" x2="-10" y2="-8"/>
+      <line x1="-10" y1="-8" x2="8" y2="-18"/>
+      <line x1="8" y1="-18" x2="25" y2="-5"/>
+      <line x1="-25" y1="22" x2="-8" y2="8"/>
+      <line x1="-8" y1="8" x2="12" y2="18"/>
+      <line x1="12" y1="18" x2="28" y2="8"/>
+      <line x1="-10" y1="-8" x2="-8" y2="8"/>
+      <line x1="8" y1="-18" x2="12" y2="18"/>
+      <line x1="-10" y1="-8" x2="0" y2="0"/>
+      <line x1="0" y1="0" x2="8" y2="-18"/>
+      <line x1="0" y1="0" x2="-8" y2="8"/>
+      <line x1="0" y1="0" x2="12" y2="18"/>
+    </g>
+
+    <!-- Nodes -->
+    <g fill="#e94560" filter="url(#v15i_glow)">
+      <circle cx="-28" cy="-25" r="3" opacity="0.6"/>
+      <circle cx="-10" cy="-8" r="4" opacity="0.7"/>
+      <circle cx="8" cy="-18" r="3.5" opacity="0.65"/>
+      <circle cx="25" cy="-5" r="3" opacity="0.6"/>
+      <circle cx="-25" cy="22" r="2.5" opacity="0.5"/>
+      <circle cx="-8" cy="8" r="4" opacity="0.7"/>
+      <circle cx="12" cy="18" r="3" opacity="0.6"/>
+      <circle cx="28" cy="8" r="2.5" opacity="0.5"/>
+    </g>
+
+    <!-- Central -->
+    <circle cx="0" cy="0" r="5" fill="#e94560" filter="url(#v15i_glow)"/>
+    <circle cx="0" cy="0" r="2.5" fill="#ffffff" opacity="0.3"/>
+  </g>
+
+  <!-- JAX -->
+  <text x="50" y="92" text-anchor="middle" font-family="SF Mono" font-size="10" fill="#e94560" font-weight="600">JAX</text>
+</svg>

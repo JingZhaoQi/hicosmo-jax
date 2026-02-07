@@ -1,0 +1,651 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="zh-CN" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hicosmo.likelihoods.gw.population_rate &mdash; HIcosmo 中文文档</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=d786bb5c"></script>
+      <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../../_static/translations.js?v=beaddf03"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../../../../genindex.html" />
+    <link rel="search" title="搜索" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            HIcosmo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="搜索文档" aria-label="搜索文档" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="导航菜单">
+              <p class="caption" role="heading"><span class="caption-text">入门</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../installation.html">安装指南</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart.html">快速开始</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../concepts.html">核心概念</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../jax_introduction.html">JAX 技术详解</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">使用指南</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/data.html">数据与路径</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/models.html">宇宙学模型</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/likelihoods.html">似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/samplers.html">采样与推断</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/custom_likelihood.html">自定义似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/config.html">配置驱动</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/visualization.html">可视化</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/model_selection.html">模型选择与信息判据</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/fisher.html">Fisher 预报</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/jax_tools.html">JAX 数值工具参考</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API 接口（完整）</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API 接口详细介绍</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="移动版导航菜单" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">HIcosmo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="页面导航">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">模块代码</a></li>
+          <li class="breadcrumb-item"><a href="../../likelihoods.html">hicosmo.likelihoods</a></li>
+      <li class="breadcrumb-item active">hicosmo.likelihoods.gw.population_rate</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>hicosmo.likelihoods.gw.population_rate 源代码</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Pure JAX helpers for GW population modeling.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span> <span class="k">as</span> <span class="n">jax_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax.scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">norm</span>
+
+<span class="n">jax_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...utils.jax_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">trapezoid</span>
+
+
+<span class="n">ArrayLike</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">CosmologyProtocol</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">luminosity_distance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dVc_dz</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ddL_dz</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dl_to_z</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_l</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span> <span class="o">...</span>
+
+
+<div class="viewcode-block" id="CosmologyAdapter">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.CosmologyAdapter">[文档]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CosmologyAdapter</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Thin wrapper enforcing the protocol for any hicosmo cosmology.&quot;&quot;&quot;</span>
+
+    <span class="n">cosmology</span><span class="p">:</span> <span class="n">CosmologyProtocol</span>
+    <span class="n">zmin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span>
+    <span class="n">zmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
+    <span class="n">n_grid</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6000</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_build_lookup</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_lookup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">geomspace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zmin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">zmax</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_grid</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="n">z_grid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">zmin</span> <span class="o">*</span> <span class="mf">0.1</span><span class="p">]),</span> <span class="n">grid</span><span class="p">))</span>
+        <span class="n">dl_grid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cosmology</span><span class="o">.</span><span class="n">luminosity_distance</span><span class="p">(</span><span class="n">z_grid</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">dl_grid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">dl_grid</span><span class="p">,</span> <span class="mf">1e-12</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log10_dl</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">dl_grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log10_z</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">z_grid</span><span class="p">,</span> <span class="mf">1e-12</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_min_dl</span> <span class="o">=</span> <span class="n">dl_grid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_max_dl</span> <span class="o">=</span> <span class="n">dl_grid</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+<div class="viewcode-block" id="CosmologyAdapter.luminosity_distance">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.CosmologyAdapter.luminosity_distance">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">luminosity_distance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cosmology</span><span class="o">.</span><span class="n">luminosity_distance</span><span class="p">(</span><span class="n">z</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="CosmologyAdapter.dVc_dz">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.CosmologyAdapter.dVc_dz">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dVc_dz</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cosmology</span><span class="o">.</span><span class="n">dVc_dz</span><span class="p">(</span><span class="n">z</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="CosmologyAdapter.ddL_dz">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.CosmologyAdapter.ddL_dz">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ddL_dz</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cosmology</span><span class="o">.</span><span class="n">ddL_dz</span><span class="p">(</span><span class="n">z</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="CosmologyAdapter.dl_to_z">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.CosmologyAdapter.dl_to_z">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dl_to_z</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_l</span><span class="p">):</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">d_l</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">flat</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">safe</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">flat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_dl</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_dl</span><span class="p">)</span>
+        <span class="n">log_dl</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">safe</span><span class="p">)</span>
+        <span class="n">log_z</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">log_dl</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log10_dl</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log10_z</span><span class="p">)</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">log_z</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">z</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="detector2source">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.detector2source">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">detector2source</span><span class="p">(</span><span class="n">mass1_det</span><span class="p">,</span> <span class="n">mass2_det</span><span class="p">,</span> <span class="n">d_l</span><span class="p">,</span> <span class="n">cosmology</span><span class="p">:</span> <span class="n">CosmologyAdapter</span><span class="p">):</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">cosmology</span><span class="o">.</span><span class="n">dl_to_z</span><span class="p">(</span><span class="n">d_l</span><span class="p">)</span>
+    <span class="n">inv</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mass1_det</span> <span class="o">*</span> <span class="n">inv</span><span class="p">,</span> <span class="n">mass2_det</span> <span class="o">*</span> <span class="n">inv</span><span class="p">,</span> <span class="n">z</span></div>
+
+
+
+<div class="viewcode-block" id="detector2source_jacobian">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.detector2source_jacobian">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">detector2source_jacobian</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">cosmology</span><span class="p">:</span> <span class="n">CosmologyAdapter</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">z</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">cosmology</span><span class="o">.</span><span class="n">ddL_dz</span><span class="p">(</span><span class="n">z</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="detector2source_jacobian_q">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.detector2source_jacobian_q">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">detector2source_jacobian_q</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">cosmology</span><span class="p">:</span> <span class="n">CosmologyAdapter</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">((</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span> <span class="o">*</span> <span class="n">cosmology</span><span class="o">.</span><span class="n">ddL_dz</span><span class="p">(</span><span class="n">z</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="detector2source_jacobian_single_mass">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.detector2source_jacobian_single_mass">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">detector2source_jacobian_single_mass</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">cosmology</span><span class="p">:</span> <span class="n">CosmologyAdapter</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">((</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span> <span class="o">*</span> <span class="n">cosmology</span><span class="o">.</span><span class="n">ddL_dz</span><span class="p">(</span><span class="n">z</span><span class="p">))</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_highpass_filter_jnp</span><span class="p">(</span><span class="n">mass</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">):</span>
+    <span class="n">mass</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mass</span><span class="p">)</span>
+    <span class="n">delta_m</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">delta_m</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">delta_m</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">mass</span><span class="p">)</span>
+    <span class="n">mprime</span> <span class="o">=</span> <span class="n">mass</span> <span class="o">-</span> <span class="n">mmin</span>
+    <span class="n">window_region</span> <span class="o">=</span> <span class="p">(</span><span class="n">mass</span> <span class="o">&gt;</span> <span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">mass</span> <span class="o">&lt;</span> <span class="n">mmin</span> <span class="o">+</span> <span class="n">delta_m</span><span class="p">)</span>
+    <span class="n">safe_mprime</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">window_region</span><span class="p">,</span> <span class="n">mprime</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="n">term</span> <span class="o">=</span> <span class="n">delta_m</span> <span class="o">/</span> <span class="n">safe_mprime</span> <span class="o">+</span> <span class="n">delta_m</span> <span class="o">/</span> <span class="p">(</span><span class="n">safe_mprime</span> <span class="o">-</span> <span class="n">delta_m</span><span class="p">)</span>
+    <span class="n">effe_prime</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">posinf</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">neginf</span><span class="o">=-</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">))</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">effe_prime</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mass</span> <span class="o">&lt;=</span> <span class="n">mmin</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">window</span><span class="p">)</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mass</span> <span class="o">&gt;=</span> <span class="n">mmin</span> <span class="o">+</span> <span class="n">delta_m</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">window</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">window</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_highpass_filter_np</span><span class="p">(</span><span class="n">mass</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">):</span>
+    <span class="n">mass</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mass</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">delta_m</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">mass</span><span class="p">)</span>
+    <span class="n">mprime</span> <span class="o">=</span> <span class="n">mass</span> <span class="o">-</span> <span class="n">mmin</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">mass</span><span class="p">)</span>
+    <span class="n">select_window</span> <span class="o">=</span> <span class="p">(</span><span class="n">mass</span> <span class="o">&gt;</span> <span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">mass</span> <span class="o">&lt;</span> <span class="n">mmin</span> <span class="o">+</span> <span class="n">delta_m</span><span class="p">)</span>
+    <span class="n">safe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">select_window</span><span class="p">,</span> <span class="n">mprime</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="n">term</span> <span class="o">=</span> <span class="n">delta_m</span> <span class="o">/</span> <span class="n">safe</span> <span class="o">+</span> <span class="n">delta_m</span> <span class="o">/</span> <span class="p">(</span><span class="n">safe</span> <span class="o">-</span> <span class="n">delta_m</span><span class="p">)</span>
+    <span class="n">effe_prime</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">term</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">posinf</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">neginf</span><span class="o">=-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">))</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">effe_prime</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="n">window</span><span class="p">[</span><span class="n">mass</span> <span class="o">&lt;=</span> <span class="n">mmin</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">window</span><span class="p">[</span><span class="n">mass</span> <span class="o">&gt;=</span> <span class="n">mmin</span> <span class="o">+</span> <span class="n">delta_m</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+    <span class="k">return</span> <span class="n">window</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_logsumexp_pair</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">logaddexp</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_safe_float</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">value</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_PowerLawDistribution</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">exponent</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mmin</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mmax</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mmax</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">exponent</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_log_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mmax</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">norm_val</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mmax</span><span class="o">**</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span><span class="o">**</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_log_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">norm_val</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_in_support</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">m</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmax</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_pdf_jnp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="n">log_pdf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_norm</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_in_support</span><span class="p">(</span><span class="n">m</span><span class="p">),</span> <span class="n">log_pdf</span><span class="p">,</span> <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_pdf_np</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">log_pdf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span> <span class="o">-</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_log_norm</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">arr</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">arr</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmax</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">log_pdf</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">cdf_jnp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+            <span class="n">cdf</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span><span class="p">)</span> <span class="o">/</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mmax</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">num</span> <span class="o">=</span> <span class="n">m</span><span class="o">**</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span><span class="o">**</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="n">den</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmax</span><span class="o">**</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span><span class="o">**</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+            <span class="n">cdf</span> <span class="o">=</span> <span class="n">num</span> <span class="o">/</span> <span class="n">den</span>
+        <span class="n">cdf</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">cdf</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">cdf</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">m</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">cdf</span><span class="p">)</span>
+        <span class="n">cdf</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">m</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmax</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">cdf</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cdf</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_TruncatedGaussian</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mmin</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mmax</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mmax</span><span class="p">)</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mmin</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mmax</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_log_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span> <span class="o">*</span> <span class="p">(</span><span class="n">norm</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">-</span> <span class="n">norm</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">a</span><span class="p">)))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_in_support</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">m</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmax</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_pdf_jnp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="n">log_pdf</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">((</span><span class="n">m</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_norm</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_in_support</span><span class="p">(</span><span class="n">m</span><span class="p">),</span> <span class="n">log_pdf</span><span class="p">,</span> <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">cdf_jnp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mmin</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mmax</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span>
+        <span class="n">num</span> <span class="o">=</span> <span class="n">norm</span><span class="o">.</span><span class="n">cdf</span><span class="p">((</span><span class="n">m</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="p">)</span> <span class="o">-</span> <span class="n">norm</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">den</span> <span class="o">=</span> <span class="n">norm</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">-</span> <span class="n">norm</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">cdf</span> <span class="o">=</span> <span class="n">num</span> <span class="o">/</span> <span class="n">den</span>
+        <span class="n">cdf</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">cdf</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">cdf</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">m</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">cdf</span><span class="p">)</span>
+        <span class="n">cdf</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">m</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mmax</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">cdf</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cdf</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_PowerLawGaussianDistribution</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mu_g</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sigma_g</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">lambda_peak</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mmin</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mmin</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mmax</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">mmax</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lambda_peak</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">lambda_peak</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">powerlaw</span> <span class="o">=</span> <span class="n">_PowerLawDistribution</span><span class="p">(</span><span class="n">mmin</span><span class="p">,</span> <span class="n">mmax</span><span class="p">,</span> <span class="o">-</span><span class="n">alpha</span><span class="p">)</span>
+        <span class="n">max_gauss</span> <span class="o">=</span> <span class="n">mu_g</span> <span class="o">+</span> <span class="mf">5.0</span> <span class="o">*</span> <span class="n">sigma_g</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gaussian</span> <span class="o">=</span> <span class="n">_TruncatedGaussian</span><span class="p">(</span><span class="n">mu_g</span><span class="p">,</span> <span class="n">sigma_g</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">max_gauss</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_pdf_jnp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="n">lam</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lambda_peak</span><span class="p">,</span> <span class="mf">1e-12</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-12</span><span class="p">)</span>
+        <span class="n">log_pl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">powerlaw</span><span class="o">.</span><span class="n">log_pdf_jnp</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="o">-</span><span class="n">lam</span><span class="p">)</span>
+        <span class="n">log_gauss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussian</span><span class="o">.</span><span class="n">log_pdf_jnp</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">lam</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_logsumexp_pair</span><span class="p">(</span><span class="n">log_pl</span><span class="p">,</span> <span class="n">log_gauss</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">cdf_jnp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="n">lam</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lambda_peak</span><span class="p">,</span> <span class="mf">1e-12</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="mf">1e-12</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">lam</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">powerlaw</span><span class="o">.</span><span class="n">cdf_jnp</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">+</span> <span class="n">lam</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussian</span><span class="o">.</span><span class="n">cdf_jnp</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_LowpassSmoothedDistribution</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_dist</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">num_grid</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base</span> <span class="o">=</span> <span class="n">base_dist</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">delta_m</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">delta_m</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bottom</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">base_dist</span><span class="o">.</span><span class="n">mmin</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">integral_now</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_cdf_edge</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">midpoints</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cdf_numeric</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta_m</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">grid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bottom</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bottom</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta_m</span><span class="p">,</span>
+                <span class="n">num_grid</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">base_pdf</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">log_pdf_jnp</span><span class="p">(</span><span class="n">grid</span><span class="p">))</span>
+            <span class="n">window</span> <span class="o">=</span> <span class="n">_highpass_filter_jnp</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bottom</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta_m</span><span class="p">)</span>
+            <span class="n">integral_before</span> <span class="o">=</span> <span class="n">trapezoid</span><span class="p">(</span><span class="n">base_pdf</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+            <span class="n">integral_now</span> <span class="o">=</span> <span class="n">trapezoid</span><span class="p">(</span><span class="n">base_pdf</span> <span class="o">*</span> <span class="n">window</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">integral_before</span> <span class="o">+</span> <span class="n">integral_now</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">integral_now</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">integral_now</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">base_cdf_edge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">cdf_jnp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bottom</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta_m</span><span class="p">)</span>
+
+            <span class="n">midpoints</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">grid</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">grid</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+            <span class="n">smooth_pdf</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">log_pdf_jnp</span><span class="p">(</span><span class="n">midpoints</span><span class="p">)</span>
+                <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">_highpass_filter_jnp</span><span class="p">(</span><span class="n">midpoints</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bottom</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta_m</span><span class="p">))</span>
+                <span class="o">-</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">norm</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">cdf_numeric</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">smooth_pdf</span> <span class="o">*</span> <span class="p">(</span><span class="n">grid</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">grid</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">midpoints</span> <span class="o">=</span> <span class="n">midpoints</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cdf_numeric</span> <span class="o">=</span> <span class="n">cdf_numeric</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_pdf_jnp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta_m</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">log_pdf_jnp</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="n">window</span> <span class="o">=</span> <span class="n">_highpass_filter_jnp</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bottom</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta_m</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">log_pdf_jnp</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">window</span><span class="p">)</span> <span class="o">-</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">norm</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_cdf_jnp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cdf_jnp</span><span class="p">(</span><span class="n">m</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">cdf_jnp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta_m</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">cdf_jnp</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">midpoints</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">cdf_numeric</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">cdf_jnp</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+        <span class="n">m</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">edge</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bottom</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">delta_m</span>
+        <span class="n">interp</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span>
+            <span class="n">m</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">midpoints</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cdf_numeric</span><span class="p">,</span>
+            <span class="n">left</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">right</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cdf_numeric</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">tail</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">integral_now</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">cdf_jnp</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_cdf_edge</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm</span>
+        <span class="n">cdf_val</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">m</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bottom</span><span class="p">,</span>
+            <span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">m</span> <span class="o">&lt;=</span> <span class="n">edge</span><span class="p">,</span> <span class="n">interp</span><span class="p">,</span> <span class="n">tail</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">cdf_val</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="MassPriorEvaluator">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.MassPriorEvaluator">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MassPriorEvaluator</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pure JAX implementation of icarogw&#39;s PowerLawPeak + low-pass pairing.&quot;&quot;&quot;</span>
+
+    <span class="n">population_parameters</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="s1">&#39;mmin&#39;</span><span class="p">,</span> <span class="s1">&#39;mmax&#39;</span><span class="p">,</span> <span class="s1">&#39;delta_m&#39;</span><span class="p">,</span> <span class="s1">&#39;mu_g&#39;</span><span class="p">,</span> <span class="s1">&#39;sigma_g&#39;</span><span class="p">,</span> <span class="s1">&#39;lambda_peak&#39;</span>
+    <span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_m1_lowpass</span><span class="p">:</span> <span class="n">_LowpassSmoothedDistribution</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_m2_lowpass</span><span class="p">:</span> <span class="n">_LowpassSmoothedDistribution</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="MassPriorEvaluator.update">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.MassPriorEvaluator.update">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">population_parameters</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">params</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing mass-prior parameters: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">population_parameters</span><span class="p">}</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;alpha&#39;</span><span class="p">]</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;beta&#39;</span><span class="p">]</span>
+        <span class="n">mmin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;mmin&#39;</span><span class="p">]</span>
+        <span class="n">mmax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;mmax&#39;</span><span class="p">]</span>
+        <span class="n">delta_m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;delta_m&#39;</span><span class="p">]</span>
+        <span class="n">mu_g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;mu_g&#39;</span><span class="p">]</span>
+        <span class="n">sigma_g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;sigma_g&#39;</span><span class="p">]</span>
+        <span class="n">lambda_peak</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;lambda_peak&#39;</span><span class="p">]</span>
+
+        <span class="n">m1_dist</span> <span class="o">=</span> <span class="n">_PowerLawGaussianDistribution</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">mmax</span><span class="p">,</span> <span class="n">mu_g</span><span class="p">,</span> <span class="n">sigma_g</span><span class="p">,</span> <span class="n">lambda_peak</span><span class="p">)</span>
+        <span class="n">m2_dist</span> <span class="o">=</span> <span class="n">_PowerLawDistribution</span><span class="p">(</span><span class="n">mmin</span><span class="p">,</span> <span class="n">mmax</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_m1_lowpass</span> <span class="o">=</span> <span class="n">_LowpassSmoothedDistribution</span><span class="p">(</span><span class="n">m1_dist</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_m2_lowpass</span> <span class="o">=</span> <span class="n">_LowpassSmoothedDistribution</span><span class="p">(</span><span class="n">m2_dist</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MassPriorEvaluator.log_prob">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.MassPriorEvaluator.log_prob">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_prob</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m1_source</span><span class="p">,</span> <span class="n">m2_source</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m1_lowpass</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m2_lowpass</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;MassPriorEvaluator.update() must be called before log_prob().&#39;</span><span class="p">)</span>
+        <span class="n">m1</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">m1_source</span><span class="p">)</span>
+        <span class="n">m2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">m2_source</span><span class="p">)</span>
+        <span class="n">log_p1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m1_lowpass</span><span class="o">.</span><span class="n">log_pdf_jnp</span><span class="p">(</span><span class="n">m1</span><span class="p">)</span>
+        <span class="n">log_p2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m2_lowpass</span><span class="o">.</span><span class="n">log_pdf_jnp</span><span class="p">(</span><span class="n">m2</span><span class="p">)</span>
+        <span class="n">log_cdf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m2_lowpass</span><span class="o">.</span><span class="n">log_cdf_jnp</span><span class="p">(</span><span class="n">m1</span><span class="p">)</span>
+        <span class="n">log_prob</span> <span class="o">=</span> <span class="n">log_p1</span> <span class="o">+</span> <span class="n">log_p2</span> <span class="o">-</span> <span class="n">log_cdf</span>
+        <span class="n">mmin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;mmin&#39;</span><span class="p">]</span>
+        <span class="n">mmax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;mmax&#39;</span><span class="p">]</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span><span class="n">m1</span> <span class="o">&gt;=</span> <span class="n">mmin</span><span class="p">)</span>
+            <span class="o">&amp;</span> <span class="p">(</span><span class="n">m1</span> <span class="o">&lt;=</span> <span class="n">mmax</span><span class="p">)</span>
+            <span class="o">&amp;</span> <span class="p">(</span><span class="n">m2</span> <span class="o">&gt;=</span> <span class="n">mmin</span><span class="p">)</span>
+            <span class="o">&amp;</span> <span class="p">(</span><span class="n">m2</span> <span class="o">&lt;=</span> <span class="n">mmax</span><span class="p">)</span>
+            <span class="o">&amp;</span> <span class="p">(</span><span class="n">m2</span> <span class="o">&lt;=</span> <span class="n">m1</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">valid</span><span class="p">,</span> <span class="n">log_prob</span><span class="p">,</span> <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="MadauRateEvaluator">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.MadauRateEvaluator">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MadauRateEvaluator</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exact JAX translation of icarogw&#39;s md_rate.&quot;&quot;&quot;</span>
+
+    <span class="n">population_parameters</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;gamma&#39;</span><span class="p">,</span> <span class="s1">&#39;kappa&#39;</span><span class="p">,</span> <span class="s1">&#39;zp&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="MadauRateEvaluator.update">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.MadauRateEvaluator.update">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">population_parameters</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">params</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing rate parameters: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">_safe_float</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">population_parameters</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="MadauRateEvaluator.log_rate">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.MadauRateEvaluator.log_rate">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;MadauRateEvaluator.update() must be called before log_rate().&#39;</span><span class="p">)</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">gamma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;gamma&#39;</span><span class="p">]</span>
+        <span class="n">kappa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;kappa&#39;</span><span class="p">]</span>
+        <span class="n">zp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;zp&#39;</span><span class="p">]</span>
+        <span class="n">log_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log1p</span><span class="p">((</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">zp</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="n">gamma</span> <span class="o">-</span> <span class="n">kappa</span><span class="p">))</span>
+        <span class="n">log_num</span> <span class="o">=</span> <span class="n">gamma</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">ratio</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">zp</span><span class="p">)</span>
+        <span class="n">log_den</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">ratio</span> <span class="o">**</span> <span class="p">(</span><span class="n">gamma</span> <span class="o">+</span> <span class="n">kappa</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">log_norm</span> <span class="o">+</span> <span class="n">log_num</span> <span class="o">-</span> <span class="n">log_den</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="GWPopulationRateModel">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.GWPopulationRateModel">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GWPopulationRateModel</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mass_prior</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rate_evolution</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">scale_free</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">zmax</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">grid_size</span><span class="o">=</span><span class="mi">6000</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mass_prior</span> <span class="o">=</span> <span class="n">mass_prior</span> <span class="ow">or</span> <span class="n">MassPriorEvaluator</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rate_evolution</span> <span class="o">=</span> <span class="n">rate_evolution</span> <span class="ow">or</span> <span class="n">MadauRateEvaluator</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale_free</span> <span class="o">=</span> <span class="n">scale_free</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zmax</span> <span class="o">=</span> <span class="n">zmax</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid_size</span> <span class="o">=</span> <span class="n">grid_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">population_parameters</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="s1">&#39;mmin&#39;</span><span class="p">,</span> <span class="s1">&#39;mmax&#39;</span><span class="p">,</span> <span class="s1">&#39;delta_m&#39;</span><span class="p">,</span> <span class="s1">&#39;mu_g&#39;</span><span class="p">,</span> <span class="s1">&#39;sigma_g&#39;</span><span class="p">,</span> <span class="s1">&#39;lambda_peak&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;gamma&#39;</span><span class="p">,</span> <span class="s1">&#39;kappa&#39;</span><span class="p">,</span> <span class="s1">&#39;zp&#39;</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">scale_free</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">population_parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;R0&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">R0</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_population_only_parameters</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mass_prior</span><span class="o">.</span><span class="n">population_parameters</span><span class="p">)</span>
+            <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rate_evolution</span><span class="o">.</span><span class="n">population_parameters</span><span class="p">)</span>
+            <span class="o">+</span> <span class="p">([]</span> <span class="k">if</span> <span class="n">scale_free</span> <span class="k">else</span> <span class="p">[</span><span class="s1">&#39;R0&#39;</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cached_population</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cosmology</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CosmologyAdapter</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="GWPopulationRateModel.update">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.GWPopulationRateModel.update">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cosmology</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update both cosmology and population parameters.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_cosmology</span><span class="p">(</span><span class="n">cosmology</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_population</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GWPopulationRateModel.set_cosmology">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.GWPopulationRateModel.set_cosmology">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_cosmology</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cosmology</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">cosmology</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;cosmology must be provided&quot;</span><span class="p">)</span>
+        <span class="n">required</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;luminosity_distance&quot;</span><span class="p">,</span> <span class="s2">&quot;dVc_dz&quot;</span><span class="p">,</span> <span class="s2">&quot;ddL_dz&quot;</span><span class="p">,</span> <span class="s2">&quot;dl_to_z&quot;</span><span class="p">]</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">required</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cosmology</span><span class="p">,</span> <span class="n">name</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Cosmology is missing required methods: &quot;</span>
+                <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cosmology</span> <span class="o">=</span> <span class="n">cosmology</span></div>
+
+
+<div class="viewcode-block" id="GWPopulationRateModel.update_population">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.GWPopulationRateModel.update_population">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_population</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update mass/rate population parameters (no cosmology update).&quot;&quot;&quot;</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population_only_parameters</span> <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">params</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing population parameters: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mass_prior</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rate_evolution</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale_free</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">R0</span> <span class="o">=</span> <span class="n">_safe_float</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;R0&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cached_population</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">params</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population_only_parameters</span><span class="p">}</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">population_only_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population_only_parameters</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GWPopulationRateModel.log_rate_PE">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.GWPopulationRateModel.log_rate_PE">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_rate_PE</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prior</span><span class="p">,</span> <span class="n">luminosity_distance</span><span class="p">,</span> <span class="n">mass_1</span><span class="p">,</span> <span class="n">mass_2</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cosmology</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cosmology not set. Call set_cosmology() first.&quot;</span><span class="p">)</span>
+        <span class="n">prior</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">prior</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">d_l</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">luminosity_distance</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">mass_1</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mass_1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">mass_2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mass_2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+        <span class="n">m1_src</span><span class="p">,</span> <span class="n">m2_src</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">detector2source</span><span class="p">(</span><span class="n">mass_1</span><span class="p">,</span> <span class="n">mass_2</span><span class="p">,</span> <span class="n">d_l</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cosmology</span><span class="p">)</span>
+        <span class="n">log_mass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mass_prior</span><span class="o">.</span><span class="n">log_prob</span><span class="p">(</span><span class="n">m1_src</span><span class="p">,</span> <span class="n">m2_src</span><span class="p">)</span>
+        <span class="n">log_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rate_evolution</span><span class="o">.</span><span class="n">log_rate</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">log_dVc</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cosmology</span><span class="o">.</span><span class="n">dVc_dz</span><span class="p">(</span><span class="n">z</span><span class="p">))</span>
+        <span class="n">log_jac</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">detector2source_jacobian</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cosmology</span><span class="p">))</span>
+        <span class="n">log_weights</span> <span class="o">=</span> <span class="n">log_mass</span> <span class="o">+</span> <span class="n">log_rate</span> <span class="o">+</span> <span class="n">log_dVc</span> <span class="o">-</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">-</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">prior</span><span class="p">)</span> <span class="o">-</span> <span class="n">log_jac</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale_free</span><span class="p">:</span>
+            <span class="n">log_weights</span> <span class="o">=</span> <span class="n">log_weights</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">R0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">log_weights</span></div>
+
+
+<div class="viewcode-block" id="GWPopulationRateModel.log_rate_injections">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.GWPopulationRateModel.log_rate_injections">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_rate_injections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prior</span><span class="p">,</span> <span class="n">luminosity_distance</span><span class="p">,</span> <span class="n">mass_1</span><span class="p">,</span> <span class="n">mass_2</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_rate_PE</span><span class="p">(</span><span class="n">prior</span><span class="p">,</span> <span class="n">luminosity_distance</span><span class="p">,</span> <span class="n">mass_1</span><span class="p">,</span> <span class="n">mass_2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GWPopulationRateModel.expected_detections">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.GWPopulationRateModel.expected_detections">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expected_detections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prior</span><span class="p">,</span> <span class="n">luminosity_distance</span><span class="p">,</span> <span class="n">mass_1</span><span class="p">,</span> <span class="n">mass_2</span><span class="p">,</span> <span class="n">ntotal</span><span class="p">,</span> <span class="n">Tobs</span><span class="p">):</span>
+        <span class="n">log_w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_rate_injections</span><span class="p">(</span><span class="n">prior</span><span class="p">,</span> <span class="n">luminosity_distance</span><span class="p">,</span> <span class="n">mass_1</span><span class="p">,</span> <span class="n">mass_2</span><span class="p">)</span>
+        <span class="n">pseudo_rate</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">logaddexp</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">log_w</span><span class="p">))</span> <span class="o">/</span> <span class="n">ntotal</span>
+        <span class="k">return</span> <span class="n">pseudo_rate</span> <span class="o">*</span> <span class="n">Tobs</span></div>
+</div>
+
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;CosmologyAdapter&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;detector2source&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;detector2source_jacobian&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;detector2source_jacobian_q&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;detector2source_jacobian_single_mass&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;MassPriorEvaluator&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;MadauRateEvaluator&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;GWPopulationRateModel&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; 版权所有 。</p>
+  </div>
+
+  利用 <a href="https://www.sphinx-doc.org/">Sphinx</a> 构建，使用的 
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">主题</a>
+    由 <a href="https://readthedocs.org">Read the Docs</a> 开发.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
