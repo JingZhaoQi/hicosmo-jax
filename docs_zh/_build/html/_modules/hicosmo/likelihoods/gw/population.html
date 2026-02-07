@@ -1,0 +1,476 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="zh-CN" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hicosmo.likelihoods.gw.population &mdash; HIcosmo 中文文档</title>
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=d786bb5c"></script>
+      <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../../_static/translations.js?v=beaddf03"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../../../../genindex.html" />
+    <link rel="search" title="搜索" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            HIcosmo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="搜索文档" aria-label="搜索文档" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="导航菜单">
+              <p class="caption" role="heading"><span class="caption-text">入门</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../installation.html">安装指南</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart.html">快速开始</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../concepts.html">核心概念</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../jax_introduction.html">JAX 技术详解</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">使用指南</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/data.html">数据与路径</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/models.html">宇宙学模型</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/likelihoods.html">似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/samplers.html">采样与推断</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/custom_likelihood.html">自定义似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/config.html">配置驱动</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/visualization.html">可视化</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/model_selection.html">模型选择与信息判据</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/fisher.html">Fisher 预报</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/jax_tools.html">JAX 数值工具参考</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API 接口（完整）</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/index.html">API 接口详细介绍</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="移动版导航菜单" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">HIcosmo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="页面导航">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">模块代码</a></li>
+          <li class="breadcrumb-item"><a href="../../likelihoods.html">hicosmo.likelihoods</a></li>
+      <li class="breadcrumb-item active">hicosmo.likelihoods.gw.population</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>hicosmo.likelihoods.gw.population 源代码</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Gravitational-wave population models shared across likelihood modules.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">jit</span><span class="p">,</span> <span class="n">vmap</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax.scipy.stats</span><span class="w"> </span><span class="kn">import</span> <span class="n">norm</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;MassPrior&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;PowerLawMass&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;BrokenPowerLawMass&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;PowerLawPeak&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;BNSMassPrior&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;RateEvolution&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;MadauRate&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MassPrior</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for binary mass distributions.&quot;&quot;&quot;</span>
+
+    <span class="n">parameter_names</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_prob</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m1</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">m2</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return log p(m1, m2 | theta).&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+
+<div class="viewcode-block" id="PowerLawMass">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.PowerLawMass">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PowerLawMass</span><span class="p">(</span><span class="n">MassPrior</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Factorized power-law distribution for (m1, m2).&quot;&quot;&quot;</span>
+
+    <span class="n">parameter_names</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="s1">&#39;mmin&#39;</span><span class="p">,</span> <span class="s1">&#39;mmax&#39;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="nd">@jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_norm_m1</span><span class="p">(</span><span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="c1"># Use exponent = -alpha so that alpha &gt; 0 corresponds to m^{-alpha}</span>
+        <span class="n">exp</span> <span class="o">=</span> <span class="o">-</span><span class="n">alpha</span>
+        <span class="n">is_special</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">exp</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-6</span>
+        <span class="n">normal_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">((</span><span class="n">mmax</span><span class="o">**</span><span class="p">(</span><span class="n">exp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">mmin</span><span class="o">**</span><span class="p">(</span><span class="n">exp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">exp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">special_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">mmax</span> <span class="o">/</span> <span class="n">mmin</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_special</span><span class="p">,</span> <span class="n">special_norm</span><span class="p">,</span> <span class="n">normal_norm</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="nd">@jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_norm_m2</span><span class="p">(</span><span class="n">beta</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">m1</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="n">is_degenerate</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">m1</span> <span class="o">-</span> <span class="n">mmin</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-9</span>
+        <span class="n">is_special_beta</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">beta</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-6</span>
+        <span class="n">normal_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">((</span><span class="n">m1</span><span class="o">**</span><span class="p">(</span><span class="n">beta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">mmin</span><span class="o">**</span><span class="p">(</span><span class="n">beta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">beta</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">special_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m1</span> <span class="o">/</span> <span class="n">mmin</span><span class="p">))</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_special_beta</span><span class="p">,</span> <span class="n">special_norm</span><span class="p">,</span> <span class="n">normal_norm</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_degenerate</span><span class="p">,</span> <span class="o">-</span><span class="mf">1e10</span><span class="p">,</span> <span class="n">norm</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PowerLawMass.log_prob">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.PowerLawMass.log_prob">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_prob</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m1</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">m2</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.35</span><span class="p">)</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">mmin</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mmin&#39;</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)</span>
+        <span class="n">mmax</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mmax&#39;</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">)</span>
+
+        <span class="n">m1</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">m1</span><span class="p">)</span>
+        <span class="n">m2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">m2</span><span class="p">)</span>
+
+        <span class="n">log_p_m1_unnorm</span> <span class="o">=</span> <span class="o">-</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m1</span><span class="p">)</span>
+        <span class="n">log_norm_m1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_norm_m1</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">mmax</span><span class="p">)</span>
+
+        <span class="n">log_p_m2_unnorm</span> <span class="o">=</span> <span class="n">beta</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m2</span><span class="p">)</span>
+        <span class="n">log_norm_m2</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">m1_val</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_norm_m2</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">m1_val</span><span class="p">))(</span><span class="n">m1</span><span class="p">)</span>
+
+        <span class="n">in_range_m1</span> <span class="o">=</span> <span class="p">(</span><span class="n">m1</span> <span class="o">&gt;=</span> <span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m1</span> <span class="o">&lt;=</span> <span class="n">mmax</span><span class="p">)</span>
+        <span class="n">in_range_m2</span> <span class="o">=</span> <span class="p">(</span><span class="n">m2</span> <span class="o">&gt;=</span> <span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m2</span> <span class="o">&lt;=</span> <span class="n">m1</span><span class="p">)</span>
+        <span class="n">in_range</span> <span class="o">=</span> <span class="n">in_range_m1</span> <span class="o">&amp;</span> <span class="n">in_range_m2</span>
+
+        <span class="n">log_p</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">in_range</span><span class="p">,</span>
+            <span class="n">log_p_m1_unnorm</span> <span class="o">-</span> <span class="n">log_norm_m1</span> <span class="o">+</span> <span class="n">log_p_m2_unnorm</span> <span class="o">-</span> <span class="n">log_norm_m2</span><span class="p">,</span>
+            <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">log_p</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="BrokenPowerLawMass">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.BrokenPowerLawMass">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BrokenPowerLawMass</span><span class="p">(</span><span class="n">MassPrior</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Broken power-law distribution for primary mass with low-mass smoothing.&quot;&quot;&quot;</span>
+
+    <span class="n">parameter_names</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;alpha_1&#39;</span><span class="p">,</span> <span class="s1">&#39;alpha_2&#39;</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="s1">&#39;mmin&#39;</span><span class="p">,</span> <span class="s1">&#39;mmax&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;delta_m&#39;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="nd">@jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_norm_powerlaw</span><span class="p">(</span><span class="n">exp</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="n">eps</span> <span class="o">=</span> <span class="mf">1e-6</span>
+        <span class="n">is_special</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">exp</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">eps</span>
+        <span class="n">normal_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">((</span><span class="n">mmax</span><span class="o">**</span><span class="p">(</span><span class="n">exp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">mmin</span><span class="o">**</span><span class="p">(</span><span class="n">exp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">exp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">special_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">mmax</span> <span class="o">/</span> <span class="n">mmin</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_special</span><span class="p">,</span> <span class="n">special_norm</span><span class="p">,</span> <span class="n">normal_norm</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="nd">@jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_smoothing_function</span><span class="p">(</span><span class="n">m</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">mmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">safe_m</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">mmin</span> <span class="o">+</span> <span class="mf">1e-10</span><span class="p">)</span>
+        <span class="n">term1</span> <span class="o">=</span> <span class="n">delta_m</span> <span class="o">/</span> <span class="p">(</span><span class="n">safe_m</span> <span class="o">-</span> <span class="n">mmin</span><span class="p">)</span>
+        <span class="n">term2</span> <span class="o">=</span> <span class="n">delta_m</span> <span class="o">/</span> <span class="p">(</span><span class="n">safe_m</span> <span class="o">-</span> <span class="n">mmin</span> <span class="o">-</span> <span class="n">delta_m</span><span class="p">)</span>
+        <span class="n">log_smoothing</span> <span class="o">=</span> <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">logaddexp</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">term1</span> <span class="o">+</span> <span class="n">term2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">m</span> <span class="o">&gt;=</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">log_smoothing</span><span class="p">,</span> <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BrokenPowerLawMass.log_prob">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.BrokenPowerLawMass.log_prob">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_prob</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m1</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">m2</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">alpha1</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;alpha_1&#39;</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">)</span>
+        <span class="n">alpha2</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;alpha_2&#39;</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">)</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">mmin</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mmin&#39;</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)</span>
+        <span class="n">mmax</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mmax&#39;</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+        <span class="n">delta_m</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;delta_m&#39;</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">)</span>
+
+        <span class="n">m1</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">m1</span><span class="p">)</span>
+        <span class="n">m2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">m2</span><span class="p">)</span>
+
+        <span class="n">m_break</span> <span class="o">=</span> <span class="n">mmin</span> <span class="o">+</span> <span class="n">b</span> <span class="o">*</span> <span class="p">(</span><span class="n">mmax</span> <span class="o">-</span> <span class="n">mmin</span><span class="p">)</span>
+        <span class="n">valid_break</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">b</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m_break</span> <span class="o">&gt;</span> <span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m_break</span> <span class="o">&lt;</span> <span class="n">mmax</span><span class="p">)</span>
+
+        <span class="n">exp1</span> <span class="o">=</span> <span class="o">-</span><span class="n">alpha1</span>
+        <span class="n">exp2</span> <span class="o">=</span> <span class="o">-</span><span class="n">alpha2</span>
+        <span class="n">log_norm1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_norm_powerlaw</span><span class="p">(</span><span class="n">exp1</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">m_break</span><span class="p">)</span>
+        <span class="n">log_norm2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_norm_powerlaw</span><span class="p">(</span><span class="n">exp2</span><span class="p">,</span> <span class="n">m_break</span><span class="p">,</span> <span class="n">mmax</span><span class="p">)</span>
+        <span class="n">log_pdf1</span> <span class="o">=</span> <span class="n">exp1</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m1</span><span class="p">)</span> <span class="o">-</span> <span class="n">log_norm1</span>
+        <span class="n">log_pdf2</span> <span class="o">=</span> <span class="n">exp2</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m1</span><span class="p">)</span> <span class="o">-</span> <span class="n">log_norm2</span>
+        <span class="n">log_pdf1_break</span> <span class="o">=</span> <span class="n">exp1</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m_break</span><span class="p">)</span> <span class="o">-</span> <span class="n">log_norm1</span>
+        <span class="n">log_pdf2_break</span> <span class="o">=</span> <span class="n">exp2</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m_break</span><span class="p">)</span> <span class="o">-</span> <span class="n">log_norm2</span>
+        <span class="n">log_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">log_pdf1_break</span> <span class="o">-</span> <span class="n">log_pdf2_break</span><span class="p">))</span>
+        <span class="n">log_p_m1</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">logaddexp</span><span class="p">(</span>
+            <span class="n">log_pdf1</span><span class="p">,</span>
+            <span class="n">log_pdf2</span> <span class="o">+</span> <span class="n">log_pdf1_break</span> <span class="o">-</span> <span class="n">log_pdf2_break</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-</span> <span class="n">log_norm</span>
+
+        <span class="n">log_p_m2_unnorm</span> <span class="o">=</span> <span class="n">beta</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m2</span><span class="p">)</span>
+        <span class="n">log_norm_m2</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">m1_val</span><span class="p">:</span> <span class="n">PowerLawMass</span><span class="o">.</span><span class="n">_log_norm_m2</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">m1_val</span><span class="p">))(</span><span class="n">m1</span><span class="p">)</span>
+        <span class="n">log_p_m2_given_m1</span> <span class="o">=</span> <span class="n">log_p_m2_unnorm</span> <span class="o">-</span> <span class="n">log_norm_m2</span>
+
+        <span class="n">log_S_m1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_smoothing_function</span><span class="p">(</span><span class="n">m1</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">)</span>
+        <span class="n">log_S_m2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_smoothing_function</span><span class="p">(</span><span class="n">m2</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">)</span>
+
+        <span class="n">in_range_m1</span> <span class="o">=</span> <span class="p">(</span><span class="n">m1</span> <span class="o">&gt;=</span> <span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m1</span> <span class="o">&lt;=</span> <span class="n">mmax</span><span class="p">)</span>
+        <span class="n">in_range_m2</span> <span class="o">=</span> <span class="p">(</span><span class="n">m2</span> <span class="o">&gt;=</span> <span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m2</span> <span class="o">&lt;=</span> <span class="n">m1</span><span class="p">)</span>
+        <span class="n">in_range</span> <span class="o">=</span> <span class="n">in_range_m1</span> <span class="o">&amp;</span> <span class="n">in_range_m2</span> <span class="o">&amp;</span> <span class="n">valid_break</span>
+
+        <span class="n">log_p</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">in_range</span><span class="p">,</span>
+            <span class="n">log_p_m1</span> <span class="o">+</span> <span class="n">log_p_m2_given_m1</span> <span class="o">+</span> <span class="n">log_S_m1</span> <span class="o">+</span> <span class="n">log_S_m2</span><span class="p">,</span>
+            <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">log_p</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PowerLawPeak">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.PowerLawPeak">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PowerLawPeak</span><span class="p">(</span><span class="n">MassPrior</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Power-law + Gaussian peak mass distribution with smoothing.&quot;&quot;&quot;</span>
+
+    <span class="n">parameter_names</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="s1">&#39;mmin&#39;</span><span class="p">,</span> <span class="s1">&#39;mmax&#39;</span><span class="p">,</span> <span class="s1">&#39;delta_m&#39;</span><span class="p">,</span> <span class="s1">&#39;mu_g&#39;</span><span class="p">,</span> <span class="s1">&#39;sigma_g&#39;</span><span class="p">,</span> <span class="s1">&#39;lambda_peak&#39;</span>
+    <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="nd">@jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_powerlaw_component</span><span class="p">(</span><span class="n">m1</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">log_p_unnorm</span> <span class="o">=</span> <span class="o">-</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m1</span><span class="p">)</span>
+        <span class="n">is_unity</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">alpha</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-6</span>
+        <span class="n">norm_regular</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">((</span><span class="n">mmax</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">-</span> <span class="n">mmin</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">))</span>
+        <span class="n">norm_unity</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">mmax</span> <span class="o">/</span> <span class="n">mmin</span><span class="p">))</span>
+        <span class="n">log_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_unity</span><span class="p">,</span> <span class="n">norm_unity</span><span class="p">,</span> <span class="n">norm_regular</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">log_p_unnorm</span> <span class="o">-</span> <span class="n">log_norm</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="nd">@jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gaussian_component</span><span class="p">(</span><span class="n">m1</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">mu_g</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sigma_g</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                           <span class="n">mmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">log_p_unnorm</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">((</span><span class="n">m1</span> <span class="o">-</span> <span class="n">mu_g</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma_g</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">cdf_max</span> <span class="o">=</span> <span class="n">norm</span><span class="o">.</span><span class="n">cdf</span><span class="p">((</span><span class="n">mmax</span> <span class="o">-</span> <span class="n">mu_g</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma_g</span><span class="p">)</span>
+        <span class="n">cdf_min</span> <span class="o">=</span> <span class="n">norm</span><span class="o">.</span><span class="n">cdf</span><span class="p">((</span><span class="n">mmin</span> <span class="o">-</span> <span class="n">mu_g</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma_g</span><span class="p">)</span>
+        <span class="n">log_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="n">sigma_g</span> <span class="o">*</span> <span class="p">(</span><span class="n">cdf_max</span> <span class="o">-</span> <span class="n">cdf_min</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">log_p_unnorm</span> <span class="o">-</span> <span class="n">log_norm</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="nd">@jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_smoothing_function</span><span class="p">(</span><span class="n">m</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">mmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">safe_m</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">mmin</span> <span class="o">+</span> <span class="mf">1e-10</span><span class="p">)</span>
+        <span class="n">term1</span> <span class="o">=</span> <span class="n">delta_m</span> <span class="o">/</span> <span class="p">(</span><span class="n">safe_m</span> <span class="o">-</span> <span class="n">mmin</span><span class="p">)</span>
+        <span class="n">term2</span> <span class="o">=</span> <span class="n">delta_m</span> <span class="o">/</span> <span class="p">(</span><span class="n">safe_m</span> <span class="o">-</span> <span class="n">mmin</span> <span class="o">-</span> <span class="n">delta_m</span><span class="p">)</span>
+        <span class="n">log_smoothing</span> <span class="o">=</span> <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">logaddexp</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">term1</span> <span class="o">+</span> <span class="n">term2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">m</span> <span class="o">&gt;=</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">log_smoothing</span><span class="p">,</span> <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PowerLawPeak.log_prob">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.PowerLawPeak.log_prob">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_prob</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m1</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">m2</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="mf">3.78</span><span class="p">)</span>
+        <span class="n">beta</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="mf">0.81</span><span class="p">)</span>
+        <span class="n">mmin</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mmin&#39;</span><span class="p">,</span> <span class="mf">4.98</span><span class="p">)</span>
+        <span class="n">mmax</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mmax&#39;</span><span class="p">,</span> <span class="mf">112.5</span><span class="p">)</span>
+        <span class="n">delta_m</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;delta_m&#39;</span><span class="p">,</span> <span class="mf">4.8</span><span class="p">)</span>
+        <span class="n">mu_g</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mu_g&#39;</span><span class="p">,</span> <span class="mf">32.27</span><span class="p">)</span>
+        <span class="n">sigma_g</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sigma_g&#39;</span><span class="p">,</span> <span class="mf">3.88</span><span class="p">)</span>
+        <span class="n">lambda_peak</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;lambda_peak&#39;</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">)</span>
+
+        <span class="n">m1</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">m1</span><span class="p">)</span>
+        <span class="n">m2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">m2</span><span class="p">)</span>
+
+        <span class="n">log_p_pl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_powerlaw_component</span><span class="p">(</span><span class="n">m1</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">mmax</span><span class="p">)</span>
+        <span class="n">log_p_gauss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gaussian_component</span><span class="p">(</span><span class="n">m1</span><span class="p">,</span> <span class="n">mu_g</span><span class="p">,</span> <span class="n">sigma_g</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">mmax</span><span class="p">)</span>
+        <span class="n">log_p_m1</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">logaddexp</span><span class="p">(</span>
+            <span class="n">log_p_pl</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">lambda_peak</span><span class="p">),</span>
+            <span class="n">log_p_gauss</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">lambda_peak</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="n">log_p_m2_unnorm</span> <span class="o">=</span> <span class="n">beta</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m2</span><span class="p">)</span>
+        <span class="n">log_norm_m2</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">m1_val</span><span class="p">:</span> <span class="n">PowerLawMass</span><span class="o">.</span><span class="n">_log_norm_m2</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">m1_val</span><span class="p">))(</span><span class="n">m1</span><span class="p">)</span>
+        <span class="n">log_p_m2_given_m1</span> <span class="o">=</span> <span class="n">log_p_m2_unnorm</span> <span class="o">-</span> <span class="n">log_norm_m2</span>
+
+        <span class="n">log_S_m1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_smoothing_function</span><span class="p">(</span><span class="n">m1</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">)</span>
+        <span class="n">log_S_m2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_smoothing_function</span><span class="p">(</span><span class="n">m2</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">)</span>
+
+        <span class="n">in_range_m1</span> <span class="o">=</span> <span class="p">(</span><span class="n">m1</span> <span class="o">&gt;=</span> <span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m1</span> <span class="o">&lt;=</span> <span class="n">mmax</span><span class="p">)</span>
+        <span class="n">in_range_m2</span> <span class="o">=</span> <span class="p">(</span><span class="n">m2</span> <span class="o">&gt;=</span> <span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m2</span> <span class="o">&lt;=</span> <span class="n">m1</span><span class="p">)</span>
+        <span class="n">in_range</span> <span class="o">=</span> <span class="n">in_range_m1</span> <span class="o">&amp;</span> <span class="n">in_range_m2</span>
+
+        <span class="n">log_p</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">in_range</span><span class="p">,</span>
+            <span class="n">log_p_m1</span> <span class="o">+</span> <span class="n">log_p_m2_given_m1</span> <span class="o">+</span> <span class="n">log_S_m1</span> <span class="o">+</span> <span class="n">log_S_m2</span><span class="p">,</span>
+            <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">log_p</span></div>
+
+
+<div class="viewcode-block" id="PowerLawPeak.log_pdf_chirp_mass">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.PowerLawPeak.log_pdf_chirp_mass">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_pdf_chirp_mass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mc_source</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="mf">3.78</span><span class="p">)</span>
+        <span class="n">mmin</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mmin&#39;</span><span class="p">,</span> <span class="mf">4.98</span><span class="p">)</span>
+        <span class="n">mmax</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mmax&#39;</span><span class="p">,</span> <span class="mf">112.5</span><span class="p">)</span>
+        <span class="n">delta_m</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;delta_m&#39;</span><span class="p">,</span> <span class="mf">4.8</span><span class="p">)</span>
+        <span class="n">mu_g</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mu_g&#39;</span><span class="p">,</span> <span class="mf">32.27</span><span class="p">)</span>
+        <span class="n">sigma_g</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sigma_g&#39;</span><span class="p">,</span> <span class="mf">3.88</span><span class="p">)</span>
+        <span class="n">lambda_peak</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;lambda_peak&#39;</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">)</span>
+
+        <span class="n">mc_source</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">mc_source</span><span class="p">)</span>
+        <span class="n">q_avg</span> <span class="o">=</span> <span class="mf">0.7</span>
+        <span class="n">m1_approx</span> <span class="o">=</span> <span class="n">mc_source</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">q_avg</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">5.0</span><span class="p">)</span>
+
+        <span class="n">log_p_pl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_powerlaw_component</span><span class="p">(</span><span class="n">m1_approx</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">mmax</span><span class="p">)</span>
+        <span class="n">log_p_gauss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gaussian_component</span><span class="p">(</span><span class="n">m1_approx</span><span class="p">,</span> <span class="n">mu_g</span><span class="p">,</span> <span class="n">sigma_g</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">mmax</span><span class="p">)</span>
+        <span class="n">log_p_m1</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">logaddexp</span><span class="p">(</span>
+            <span class="n">log_p_pl</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">lambda_peak</span><span class="p">),</span>
+            <span class="n">log_p_gauss</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">lambda_peak</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="n">log_S</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_smoothing_function</span><span class="p">(</span><span class="n">m1_approx</span><span class="p">,</span> <span class="n">mmin</span><span class="p">,</span> <span class="n">delta_m</span><span class="p">)</span>
+        <span class="n">in_range</span> <span class="o">=</span> <span class="p">(</span><span class="n">m1_approx</span> <span class="o">&gt;=</span> <span class="n">mmin</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m1_approx</span> <span class="o">&lt;=</span> <span class="n">mmax</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">in_range</span><span class="p">,</span> <span class="n">log_p_m1</span> <span class="o">+</span> <span class="n">log_S</span><span class="p">,</span> <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">RateEvolution</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for merger-rate evolution R(z).&quot;&quot;&quot;</span>
+
+    <span class="n">parameter_names</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rate</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-300</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="MadauRate">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.MadauRate">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MadauRate</span><span class="p">(</span><span class="n">RateEvolution</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Madau-Dickinson star-formation-inspired merger rate.&quot;&quot;&quot;</span>
+
+    <span class="n">parameter_names</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;gamma&#39;</span><span class="p">,</span> <span class="s1">&#39;kappa&#39;</span><span class="p">,</span> <span class="s1">&#39;zp&#39;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="nd">@jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rate_jax</span><span class="p">(</span><span class="n">z</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">kappa</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">zp</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span><span class="o">**</span><span class="n">gamma</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">zp</span><span class="p">))</span><span class="o">**</span><span class="n">kappa</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MadauRate.rate">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.MadauRate.rate">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">gamma</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;gamma&#39;</span><span class="p">,</span> <span class="mf">2.7</span><span class="p">)</span>
+        <span class="n">kappa</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;kappa&#39;</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Madau_k&#39;</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="mf">2.9</span><span class="p">)))</span>
+        <span class="n">zp</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;zp&#39;</span><span class="p">,</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;Madau_zp&#39;</span><span class="p">,</span> <span class="mf">2.47</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rate_jax</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">gamma</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">zp</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MadauRate.log_rate">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.MadauRate.log_rate">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">log_rate</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="BNSMassPrior">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.BNSMassPrior">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BNSMassPrior</span><span class="p">(</span><span class="n">MassPrior</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple BNS power-law mass prior in source frame.&quot;&quot;&quot;</span>
+
+    <span class="n">parameter_names</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;mminns&#39;</span><span class="p">,</span> <span class="s1">&#39;mmaxns&#39;</span><span class="p">,</span> <span class="s1">&#39;alphans&#39;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="nd">@jit</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_norm</span><span class="p">(</span><span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mmax</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="n">is_special</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">alpha</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-6</span>
+        <span class="n">normal_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">((</span><span class="n">mmax</span><span class="o">**</span><span class="p">(</span><span class="n">alpha</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">mmin</span><span class="o">**</span><span class="p">(</span><span class="n">alpha</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">alpha</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">special_norm</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">mmax</span> <span class="o">/</span> <span class="n">mmin</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_special</span><span class="p">,</span> <span class="n">special_norm</span><span class="p">,</span> <span class="n">normal_norm</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BNSMassPrior.log_prob">
+<a class="viewcode-back" href="../../../../api/likelihoods.html#hicosmo.likelihoods.BNSMassPrior.log_prob">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">log_prob</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m1</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">m2</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">jnp</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">alphans</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;alphans&#39;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="n">mminns</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mminns&#39;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">mmaxns</span> <span class="o">=</span> <span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;mmaxns&#39;</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">)</span>
+
+        <span class="n">m1</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">m1</span><span class="p">)</span>
+        <span class="n">m2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">m2</span><span class="p">)</span>
+
+        <span class="n">log_norm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_log_norm</span><span class="p">(</span><span class="n">alphans</span><span class="p">,</span> <span class="n">mminns</span><span class="p">,</span> <span class="n">mmaxns</span><span class="p">)</span>
+        <span class="n">log_p_m1</span> <span class="o">=</span> <span class="n">alphans</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m1</span> <span class="o">/</span> <span class="n">mminns</span><span class="p">)</span> <span class="o">-</span> <span class="n">log_norm</span>
+        <span class="n">log_p_m2</span> <span class="o">=</span> <span class="n">alphans</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">m2</span> <span class="o">/</span> <span class="n">mminns</span><span class="p">)</span> <span class="o">-</span> <span class="n">log_norm</span>
+
+        <span class="n">in_range</span> <span class="o">=</span> <span class="p">(</span><span class="n">m1</span> <span class="o">&gt;=</span> <span class="n">mminns</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m1</span> <span class="o">&lt;=</span> <span class="n">mmaxns</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m2</span> <span class="o">&gt;=</span> <span class="n">mminns</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">m2</span> <span class="o">&lt;=</span> <span class="n">mmaxns</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">in_range</span><span class="p">,</span> <span class="n">log_p_m1</span> <span class="o">+</span> <span class="n">log_p_m2</span><span class="p">,</span> <span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; 版权所有 。</p>
+  </div>
+
+  利用 <a href="https://www.sphinx-doc.org/">Sphinx</a> 构建，使用的 
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">主题</a>
+    由 <a href="https://readthedocs.org">Read the Docs</a> 开发.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

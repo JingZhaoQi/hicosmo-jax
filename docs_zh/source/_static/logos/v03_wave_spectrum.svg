@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 140">
+  <defs>
+    <linearGradient id="v3_bg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0d1b2a"/>
+      <stop offset="100%" style="stop-color:#1b263b"/>
+    </linearGradient>
+    <linearGradient id="v3_wave" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4ecdc4;stop-opacity:0"/>
+      <stop offset="30%" style="stop-color:#4ecdc4;stop-opacity:1"/>
+      <stop offset="70%" style="stop-color:#4ecdc4;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#4ecdc4;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="420" height="140" fill="url(#v3_bg)"/>
+
+  <!-- Background waves -->
+  <g opacity="0.12">
+    <path d="M0 35 Q25 20,50 35 T100 35 T150 35 T200 35 T250 35 T300 35 T350 35 T400 35 T420 35" stroke="#4ecdc4" stroke-width="1" fill="none"/>
+    <path d="M0 105 Q25 120,50 105 T100 105 T150 105 T200 105 T250 105 T300 105 T350 105 T400 105 T420 105" stroke="#4ecdc4" stroke-width="1" fill="none"/>
+  </g>
+
+  <!-- Main 21cm wave -->
+  <path d="M25 70 Q50 40, 75 70 T125 70 T175 70" stroke="url(#v3_wave)" stroke-width="3" fill="none"/>
+
+  <!-- Wavelength marker -->
+  <g opacity="0.8">
+    <line x1="50" y1="48" x2="100" y2="48" stroke="#e94560" stroke-width="0.5"/>
+    <line x1="50" y1="45" x2="50" y2="51" stroke="#e94560" stroke-width="0.5"/>
+    <line x1="100" y1="45" x2="100" y2="51" stroke="#e94560" stroke-width="0.5"/>
+    <text x="75" y="44" text-anchor="middle" font-family="Courier, monospace" font-size="8" fill="#e94560">21cm</text>
+  </g>
+
+  <!-- Typography -->
+  <text x="200" y="58" font-family="Helvetica Neue, Arial" font-size="38" fill="#ffffff" letter-spacing="2">
+    <tspan fill="#e94560" font-weight="600">HI</tspan><tspan fill="#ffffff" font-weight="300">cosmo</tspan>
+  </text>
+
+  <!-- Frequency notation -->
+  <text x="200" y="78" font-family="Courier, monospace" font-size="10" fill="#4ecdc4" opacity="0.8">
+    ν = 1420.405 MHz
+  </text>
+
+  <!-- JAX spectrum bar -->
+  <g transform="translate(200, 90)">
+    <rect x="0" y="0" width="180" height="4" fill="none" stroke="#4ecdc4" stroke-width="0.5" opacity="0.3"/>
+    <rect x="60" y="0" width="30" height="4" fill="#e94560"/>
+    <text x="0" y="16" font-family="SF Mono, monospace" font-size="9" fill="#4ecdc4">JAX</text>
+    <text x="25" y="16" font-family="Helvetica, Arial" font-size="9" fill="#ffffff" opacity="0.5">+ NumPyro + GetDist</text>
+  </g>
+</svg>

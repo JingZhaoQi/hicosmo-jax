@@ -1,0 +1,497 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="zh-CN" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>核心概念 &mdash; HIcosmo 中文文档</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=d786bb5c"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/translations.js?v=beaddf03"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="genindex.html" />
+    <link rel="search" title="搜索" href="search.html" />
+    <link rel="next" title="JAX 技术详解" href="jax_introduction.html" />
+    <link rel="prev" title="快速开始" href="quickstart.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            HIcosmo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="搜索文档" aria-label="搜索文档" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="导航菜单">
+              <p class="caption" role="heading"><span class="caption-text">入门</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">安装指南</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">快速开始</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">核心概念</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id2">设计哲学</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#api">API 简洁性第一原则</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#jax-first">JAX-First 架构</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">六层架构</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#layer-1-core">Layer 1: Core（核心基础）</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#layer-2-models">Layer 2: Models（宇宙学模型）</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#layer-3-likelihoods">Layer 3: Likelihoods（似然函数）</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#layer-4-samplers">Layer 4: Samplers（采样器）</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#layer-5-fisher-matrix">Layer 5: Fisher Matrix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#layer-6-visualization">Layer 6: Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id4">模块职责边界</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id5">参数系统</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#parameter">Parameter 类</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameterregistry">ParameterRegistry</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id6">预设参数集</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id7">距离计算</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id8">基本距离量</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#traced-aware">Traced-Aware 接口</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id11">数据管理</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id12">数据目录查找顺序</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id13">数据集结构</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id14">性能特性</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id15">下一步</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="jax_introduction.html">JAX 技术详解</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">使用指南</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="guides/data.html">数据与路径</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/models.html">宇宙学模型</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/likelihoods.html">似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/samplers.html">采样与推断</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/custom_likelihood.html">自定义似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/config.html">配置驱动</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/visualization.html">可视化</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/model_selection.html">模型选择与信息判据</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/fisher.html">Fisher 预报</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/jax_tools.html">JAX 数值工具参考</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API 接口（完整）</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">API 接口详细介绍</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="移动版导航菜单" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">HIcosmo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="页面导航">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">核心概念</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/concepts.rst.txt" rel="nofollow"> 查看页面源码</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="id1">
+<h1>核心概念<a class="headerlink" href="#id1" title="Link to this heading"></a></h1>
+<p>HIcosmo 是一个面向宇宙学参数估计的高性能框架，本章介绍其核心设计理念和架构。</p>
+<section id="id2">
+<h2>设计哲学<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
+<section id="api">
+<h3>API 简洁性第一原则<a class="headerlink" href="#api" title="Link to this heading"></a></h3>
+<p>HIcosmo 的设计遵循 <strong>API 简洁性直接决定项目成败</strong> 的原则：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>API简洁性 → 降低学习成本 → 提高用户选择性 → 增强用户粘度 → 项目成功
+</pre></div>
+</div>
+<p><strong>设计标准</strong>：</p>
+<ul class="simple">
+<li><p>✅ <strong>3 行代码完成核心功能</strong> — 这是我们的 API 设计目标</p></li>
+<li><p>✅ <strong>智能默认参数</strong> — 90% 的使用场景不需要额外配置</p></li>
+<li><p>✅ <strong>渐进式复杂度</strong> — 简单任务简单做，复杂任务才暴露复杂性</p></li>
+<li><p>❌ <strong>绝不为了”完整性”增加必选参数</strong> — 每个新参数都是用户流失的风险</p></li>
+</ul>
+</section>
+<section id="jax-first">
+<h3>JAX-First 架构<a class="headerlink" href="#jax-first" title="Link to this heading"></a></h3>
+<p>HIcosmo 基于 JAX 构建，具有以下特性：</p>
+<ul class="simple">
+<li><p><strong>纯函数优先</strong>：所有宇宙学计算为无副作用的纯函数</p></li>
+<li><p><strong>自动微分</strong>：利用 JAX 的 autograd 进行精确梯度计算</p></li>
+<li><p><strong>JIT 编译</strong>：关键计算路径 JIT 编译获得 4-7 倍性能提升</p></li>
+<li><p><strong>GPU 就绪</strong>：透明 GPU 加速支持</p></li>
+<li><p><strong>向量化</strong>：vmap 实现高效批量计算</p></li>
+</ul>
+</section>
+</section>
+<section id="id3">
+<h2>六层架构<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
+<p>HIcosmo 采用分层架构设计：</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────────┐
+│  Layer 6: Visualization（可视化）                   │
+│  Plotter, plot_corner, plot_chains, GetDist集成     │
+├─────────────────────────────────────────────────────┤
+│  Layer 5: Fisher Matrix（Fisher矩阵预报）           │
+│  IntensityMappingFisher, FisherMatrix, 巡天预报    │
+├─────────────────────────────────────────────────────┤
+│  Layer 4: Samplers（采样器）                        │
+│  MCMC, NumPyro NUTS, emcee, 检查点系统             │
+├─────────────────────────────────────────────────────┤
+│  Layer 3: Likelihoods（似然函数）                   │
+│  SN, BAO, CMB, H0LiCOW, TDCOSMO, GW               │
+├─────────────────────────────────────────────────────┤
+│  Layer 2: Models（宇宙学模型）                      │
+│  LCDM, wCDM, CPL, ILCDM                            │
+├─────────────────────────────────────────────────────┤
+│  Layer 1: Core（核心基础）                          │
+│  CosmologyBase, 距离计算, 统一参数系统             │
+└─────────────────────────────────────────────────────┘
+</pre></div>
+</div>
+<section id="layer-1-core">
+<h3>Layer 1: Core（核心基础）<a class="headerlink" href="#layer-1-core" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">hicosmo/core/</span></code> 包含：</p>
+<ul class="simple">
+<li><p><strong>CosmologyBase</strong>：所有宇宙学模型的抽象基类</p></li>
+<li><p><strong>compute_distances_from_E_z()</strong>：JIT 编译的距离计算引擎</p></li>
+<li><p><strong>make_compute_grid_traced()</strong>：工厂函数生成 traced-aware 计算</p></li>
+</ul>
+</section>
+<section id="layer-2-models">
+<h3>Layer 2: Models（宇宙学模型）<a class="headerlink" href="#layer-2-models" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">hicosmo/models/</span></code> 包含：</p>
+<ul class="simple">
+<li><p><strong>LCDM</strong>：标准 <span class="math notranslate nohighlight">\(\Lambda\text{CDM}\)</span> 模型</p></li>
+<li><p><strong>wCDM</strong>：常数暗能量状态方程</p></li>
+<li><p><strong>CPL</strong>：Chevallier-Polarski-Linder 参数化</p></li>
+<li><p><strong>ILCDM</strong>：相互作用暗能量模型</p></li>
+</ul>
+</section>
+<section id="layer-3-likelihoods">
+<h3>Layer 3: Likelihoods（似然函数）<a class="headerlink" href="#layer-3-likelihoods" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">hicosmo/likelihoods/</span></code> 包含：</p>
+<ul class="simple">
+<li><p><strong>PantheonPlus</strong>：1701 个 SNe Ia 的距离测量</p></li>
+<li><p><strong>BAO</strong>：DESI 2024, BOSS, SDSS 的 BAO 约束</p></li>
+<li><p><strong>Planck</strong>：CMB 距离先验</p></li>
+<li><p><strong>H0LiCOW / TDCOSMO</strong>：强引力透镜时延</p></li>
+</ul>
+</section>
+<section id="layer-4-samplers">
+<h3>Layer 4: Samplers（采样器）<a class="headerlink" href="#layer-4-samplers" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">hicosmo/samplers/</span></code> 包含：</p>
+<ul class="simple">
+<li><p><strong>MCMC</strong>：高层 MCMC 接口</p></li>
+<li><p><strong>NumPyro Backend</strong>：NUTS 采样器封装</p></li>
+<li><p><strong>emcee Backend</strong>：集合采样器（备用）</p></li>
+<li><p><strong>Persistence</strong>：检查点和恢复系统</p></li>
+</ul>
+</section>
+<section id="layer-5-fisher-matrix">
+<h3>Layer 5: Fisher Matrix<a class="headerlink" href="#layer-5-fisher-matrix" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">hicosmo/fisher/</span></code> 包含：</p>
+<ul class="simple">
+<li><p><strong>IntensityMappingFisher</strong>：21cm 强度映射 Fisher 预报</p></li>
+<li><p><strong>FisherMatrix</strong>：通用 Fisher 矩阵计算</p></li>
+</ul>
+</section>
+<section id="layer-6-visualization">
+<h3>Layer 6: Visualization<a class="headerlink" href="#layer-6-visualization" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">hicosmo/visualization/</span></code> 包含：</p>
+<ul class="simple">
+<li><p><strong>Plotter</strong>：统一的可视化类</p></li>
+<li><p><strong>plot_corner, plot_chains</strong>：函数接口</p></li>
+<li><p><strong>GetDist 集成</strong>：出版级图表</p></li>
+</ul>
+</section>
+</section>
+<section id="id4">
+<h2>模块职责边界<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
+<p><strong>核心原则：每个模块只做一件事，绝不越界！</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 30%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>模块</p></th>
+<th class="head"><p>计算本质</p></th>
+<th class="head"><p>输入 → 输出</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">models/</span></code></p></td>
+<td><p><strong>宇宙学预测</strong></p></td>
+<td><p><span class="math notranslate nohighlight">\((H_0, \Omega_m, z) \to (d_L, D_M, H(z), r_d)\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">likelihoods/</span></code></p></td>
+<td><p><strong>统计推断</strong></p></td>
+<td><p><span class="math notranslate nohighlight">\((\text{theory}, \text{data}, C) \to \chi^2\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">samplers/</span></code></p></td>
+<td><p><strong>参数探索</strong></p></td>
+<td><p><span class="math notranslate nohighlight">\((\text{prior}, \mathcal{L}) \to \text{posterior samples}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">visualization/</span></code></p></td>
+<td><p><strong>结果展示</strong></p></td>
+<td><p><span class="math notranslate nohighlight">\(\text{samples} \to \text{plots}\)</span></p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>判断代码属于哪个模块</strong>：</p>
+<ul class="simple">
+<li><p>问：”这段代码在计算什么？”</p></li>
+<li><p>如果是 “从宇宙学参数计算物理量” → <code class="docutils literal notranslate"><span class="pre">models/</span></code></p></li>
+<li><p>如果是 “比较理论值和观测值” → <code class="docutils literal notranslate"><span class="pre">likelihoods/</span></code></p></li>
+</ul>
+</section>
+<section id="id5">
+<h2>参数系统<a class="headerlink" href="#id5" title="Link to this heading"></a></h2>
+<p>HIcosmo 使用统一的参数管理系统。</p>
+<section id="parameter">
+<h3>Parameter 类<a class="headerlink" href="#parameter" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">Parameter</span>
+
+<span class="n">param</span> <span class="o">=</span> <span class="n">Parameter</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s1">&#39;H0&#39;</span><span class="p">,</span>
+    <span class="n">value</span><span class="o">=</span><span class="mf">70.0</span><span class="p">,</span>                    <span class="c1"># 参考值/初值</span>
+    <span class="n">free</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                     <span class="c1"># 是否采样</span>
+    <span class="n">prior</span><span class="o">=</span><span class="p">{</span>
+        <span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="s1">&#39;uniform&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;min&#39;</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span> <span class="s1">&#39;max&#39;</span><span class="p">:</span> <span class="mi">80</span>
+    <span class="p">},</span>
+    <span class="n">latex_label</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;$H_0$&#39;</span><span class="p">,</span>          <span class="c1"># 用于绑图</span>
+    <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Hubble constant&#39;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="parameterregistry">
+<h3>ParameterRegistry<a class="headerlink" href="#parameterregistry" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.parameters</span><span class="w"> </span><span class="kn">import</span> <span class="n">ParameterRegistry</span>
+
+<span class="c1"># 从预设创建</span>
+<span class="n">registry</span> <span class="o">=</span> <span class="n">ParameterRegistry</span><span class="o">.</span><span class="n">from_defaults</span><span class="p">(</span><span class="s1">&#39;planck2018&#39;</span><span class="p">)</span>
+
+<span class="c1"># 设置自由参数</span>
+<span class="n">registry</span><span class="o">.</span><span class="n">set_free</span><span class="p">([</span><span class="s1">&#39;H0&#39;</span><span class="p">,</span> <span class="s1">&#39;Omega_m&#39;</span><span class="p">])</span>
+
+<span class="c1"># 从 likelihood 添加 nuisance 参数</span>
+<span class="n">registry</span><span class="o">.</span><span class="n">add_from_likelihood</span><span class="p">(</span><span class="n">tdcosmo</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id6">
+<h3>预设参数集<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 15%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>预设</p></th>
+<th class="head"><p><span class="math notranslate nohighlight">\(H_0\)</span></p></th>
+<th class="head"><p><span class="math notranslate nohighlight">\(\Omega_m\)</span></p></th>
+<th class="head"><p>说明</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">planck2018</span></code></p></td>
+<td><p>67.36</p></td>
+<td><p>0.3153</p></td>
+<td><p>Planck 2018 TT,TE,EE+lowE+lensing</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">wmap9</span></code></p></td>
+<td><p>70.0</p></td>
+<td><p>0.279</p></td>
+<td><p>WMAP 9年数据</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="id7">
+<h2>距离计算<a class="headerlink" href="#id7" title="Link to this heading"></a></h2>
+<p>HIcosmo 提供完整的宇宙学距离计算，支持平直和非平直宇宙。</p>
+<section id="id8">
+<h3>基本距离量<a class="headerlink" href="#id8" title="Link to this heading"></a></h3>
+<p><strong>共动距离</strong> <span class="math notranslate nohighlight">\(d_C\)</span>：</p>
+<div class="math notranslate nohighlight">
+\[d_C(z) = \frac{c}{H_0} \int_0^z \frac{dz'}{E(z')}\]</div>
+<p><strong>横向共动距离</strong> :math:<a href="#id9"><span class="problematic" id="id10">`</span></a>D_M`（考虑曲率）：</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}D_M = \begin{cases}
+D_H / \sqrt{\Omega_k} \sinh(\sqrt{\Omega_k} \, d_C / D_H) &amp; \Omega_k &gt; 0 \\
+d_C &amp; \Omega_k = 0 \\
+D_H / \sqrt{|\Omega_k|} \sin(\sqrt{|\Omega_k|} \, d_C / D_H) &amp; \Omega_k &lt; 0
+\end{cases}\end{split}\]</div>
+<p><strong>光度距离</strong>：</p>
+<div class="math notranslate nohighlight">
+\[d_L(z) = (1+z) \, D_M(z)\]</div>
+<p><strong>角直径距离</strong>：</p>
+<div class="math notranslate nohighlight">
+\[D_A(z) = \frac{D_M(z)}{1+z}\]</div>
+<p><strong>距离模数</strong>：</p>
+<div class="math notranslate nohighlight">
+\[\mu = 5 \log_{10}(d_L / \text{Mpc}) + 25\]</div>
+</section>
+<section id="traced-aware">
+<h3>Traced-Aware 接口<a class="headerlink" href="#traced-aware" title="Link to this heading"></a></h3>
+<p>对于 NumPyro MCMC 采样，HIcosmo 提供 traced-aware 的批量计算接口：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+
+<span class="n">z_grid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;H0&#39;</span><span class="p">:</span> <span class="mf">70.0</span><span class="p">,</span> <span class="s1">&#39;Omega_m&#39;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">}</span>
+
+<span class="c1"># 批量计算所有距离</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">LCDM</span><span class="o">.</span><span class="n">compute_grid_traced</span><span class="p">(</span><span class="n">z_grid</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># 返回字典包含：d_L, D_M, D_H, dVc_dz, E_z, d_C</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id11">
+<h2>数据管理<a class="headerlink" href="#id11" title="Link to this heading"></a></h2>
+<p>HIcosmo 通过 <code class="docutils literal notranslate"><span class="pre">runner</span></code> 模块管理数据目录和配置系统。</p>
+<section id="id12">
+<h3>数据目录查找顺序<a class="headerlink" href="#id12" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>环境变量 <code class="docutils literal notranslate"><span class="pre">HICOSMO_DATA</span></code></p></li>
+<li><p>配置中的 <code class="docutils literal notranslate"><span class="pre">data.root</span></code></p></li>
+<li><p>默认使用项目根目录的 <code class="docutils literal notranslate"><span class="pre">data/</span></code></p></li>
+</ol>
+</section>
+<section id="id13">
+<h3>数据集结构<a class="headerlink" href="#id13" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>data/
+├── sne/                    # 超新星数据
+│   ├── Pantheon+SH0ES.dat
+│   └── Pantheon+SH0ES_STAT+SYS.cov
+├── bao_data/               # BAO 数据
+│   ├── desi_2024/
+│   ├── boss_dr12/
+│   └── sdss_dr12/
+├── h0licow/                # 强透镜数据
+└── tdcosmo/                # TDCOSMO 数据
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id14">
+<h2>性能特性<a class="headerlink" href="#id14" title="Link to this heading"></a></h2>
+<p>HIcosmo 针对性能进行了深度优化：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>操作</p></th>
+<th class="head"><p>qcosmc (scipy)</p></th>
+<th class="head"><p>HIcosmo (JAX)</p></th>
+<th class="head"><p>加速比</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>距离计算 (1000点)</p></td>
+<td><p>0.15s</p></td>
+<td><p>0.02s</p></td>
+<td><p><strong>7.5x</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p>MCMC 采样 (10k样本)</p></td>
+<td><p>180s</p></td>
+<td><p>45s</p></td>
+<td><p><strong>4.0x</strong></p></td>
+</tr>
+<tr class="row-even"><td><p>BAO likelihood (JIT)</p></td>
+<td><p>21.8ms</p></td>
+<td><p>1.24ms</p></td>
+<td><p><strong>17.6x</strong></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id15">
+<h2>下一步<a class="headerlink" href="#id15" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="guides/models.html">宇宙学模型</a>：了解 LCDM, wCDM, CPL 等模型</p></li>
+<li><p><a class="reference external" href="guides/likelihoods.html">似然函数</a>：了解 SN, BAO, CMB 等数据</p></li>
+<li><p><a class="reference external" href="guides/samplers.html">采样器</a>：了解 MCMC 配置和诊断</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="页脚">
+        <a href="quickstart.html" class="btn btn-neutral float-left" title="快速开始" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> 上一页</a>
+        <a href="jax_introduction.html" class="btn btn-neutral float-right" title="JAX 技术详解" accesskey="n" rel="next">下一页 <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; 版权所有 。</p>
+  </div>
+
+  利用 <a href="https://www.sphinx-doc.org/">Sphinx</a> 构建，使用的 
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">主题</a>
+    由 <a href="https://readthedocs.org">Read the Docs</a> 开发.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

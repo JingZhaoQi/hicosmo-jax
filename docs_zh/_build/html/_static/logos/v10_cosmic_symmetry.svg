@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 140">
+  <defs>
+    <linearGradient id="v10_bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="50%" style="stop-color:#16213e"/>
+      <stop offset="100%" style="stop-color:#0f0f1a"/>
+    </linearGradient>
+    <filter id="v10_glow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="420" height="140" fill="url(#v10_bg)"/>
+
+  <!-- Sacred geometry mandala -->
+  <g transform="translate(65, 70)">
+    <!-- Outer circles -->
+    <circle cx="0" cy="0" r="42" stroke="#4ecdc4" stroke-width="0.5" fill="none" opacity="0.2"/>
+    <circle cx="0" cy="0" r="35" stroke="#4ecdc4" stroke-width="0.3" fill="none" opacity="0.3"/>
+    <circle cx="0" cy="0" r="28" stroke="#4ecdc4" stroke-width="0.5" fill="none" opacity="0.4"/>
+
+    <!-- Hexagon -->
+    <g stroke="#4ecdc4" stroke-width="0.5" fill="none" opacity="0.35">
+      <polygon points="0,-28 24.2,-14 24.2,14 0,28 -24.2,14 -24.2,-14"/>
+      <polygon points="0,-18 15.6,-9 15.6,9 0,18 -15.6,9 -15.6,-9"/>
+    </g>
+
+    <!-- Radiating lines -->
+    <g stroke="#e94560" stroke-width="0.3" opacity="0.45">
+      <line x1="0" y1="-42" x2="0" y2="-12"/>
+      <line x1="36.4" y1="-21" x2="10.4" y2="-6"/>
+      <line x1="36.4" y1="21" x2="10.4" y2="6"/>
+      <line x1="0" y1="42" x2="0" y2="12"/>
+      <line x1="-36.4" y1="21" x2="-10.4" y2="6"/>
+      <line x1="-36.4" y1="-21" x2="-10.4" y2="-6"/>
+    </g>
+
+    <!-- Vertices -->
+    <g fill="#4ecdc4">
+      <circle cx="0" cy="-28" r="2" opacity="0.6"/>
+      <circle cx="24.2" cy="-14" r="2" opacity="0.6"/>
+      <circle cx="24.2" cy="14" r="2" opacity="0.6"/>
+      <circle cx="0" cy="28" r="2" opacity="0.6"/>
+      <circle cx="-24.2" cy="14" r="2" opacity="0.6"/>
+      <circle cx="-24.2" cy="-14" r="2" opacity="0.6"/>
+    </g>
+
+    <!-- Core H -->
+    <circle cx="0" cy="0" r="12" fill="#e94560" filter="url(#v10_glow)"/>
+    <circle cx="0" cy="0" r="8" fill="#ffffff" opacity="0.15"/>
+    <text x="0" y="5" text-anchor="middle" font-family="Georgia, serif" font-size="12" fill="#ffffff" font-weight="bold">H</text>
+  </g>
+
+  <!-- Typography -->
+  <text x="135" y="55" font-family="Helvetica Neue, Arial" font-size="34" font-weight="300" fill="#ffffff" letter-spacing="5">
+    HICOSMO
+  </text>
+
+  <!-- Symmetric underline -->
+  <g transform="translate(200, 68)">
+    <line x1="-65" y1="0" x2="-12" y2="0" stroke="#4ecdc4" stroke-width="0.5" opacity="0.5"/>
+    <circle cx="0" cy="0" r="2.5" fill="#e94560"/>
+    <line x1="12" y1="0" x2="65" y2="0" stroke="#4ecdc4" stroke-width="0.5" opacity="0.5"/>
+  </g>
+
+  <!-- JAX harmony -->
+  <g transform="translate(135, 85)">
+    <rect x="0" y="0" width="40" height="15" rx="2" fill="#e94560" opacity="0.15"/>
+    <text x="20" y="11" text-anchor="middle" font-family="SF Mono" font-size="10" fill="#e94560" font-weight="600">JAX</text>
+    <text x="50" y="11" font-family="Helvetica" font-size="9" fill="#4ecdc4" opacity="0.7">Universal Harmony</text>
+  </g>
+
+  <!-- Corner decorations -->
+  <g stroke="#4ecdc4" stroke-width="0.3" opacity="0.25">
+    <path d="M 8 8 L 8 22 M 8 8 L 22 8"/>
+    <path d="M 412 8 L 412 22 M 412 8 L 398 8"/>
+    <path d="M 8 132 L 8 118 M 8 132 L 22 132"/>
+    <path d="M 412 132 L 412 118 M 412 132 L 398 132"/>
+  </g>
+</svg>

@@ -27,6 +27,7 @@ _MODULE_ALIASES = {
 _ATTRIBUTE_MAP = {
     # High-level API (3-line usage)
     "hicosmo": ("hicosmo.hicosmo", "hicosmo"),
+    "InferenceRunner": ("hicosmo.hicosmo", "InferenceRunner"),
     "list_likelihoods": ("hicosmo.hicosmo", "list_likelihoods"),
     "list_cosmologies": ("hicosmo.hicosmo", "list_cosmologies"),
     "configure_logging": ("hicosmo.utils.logging", "configure_logging"),

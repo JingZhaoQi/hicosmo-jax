@@ -1,0 +1,864 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="zh-CN" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>采样与推断 &mdash; HIcosmo 中文文档</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=d786bb5c"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/translations.js?v=beaddf03"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="搜索" href="../search.html" />
+    <link rel="next" title="自定义似然函数" href="custom_likelihood.html" />
+    <link rel="prev" title="似然函数" href="likelihoods.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            HIcosmo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="搜索文档" aria-label="搜索文档" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="导航菜单">
+              <p class="caption" role="heading"><span class="caption-text">入门</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">安装指南</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">快速开始</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts.html">核心概念</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../jax_introduction.html">JAX 技术详解</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">使用指南</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="data.html">数据与路径</a></li>
+<li class="toctree-l1"><a class="reference internal" href="models.html">宇宙学模型</a></li>
+<li class="toctree-l1"><a class="reference internal" href="likelihoods.html">似然函数</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">采样与推断</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id2">采样器概览</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">快速开始</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#api">高层 API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#hicosmo"><code class="docutils literal notranslate"><span class="pre">hicosmo()</span></code> 函数</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mcmc">MCMC 类接口</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id6">基本用法</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id7">参数配置格式</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id12">多采样器后端</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#numpyro-nuts">NumPyro NUTS（默认）</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#emcee">emcee 采样器</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id13">运行配置</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id14">采样参数</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id15">链并行方式</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id16">并行配置</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id17">检查点系统</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id18">自动检查点</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id19">流程图（时间驱动保存）</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id20">断点续跑</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id21">手动加载检查点</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id22">收敛诊断</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#gelman-rubin">Gelman-Rubin 统计量</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ess">有效样本数 (ESS)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id23">似然诊断</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id24">结果处理</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id25">获取样本</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id26">保存结果</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#getdist">GetDist 兼容</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#nuisance">Nuisance 参数自动收集</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id27">性能优化</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id28">初始化优化</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#jit">JIT 预热</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id29">性能基准</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id30">完整示例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id33">下一步</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="custom_likelihood.html">自定义似然函数</a></li>
+<li class="toctree-l1"><a class="reference internal" href="config.html">配置驱动</a></li>
+<li class="toctree-l1"><a class="reference internal" href="visualization.html">可视化</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_selection.html">模型选择与信息判据</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fisher.html">Fisher 预报</a></li>
+<li class="toctree-l1"><a class="reference internal" href="jax_tools.html">JAX 数值工具参考</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API 接口（完整）</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API 接口详细介绍</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="移动版导航菜单" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">HIcosmo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="页面导航">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">采样与推断</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/guides/samplers.rst.txt" rel="nofollow"> 查看页面源码</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="id1">
+<h1>采样与推断<a class="headerlink" href="#id1" title="Link to this heading"></a></h1>
+<p>HIcosmo 提供灵活的 MCMC 采样系统，支持多种后端采样器、自动参数管理和检查点系统。</p>
+<section id="id2">
+<h2>采样器概览<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 30%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>采样器</p></th>
+<th class="head"><p>方法</p></th>
+<th class="head"><p>特点</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>NumPyro NUTS</strong></p></td>
+<td><p>哈密顿蒙特卡洛</p></td>
+<td><p>默认，基于梯度，高效</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>emcee</strong></p></td>
+<td><p>集合采样器</p></td>
+<td><p>鲁棒，无需梯度，处理 NaN/Inf</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id3">
+<h2>快速开始<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
+<p><a href="#id4"><span class="problematic" id="id5">**</span></a>4 行完成推断**（含并行初始化）：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>  <span class="c1"># 8 个并行设备 → 8 条链同时运行</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="kn">import</span> <span class="n">hicosmo</span>
+<span class="n">inf</span> <span class="o">=</span> <span class="n">hicosmo</span><span class="p">(</span><span class="n">cosmology</span><span class="o">=</span><span class="s2">&quot;LCDM&quot;</span><span class="p">,</span> <span class="n">likelihood</span><span class="o">=</span><span class="s2">&quot;sn&quot;</span><span class="p">,</span> <span class="n">free_params</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;H0&quot;</span><span class="p">,</span> <span class="s2">&quot;Omega_m&quot;</span><span class="p">])</span>
+<span class="n">samples</span> <span class="o">=</span> <span class="n">inf</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>  <span class="c1"># 自动 num_chains=8</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p><strong>新 API（v2.0+）</strong>：<code class="docutils literal notranslate"><span class="pre">hc.init(N)</span></code> 直接设置 N 个并行设备，默认 <code class="docutils literal notranslate"><span class="pre">num_chains=N</span></code>。</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">hc.init(8)</span></code> → 8 个设备，8 条链并行，CPU 占用 ~800%</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hc.init()</span></code> → 自动检测（最多 8 设备）</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hc.init(&quot;GPU&quot;)</span></code> → GPU 模式</p></li>
+</ul>
+<p><strong>懒加载</strong>：<code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">hicosmo</span></code> 不会触发 JAX 导入，确保 <code class="docutils literal notranslate"><span class="pre">hc.init()</span></code> 能正确设置设备数。</p>
+</div>
+</section>
+<section id="api">
+<h2>高层 API<a class="headerlink" href="#api" title="Link to this heading"></a></h2>
+<section id="hicosmo">
+<h3><code class="docutils literal notranslate"><span class="pre">hicosmo()</span></code> 函数<a class="headerlink" href="#hicosmo" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">hicosmo()</span></code> 是 HIcosmo 的核心入口，提供最简洁的 API：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="kn">import</span> <span class="n">hicosmo</span>
+
+<span class="n">inf</span> <span class="o">=</span> <span class="n">hicosmo</span><span class="p">(</span>
+    <span class="n">cosmology</span><span class="o">=</span><span class="s2">&quot;LCDM&quot;</span><span class="p">,</span>                    <span class="c1"># 宇宙学模型</span>
+    <span class="n">likelihood</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sn&quot;</span><span class="p">,</span> <span class="s2">&quot;bao&quot;</span><span class="p">,</span> <span class="s2">&quot;cmb&quot;</span><span class="p">],</span>    <span class="c1"># 似然函数（可以是列表）</span>
+    <span class="n">free_params</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;H0&quot;</span><span class="p">,</span> <span class="s2">&quot;Omega_m&quot;</span><span class="p">],</span>      <span class="c1"># 自由参数</span>
+    <span class="n">num_samples</span><span class="o">=</span><span class="mi">4000</span><span class="p">,</span>                   <span class="c1"># 总样本数</span>
+    <span class="n">num_chains</span><span class="o">=</span><span class="mi">4</span>                        <span class="c1"># 并行链数</span>
+<span class="p">)</span>
+
+<span class="c1"># 运行采样</span>
+<span class="n">samples</span> <span class="o">=</span> <span class="n">inf</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+<span class="c1"># 查看结果</span>
+<span class="n">inf</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+
+<span class="c1"># 保存 corner plot</span>
+<span class="n">inf</span><span class="o">.</span><span class="n">corner_plot</span><span class="p">(</span><span class="s2">&quot;corner.pdf&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>可用 cosmology 字符串</strong>：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;LCDM&quot;</span></code>：标准 <span class="math notranslate nohighlight">\(\Lambda\text{CDM}\)</span> 模型</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;wCDM&quot;</span></code>：常数暗能量状态方程</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;CPL&quot;</span></code>：Chevallier-Polarski-Linder 参数化</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;ILCDM&quot;</span></code>：相互作用暗能量模型</p></li>
+</ul>
+<p><strong>可用 likelihood 字符串</strong>：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 80%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>字符串</p></th>
+<th class="head"><p>对应似然</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;sn&quot;</span></code></p></td>
+<td><p>Pantheon+ 超新星</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;sn_shoes&quot;</span></code></p></td>
+<td><p>Pantheon+SH0ES</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;bao&quot;</span></code></p></td>
+<td><p>DESI 2024 BAO</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;cmb&quot;</span></code></p></td>
+<td><p>Planck 2018 距离先验</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;h0licow&quot;</span></code></p></td>
+<td><p>H0LiCOW 强透镜</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;tdcosmo&quot;</span></code></p></td>
+<td><p>TDCOSMO 层次贝叶斯</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="mcmc">
+<h2>MCMC 类接口<a class="headerlink" href="#mcmc" title="Link to this heading"></a></h2>
+<p>对于需要更多控制的场景，使用 <code class="docutils literal notranslate"><span class="pre">MCMC</span></code> 类：</p>
+<section id="id6">
+<h3>基本用法<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCMC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods</span><span class="w"> </span><span class="kn">import</span> <span class="n">SN_likelihood</span>
+
+<span class="c1"># 创建似然</span>
+<span class="n">sn</span> <span class="o">=</span> <span class="n">SN_likelihood</span><span class="p">(</span><span class="n">LCDM</span><span class="p">,</span> <span class="s2">&quot;pantheon+&quot;</span><span class="p">)</span>
+
+<span class="c1"># 参数配置：(参考值, 最小值, 最大值)</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;H0&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">70.0</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">,</span> <span class="mf">80.0</span><span class="p">),</span>
+    <span class="s2">&quot;Omega_m&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="c1"># 创建 MCMC</span>
+<span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">sn</span><span class="p">,</span> <span class="n">chain_name</span><span class="o">=</span><span class="s2">&quot;lcdm_sn&quot;</span><span class="p">)</span>
+
+<span class="c1"># 运行</span>
+<span class="n">samples</span> <span class="o">=</span> <span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">4000</span><span class="p">,</span> <span class="n">num_chains</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+<span class="c1"># 查看结果</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">print_summary</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="id7">
+<h3>参数配置格式<a class="headerlink" href="#id7" title="Link to this heading"></a></h3>
+<p>HIcosmo 支持多种参数配置格式：</p>
+<p><a href="#id8"><span class="problematic" id="id9">**</span></a>元组格式**（最简）：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;H0&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">70.0</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">,</span> <span class="mf">80.0</span><span class="p">),</span>      <span class="c1"># (参考值, 最小值, 最大值)</span>
+    <span class="s1">&#39;Omega_m&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><a href="#id10"><span class="problematic" id="id11">**</span></a>字典格式**（完整控制）：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;H0&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;prior&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="s1">&#39;uniform&#39;</span><span class="p">,</span> <span class="s1">&#39;min&#39;</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span> <span class="s1">&#39;max&#39;</span><span class="p">:</span> <span class="mi">80</span><span class="p">},</span>
+        <span class="s1">&#39;ref&#39;</span><span class="p">:</span> <span class="mf">70.0</span><span class="p">,</span>
+        <span class="s1">&#39;latex&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;$H_0$&#39;</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;Omega_m&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;prior&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="s1">&#39;normal&#39;</span><span class="p">,</span> <span class="s1">&#39;loc&#39;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span> <span class="s1">&#39;scale&#39;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">},</span>
+        <span class="s1">&#39;bounds&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span>
+        <span class="s1">&#39;latex&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;$\Omega_m$&#39;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>支持的先验分布</strong>：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 30%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>分布</p></th>
+<th class="head"><p>参数</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">uniform</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">min</span></code>, <code class="docutils literal notranslate"><span class="pre">max</span></code></p></td>
+<td><p>均匀分布</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">normal</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">loc</span></code>, <code class="docutils literal notranslate"><span class="pre">scale</span></code></p></td>
+<td><p>正态分布</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">truncated_normal</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">loc</span></code>, <code class="docutils literal notranslate"><span class="pre">scale</span></code>, <code class="docutils literal notranslate"><span class="pre">low</span></code>, <code class="docutils literal notranslate"><span class="pre">high</span></code></p></td>
+<td><p>截断正态分布</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="id12">
+<h2>多采样器后端<a class="headerlink" href="#id12" title="Link to this heading"></a></h2>
+<section id="numpyro-nuts">
+<h3>NumPyro NUTS（默认）<a class="headerlink" href="#numpyro-nuts" title="Link to this heading"></a></h3>
+<p>NumPyro NUTS 是默认采样器，使用哈密顿蒙特卡洛方法：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">,</span>
+    <span class="n">sampler</span><span class="o">=</span><span class="s1">&#39;numpyro&#39;</span><span class="p">,</span>     <span class="c1"># 默认</span>
+    <span class="n">chain_method</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span>    <span class="c1"># 自动选择并行方式</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>特点</strong>：</p>
+<ul class="simple">
+<li><p>基于梯度的 NUTS 采样器</p></li>
+<li><p>JAX JIT 编译加速</p></li>
+<li><p>高效处理高维参数空间</p></li>
+<li><p>自动选择步长和质量矩阵</p></li>
+</ul>
+</section>
+<section id="emcee">
+<h3>emcee 采样器<a class="headerlink" href="#emcee" title="Link to this heading"></a></h3>
+<p>emcee 是集合采样器，适合处理复杂似然函数：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">,</span>
+    <span class="n">sampler</span><span class="o">=</span><span class="s1">&#39;emcee&#39;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>特点</strong>：</p>
+<ul class="simple">
+<li><p>无需梯度信息</p></li>
+<li><p>鲁棒处理 NaN/Inf</p></li>
+<li><p>适合多模态分布</p></li>
+<li><p>对似然函数数值不稳定更宽容</p></li>
+</ul>
+<p><strong>选择建议</strong>：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30%" />
+<col style="width: 35%" />
+<col style="width: 35%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>场景</p></th>
+<th class="head"><p>推荐采样器</p></th>
+<th class="head"><p>原因</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>标准宇宙学分析</p></td>
+<td><p>NumPyro NUTS</p></td>
+<td><p>高效，收敛快</p></td>
+</tr>
+<tr class="row-odd"><td><p>似然函数不稳定</p></td>
+<td><p>emcee</p></td>
+<td><p>鲁棒处理异常值</p></td>
+</tr>
+<tr class="row-even"><td><p>高维参数 (&gt;20)</p></td>
+<td><p>NumPyro NUTS</p></td>
+<td><p>梯度信息加速收敛</p></td>
+</tr>
+<tr class="row-odd"><td><p>多模态分布</p></td>
+<td><p>emcee</p></td>
+<td><p>集合采样避免陷入局部极值</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="id13">
+<h2>运行配置<a class="headerlink" href="#id13" title="Link to this heading"></a></h2>
+<section id="id14">
+<h3>采样参数<a class="headerlink" href="#id14" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">samples</span> <span class="o">=</span> <span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+    <span class="n">num_samples</span><span class="o">=</span><span class="mi">4000</span><span class="p">,</span>      <span class="c1"># 总样本数（所有链合计）</span>
+    <span class="n">num_chains</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>          <span class="c1"># 并行链数</span>
+    <span class="n">num_warmup</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>       <span class="c1"># 预热步数</span>
+    <span class="n">progress_bar</span><span class="o">=</span><span class="kc">True</span>      <span class="c1"># 显示进度条</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>注意</strong>：<code class="docutils literal notranslate"><span class="pre">num_samples</span></code> 是所有链的**总样本数**。4 链 4000 样本意味着每链 1000 样本。</p>
+</section>
+<section id="id15">
+<h3>链并行方式<a class="headerlink" href="#id15" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">,</span>
+    <span class="n">chain_method</span><span class="o">=</span><span class="s1">&#39;auto&#39;</span>    <span class="c1"># 自动选择</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>可选值</strong>：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'auto'</span></code>：自动选择（推荐）</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'vectorized'</span></code>：使用 vmap 并行化（多核 CPU）</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'sequential'</span></code>：顺序运行（单线程）</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'parallel'</span></code>：使用 pmap（多 GPU）</p></li>
+</ul>
+</section>
+<section id="id16">
+<h3>并行配置<a class="headerlink" href="#id16" title="Link to this heading"></a></h3>
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<p><strong>新 API（v2.0+）</strong>：<code class="docutils literal notranslate"><span class="pre">hc.init(N)</span></code> 直接设置 N 个并行设备，<code class="docutils literal notranslate"><span class="pre">num_chains</span></code> 默认与设备数一致。</p>
+</div>
+<p><strong>推荐用法</strong>：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+
+<span class="c1"># 最常用：8 个设备，8 条链并行</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+
+<span class="c1"># 自动检测（最多 8 设备）</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+
+<span class="c1"># GPU 模式</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+
+<span class="c1"># 之后导入其他模块</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="kn">import</span> <span class="n">hicosmo</span>
+</pre></div>
+</div>
+<p><strong>完整示例</strong>：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>  <span class="c1"># 必须在最开始！</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCMC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods</span><span class="w"> </span><span class="kn">import</span> <span class="n">SN_likelihood</span>
+
+<span class="n">likelihood</span> <span class="o">=</span> <span class="n">SN_likelihood</span><span class="p">(</span><span class="n">LCDM</span><span class="p">,</span> <span class="s2">&quot;pantheon+&quot;</span><span class="p">)</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;H0&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">70.0</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">,</span> <span class="mf">80.0</span><span class="p">),</span> <span class="s1">&#39;Omega_m&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)}</span>
+
+<span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">)</span>
+<span class="c1"># num_chains 默认 = 8（与设备数一致）</span>
+<span class="n">samples</span> <span class="o">=</span> <span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">警告</p>
+<p><strong>JAX 已导入警告</strong>：如果 JAX 已经被导入，设备数无法再改变。
+确保 <code class="docutils literal notranslate"><span class="pre">hc.init()</span></code> 在脚本最开始调用（在任何 <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">jax</span></code> 之前）。</p>
+</div>
+<p><strong>API 对照表</strong>：</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40%" />
+<col style="width: 60%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>调用</p></th>
+<th class="head"><p>效果</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">hc.init(8)</span></code></p></td>
+<td><p>8 设备，默认 8 链并行</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">hc.init(4)</span></code></p></td>
+<td><p>4 设备，默认 4 链并行</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">hc.init()</span></code></p></td>
+<td><p>自动检测（最多 8）</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">hc.init(&quot;GPU&quot;)</span></code></p></td>
+<td><p>GPU 模式，自动检测卡数</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="id17">
+<h2>检查点系统<a class="headerlink" href="#id17" title="Link to this heading"></a></h2>
+<p>HIcosmo 提供完整的检查点和断点续跑功能（支持时间驱动保存）。</p>
+<section id="id18">
+<h3>自动检查点<a class="headerlink" href="#id18" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">,</span>
+    <span class="n">enable_checkpoints</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>           <span class="c1"># 启用检查点</span>
+    <span class="n">checkpoint_interval_seconds</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>   <span class="c1"># 每 10 分钟保存一次（推荐）</span>
+    <span class="n">checkpoint_dir</span><span class="o">=</span><span class="s2">&quot;checkpoints&quot;</span>       <span class="c1"># 保存目录</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p><code class="docutils literal notranslate"><span class="pre">checkpoint_interval</span></code> 仍然可用，但它表示**所有链合计**的样本数（总样本数）。
+如果使用 <code class="docutils literal notranslate"><span class="pre">checkpoint_interval</span></code>，建议配合 <code class="docutils literal notranslate"><span class="pre">num_chains</span></code> 做估算。</p>
+</div>
+</section>
+<section id="id19">
+<h3>流程图（时间驱动保存）<a class="headerlink" href="#id19" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[开始]
+   ↓
+[MCMC.run()]
+   ↓
+[分段采样 chunk]
+   ↓
+[是否到达时间间隔?]
+   ├─ 否 → 继续采样
+   └─ 是 → 保存 checkpoint (chain_step_N.h5)
+   ↓
+[达到总样本数]
+   ↓
+[保存最终 checkpoint + 最新别名 chain.h5]
+   ↓
+[结束]
+</pre></div>
+</div>
+</section>
+<section id="id20">
+<h3>断点续跑<a class="headerlink" href="#id20" title="Link to this heading"></a></h3>
+<p>推荐使用显式的 <code class="docutils literal notranslate"><span class="pre">MCMC.resume</span></code>：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 从检查点恢复（需要提供 likelihood）</span>
+<span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="o">.</span><span class="n">resume</span><span class="p">(</span><span class="s2">&quot;checkpoints/chain_step_500.h5&quot;</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">)</span>
+<span class="n">samples</span> <span class="o">=</span> <span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>  <span class="c1"># 继续直到完成剩余样本</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>若检查点包含内部状态（NumPyro/NUTS），将实现**真正续跑**；否则会在已有样本后追加新样本。</p>
+</div>
+</section>
+<section id="id21">
+<h3>手动加载检查点<a class="headerlink" href="#id21" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 列出可用检查点（需要 chain_name 与 checkpoint_dir）</span>
+<span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">,</span> <span class="n">chain_name</span><span class="o">=</span><span class="s2">&quot;chain&quot;</span><span class="p">,</span> <span class="n">checkpoint_dir</span><span class="o">=</span><span class="s2">&quot;checkpoints&quot;</span><span class="p">)</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">list_checkpoints</span><span class="p">()</span>
+
+<span class="c1"># 从检查点恢复（.h5）</span>
+<span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="o">.</span><span class="n">resume</span><span class="p">(</span><span class="s2">&quot;checkpoints/chain_step_500.h5&quot;</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">)</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id22">
+<h2>收敛诊断<a class="headerlink" href="#id22" title="Link to this heading"></a></h2>
+<section id="gelman-rubin">
+<h3>Gelman-Rubin 统计量<a class="headerlink" href="#gelman-rubin" title="Link to this heading"></a></h3>
+<div class="math notranslate nohighlight">
+\[\hat{R} = \sqrt{\frac{\hat{V}}{W}}\]</div>
+<p>其中 <span class="math notranslate nohighlight">\(\hat{V}\)</span> 是总方差估计，<span class="math notranslate nohighlight">\(W\)</span> 是链内方差。</p>
+<p><strong>收敛标准</strong>：<span class="math notranslate nohighlight">\(\hat{R} &lt; 1.01\)</span></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 打印诊断信息（包含 R̂）</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">print_summary</span><span class="p">()</span>
+
+<span class="c1"># 输出示例：</span>
+<span class="c1"># Parameter   Mean    Std    R̂      ESS</span>
+<span class="c1"># -----------------------------------------</span>
+<span class="c1"># H0         67.36   0.42   1.002  2341</span>
+<span class="c1"># Omega_m    0.315   0.007  1.001  2156</span>
+</pre></div>
+</div>
+</section>
+<section id="ess">
+<h3>有效样本数 (ESS)<a class="headerlink" href="#ess" title="Link to this heading"></a></h3>
+<p>有效样本数反映独立样本的数量：</p>
+<div class="math notranslate nohighlight">
+\[\text{ESS} = \frac{N}{1 + 2\sum_{k=1}^K \rho_k}\]</div>
+<p>其中 <span class="math notranslate nohighlight">\(\rho_k\)</span> 是滞后 <span class="math notranslate nohighlight">\(k\)</span> 的自相关系数。</p>
+<p><strong>建议</strong>：ESS &gt; 100 per parameter</p>
+</section>
+<section id="id23">
+<h3>似然诊断<a class="headerlink" href="#id23" title="Link to this heading"></a></h3>
+<p>运行前检查似然函数的数值稳定性：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">LikelihoodDiagnostics</span>
+
+<span class="n">diagnostics</span> <span class="o">=</span> <span class="n">LikelihoodDiagnostics</span><span class="p">(</span><span class="n">likelihood</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">diagnostics</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">n_tests</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">diagnostics</span><span class="o">.</span><span class="n">print_report</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+<span class="c1"># 如果成功率低，建议使用 emcee</span>
+<span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">success_rate</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">:</span>
+    <span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">,</span> <span class="n">sampler</span><span class="o">=</span><span class="s1">&#39;emcee&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id24">
+<h2>结果处理<a class="headerlink" href="#id24" title="Link to this heading"></a></h2>
+<section id="id25">
+<h3>获取样本<a class="headerlink" href="#id25" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 运行 MCMC</span>
+<span class="n">samples</span> <span class="o">=</span> <span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">4000</span><span class="p">,</span> <span class="n">num_chains</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+<span class="c1"># 获取参数样本</span>
+<span class="n">H0_samples</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="s1">&#39;H0&#39;</span><span class="p">]</span>
+<span class="n">Omega_m_samples</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="s1">&#39;Omega_m&#39;</span><span class="p">]</span>
+
+<span class="c1"># 计算统计量</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;H0 = </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">H0_samples</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> ± </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">H0_samples</span><span class="p">)</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id26">
+<h3>保存结果<a class="headerlink" href="#id26" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 保存到文件</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">save_results</span><span class="p">(</span><span class="s2">&quot;results/lcdm_sn.pkl&quot;</span><span class="p">)</span>
+
+<span class="c1"># 加载结果</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCMC</span>
+<span class="n">loaded</span> <span class="o">=</span> <span class="n">MCMC</span><span class="o">.</span><span class="n">load_results</span><span class="p">(</span><span class="s2">&quot;results/lcdm_sn.pkl&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="getdist">
+<h3>GetDist 兼容<a class="headerlink" href="#getdist" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">getdist</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCSamples</span>
+
+<span class="c1"># 转换为 GetDist 格式</span>
+<span class="n">gd_samples</span> <span class="o">=</span> <span class="n">MCSamples</span><span class="p">(</span>
+    <span class="n">samples</span><span class="o">=</span><span class="p">[</span><span class="n">samples</span><span class="p">[</span><span class="s1">&#39;H0&#39;</span><span class="p">],</span> <span class="n">samples</span><span class="p">[</span><span class="s1">&#39;Omega_m&#39;</span><span class="p">]],</span>
+    <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;H0&#39;</span><span class="p">,</span> <span class="s1">&#39;Omega_m&#39;</span><span class="p">],</span>
+    <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="sa">r</span><span class="s1">&#39;H_0&#39;</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;\Omega_m&#39;</span><span class="p">]</span>
+<span class="p">)</span>
+
+<span class="c1"># 使用 GetDist 绘图</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">getdist</span><span class="w"> </span><span class="kn">import</span> <span class="n">plots</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">plots</span><span class="o">.</span><span class="n">get_subplot_plotter</span><span class="p">()</span>
+<span class="n">g</span><span class="o">.</span><span class="n">triangle_plot</span><span class="p">(</span><span class="n">gd_samples</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;H0&#39;</span><span class="p">,</span> <span class="s1">&#39;Omega_m&#39;</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="nuisance">
+<h2>Nuisance 参数自动收集<a class="headerlink" href="#nuisance" title="Link to this heading"></a></h2>
+<p>MCMC 自动从似然函数收集 nuisance 参数：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods</span><span class="w"> </span><span class="kn">import</span> <span class="n">TDCOSMO</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCMC</span>
+
+<span class="n">tdcosmo</span> <span class="o">=</span> <span class="n">TDCOSMO</span><span class="p">(</span><span class="n">LCDM</span><span class="p">)</span>
+
+<span class="c1"># 只需指定宇宙学参数</span>
+<span class="n">cosmo_params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;H0&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">70.0</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">,</span> <span class="mf">80.0</span><span class="p">),</span>
+    <span class="s1">&#39;Omega_m&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="c1"># MCMC 自动收集 TDCOSMO 的 nuisance 参数</span>
+<span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">cosmo_params</span><span class="p">,</span> <span class="n">tdcosmo</span><span class="p">)</span>
+
+<span class="c1"># 打印所有参数（包括自动收集的）</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mcmc</span><span class="o">.</span><span class="n">param_names</span><span class="p">)</span>
+<span class="c1"># [&#39;H0&#39;, &#39;Omega_m&#39;, &#39;lambda_int_mean&#39;, &#39;lambda_int_sigma&#39;, ...]</span>
+</pre></div>
+</div>
+</section>
+<section id="id27">
+<h2>性能优化<a class="headerlink" href="#id27" title="Link to this heading"></a></h2>
+<section id="id28">
+<h3>初始化优化<a class="headerlink" href="#id28" title="Link to this heading"></a></h3>
+<p>对于复杂问题，可使用优化找到初始点：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">,</span> <span class="n">likelihood</span><span class="p">,</span>
+    <span class="n">optimize_init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>            <span class="c1"># 优化初始点</span>
+    <span class="n">max_opt_iterations</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>        <span class="c1"># 最大迭代次数</span>
+    <span class="n">opt_learning_rate</span><span class="o">=</span><span class="mf">0.01</span>         <span class="c1"># 学习率</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>适用场景</strong>：</p>
+<ul class="simple">
+<li><p>似然函数评估 &gt; 10ms</p></li>
+<li><p>参数维度 &gt; 20</p></li>
+<li><p>多模态问题</p></li>
+</ul>
+</section>
+<section id="jit">
+<h3>JIT 预热<a class="headerlink" href="#jit" title="Link to this heading"></a></h3>
+<p>首次运行时 JAX 会编译函数，建议：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 预热（可选，但推荐）</span>
+<span class="n">_</span> <span class="o">=</span> <span class="n">likelihood</span><span class="p">(</span><span class="n">H0</span><span class="o">=</span><span class="mi">70</span><span class="p">,</span> <span class="n">Omega_m</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+
+<span class="c1"># 正式运行</span>
+<span class="n">samples</span> <span class="o">=</span> <span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="id29">
+<h3>性能基准<a class="headerlink" href="#id29" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>配置</p></th>
+<th class="head"><p>qcosmc (scipy)</p></th>
+<th class="head"><p>HIcosmo (JAX)</p></th>
+<th class="head"><p>加速比</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>LCDM + Pantheon+ (10k 样本)</p></td>
+<td><p>180s</p></td>
+<td><p>45s</p></td>
+<td><p><strong>4x</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p>CPL + BAO + SN (10k 样本)</p></td>
+<td><p>420s</p></td>
+<td><p>85s</p></td>
+<td><p><strong>5x</strong></p></td>
+</tr>
+<tr class="row-even"><td><p>4 链并行（8 核 CPU）</p></td>
+<td><p>N/A</p></td>
+<td><p>自动</p></td>
+<td><p>—</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="id30">
+<h2>完整示例<a class="headerlink" href="#id30" title="Link to this heading"></a></h2>
+<p><strong>使用新 API 的完整示例</strong>：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. 首先初始化（必须在最前面！）</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>  <span class="c1"># 8 个并行设备 = 8 条并行链</span>
+
+<span class="c1"># 2. 导入其他模块</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.samplers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCMC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.likelihoods</span><span class="w"> </span><span class="kn">import</span> <span class="n">SN_likelihood</span><span class="p">,</span> <span class="n">BAO_likelihood</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">LCDM</span>
+
+<span class="c1"># 3. 创建联合似然</span>
+<span class="n">sne</span> <span class="o">=</span> <span class="n">SN_likelihood</span><span class="p">(</span><span class="n">LCDM</span><span class="p">,</span> <span class="s2">&quot;pantheon+&quot;</span><span class="p">)</span>
+<span class="n">bao</span> <span class="o">=</span> <span class="n">BAO_likelihood</span><span class="p">(</span><span class="n">LCDM</span><span class="p">,</span> <span class="s2">&quot;desi2024&quot;</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">joint_likelihood</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">sne</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">)</span> <span class="o">+</span> <span class="n">bao</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">)</span>
+
+<span class="c1"># 4. 参数配置</span>
+<span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;H0&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;prior&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="s1">&#39;uniform&#39;</span><span class="p">,</span> <span class="s1">&#39;min&#39;</span><span class="p">:</span> <span class="mi">60</span><span class="p">,</span> <span class="s1">&#39;max&#39;</span><span class="p">:</span> <span class="mi">80</span><span class="p">},</span>
+        <span class="s1">&#39;ref&#39;</span><span class="p">:</span> <span class="mf">70.0</span><span class="p">,</span>
+        <span class="s1">&#39;latex&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;$H_0$&#39;</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;Omega_m&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;prior&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="s1">&#39;uniform&#39;</span><span class="p">,</span> <span class="s1">&#39;min&#39;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;max&#39;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
+        <span class="s1">&#39;ref&#39;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span>
+        <span class="s1">&#39;latex&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;$\Omega_m$&#39;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># 5. 创建 MCMC</span>
+<span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span>
+    <span class="n">params</span><span class="p">,</span>
+    <span class="n">joint_likelihood</span><span class="p">,</span>
+    <span class="n">chain_name</span><span class="o">=</span><span class="s2">&quot;lcdm_joint&quot;</span><span class="p">,</span>
+    <span class="n">enable_checkpoints</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="c1"># 6. 运行采样（num_chains 默认 = 设备数 = 8）</span>
+<span class="n">samples</span> <span class="o">=</span> <span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
+
+<span class="c1"># 7. 查看结果</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">print_summary</span><span class="p">()</span>
+<span class="n">mcmc</span><span class="o">.</span><span class="n">save_results</span><span class="p">(</span><span class="s2">&quot;results/lcdm_joint.pkl&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><a href="#id31"><span class="problematic" id="id32">**</span></a>极简示例**（3 行代码）：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">hc</span>
+<span class="n">hc</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>  <span class="c1"># 8 个并行设备</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">hicosmo</span><span class="w"> </span><span class="kn">import</span> <span class="n">hicosmo</span>
+<span class="n">inf</span> <span class="o">=</span> <span class="n">hicosmo</span><span class="p">(</span><span class="s2">&quot;LCDM&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;sn&quot;</span><span class="p">,</span> <span class="s2">&quot;bao&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;H0&quot;</span><span class="p">,</span> <span class="s2">&quot;Omega_m&quot;</span><span class="p">])</span>
+<span class="n">samples</span> <span class="o">=</span> <span class="n">inf</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="id33">
+<h2>下一步<a class="headerlink" href="#id33" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="visualization.html">可视化</a>：生成出版级图表</p></li>
+<li><p><a class="reference external" href="fisher.html">Fisher 预报</a>：进行巡天预测</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="页脚">
+        <a href="likelihoods.html" class="btn btn-neutral float-left" title="似然函数" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> 上一页</a>
+        <a href="custom_likelihood.html" class="btn btn-neutral float-right" title="自定义似然函数" accesskey="n" rel="next">下一页 <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; 版权所有 。</p>
+  </div>
+
+  利用 <a href="https://www.sphinx-doc.org/">Sphinx</a> 构建，使用的 
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">主题</a>
+    由 <a href="https://readthedocs.org">Read the Docs</a> 开发.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

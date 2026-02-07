@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="16" fill="#faf9f6"/>
+
+  <!-- Paper texture lines -->
+  <g stroke="#d0cfc8" stroke-width="0.3" opacity="0.4">
+    <line x1="10" y1="20" x2="90" y2="20"/>
+    <line x1="10" y1="80" x2="90" y2="80"/>
+  </g>
+
+  <!-- H formula -->
+  <g font-family="Times, Georgia, serif">
+    <text x="50" y="52" text-anchor="middle" font-size="32" fill="#1a1a1a" font-style="italic">
+      <tspan font-weight="bold" fill="#c73659">H</tspan><tspan font-size="20" dy="4">I</tspan>
+    </text>
+  </g>
+
+  <!-- Integral decoration -->
+  <text x="22" y="55" font-family="Times, serif" font-size="20" fill="#888" opacity="0.4">∫</text>
+  <text x="78" y="55" font-family="Times, serif" font-size="16" fill="#888" opacity="0.4">dz</text>
+
+  <!-- JAX badge -->
+  <rect x="30" y="68" width="40" height="14" rx="3" fill="#c73659" opacity="0.15"/>
+  <text x="50" y="79" text-anchor="middle" font-family="SF Mono" font-size="10" fill="#c73659" font-weight="600">JAX</text>
+</svg>

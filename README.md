@@ -71,6 +71,7 @@ pip install -e .
 jax>=0.4.0
 jaxlib>=0.4.0
 numpyro>=0.12.0
+optax>=0.2.0
 getdist>=1.3.0
 astropy>=5.0
 emcee>=3.1.0
