@@ -389,11 +389,27 @@ class PantheonPlusLikelihood(Likelihood):
                     "Either include M_B in params or set marginalize_M_B=True."
                 )
 
+        # Extract precomputed grid if provided by CombinedLikelihood
+        _precomputed_grid = params.pop("_precomputed_grid", None)
+        _precomputed_z_grid = params.pop("_precomputed_z_grid", None)
+
         # Filter out M_B from cosmology params (don't pass to cosmology model)
         cosmo_params = {k: v for k, v in params.items() if k != "M_B"}
 
         # Fast path: avoid constructing model when direct parameters are available
-        if self._can_use_fast_params(cosmo_params):
+        if _precomputed_grid is not None and _precomputed_z_grid is not None:
+            # Shared grid path: interpolate from precomputed distances
+            d_L_grid = _precomputed_grid["d_L"]
+            d_L = jnp.interp(self.z_cmb, _precomputed_z_grid, d_L_grid)
+            d_A = d_L / (1.0 + self.z_cmb) ** 2
+            mu_hubble = 5.0 * jnp.log10(
+                (1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A
+            ) + 25.0
+            if self.include_shoes:
+                theory_mu = jnp.where(self.is_calibrator, self.ceph_dist, mu_hubble)
+            else:
+                theory_mu = mu_hubble
+        elif self._can_use_fast_params(cosmo_params):
             mu_hubble = self._distance_modulus_from_params(cosmo_params)
             if self.include_shoes:
                 theory_mu = jnp.where(self.is_calibrator, self.ceph_dist, mu_hubble)
