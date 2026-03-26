@@ -253,6 +253,9 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
         z_base = self._z_base
         cosmology_class = self.cosmology_class
 
+        # Use lightweight D_M computation if available (skips full 7-quantity grid)
+        has_dm_at_z = hasattr(cosmology_class, 'compute_DM_at_z')
+
         @jit
         def _loglike_impl(params: Dict[str, jnp.ndarray]) -> jnp.ndarray:
             H0 = params["H0"]
@@ -263,9 +266,14 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
             omega_b_h2 = Omega_b * h**2
             z_star = cosmology_class.recombination_redshift_traced(params)
 
-            z_grid = z_star * z_base
-            cosmo_grid = cosmology_class.compute_grid_traced(z_grid, params)
-            D_M = cosmo_grid["D_M"][-1]
+            if has_dm_at_z:
+                # Lightweight: only compute D_M(z_star), ~4× faster
+                D_M = cosmology_class.compute_DM_at_z(z_star, params, 1024)
+            else:
+                # Fallback: full grid computation
+                z_grid = z_star * z_base
+                cosmo_grid = cosmology_class.compute_grid_traced(z_grid, params)
+                D_M = cosmo_grid["D_M"][-1]
             D_A = D_M / (1.0 + z_star)
 
             r_s = (
