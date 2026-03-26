@@ -391,6 +391,47 @@ class DESI2024BAO(BAOLikelihood):
 
         self._loglike_fast = _loglike_impl
 
+        # Also build grid-accepting version (for CombinedLikelihood shared grid)
+        @jit
+        def _loglike_from_grid_impl(
+            cosmo_grid: Dict[str, jnp.ndarray],
+            grid_z: jnp.ndarray,
+            params: Dict[str, jnp.ndarray],
+        ) -> jnp.ndarray:
+            DM_grid = cosmo_grid["D_M"]
+            DH_grid = cosmo_grid["D_H"]
+            E_z_g = cosmo_grid["E_z"]
+
+            volume_factor = grid_z * DM_grid**2 * DH_grid
+            DV_grid = jnp.exp((1.0 / 3.0) * jnp.log(volume_factor + 1e-30))
+            H_grid = params["H0"] * E_z_g
+
+            DM_obs = jnp.interp(z_obs, grid_z, DM_grid)
+            DH_obs = jnp.interp(z_obs, grid_z, DH_grid)
+            DV_obs = jnp.interp(z_obs, grid_z, DV_grid)
+            H_obs = jnp.interp(z_obs, grid_z, H_grid)
+
+            # Same rd logic as _loglike_impl
+            if omega_b_mode == "h0rd":
+                H0_rd = params.get("H0_rd", jnp.asarray(101.0, dtype=DM_obs.dtype))
+                rd_val = H0_rd * 100.0 / params["H0"]
+            else:
+                rd_val = cosmology_class.sound_horizon_drag_traced(params)
+
+            theory = jnp.zeros_like(z_obs)
+            theory = jnp.where(obs_codes == 0, DM_obs / rd_val, theory)
+            theory = jnp.where(obs_codes == 1, DH_obs / rd_val, theory)
+            theory = jnp.where(obs_codes == 2, DV_obs / rd_val, theory)
+            theory = jnp.where(obs_codes == 3, rd_val / DV_obs, theory)
+            theory = jnp.where(obs_codes == 4, H_obs * rd_val, theory)
+            theory = jnp.where(obs_codes == 6, DM_obs / DH_obs, theory)
+
+            diff = theory - data_vec
+            chi2 = diff @ (inv_cov @ diff)
+            return -0.5 * chi2
+
+        self._loglike_from_grid = _loglike_from_grid_impl
+
     @staticmethod
     def _observable_code(observable: str) -> int:
         """Map observable string to integer code for fast vectorized selection."""

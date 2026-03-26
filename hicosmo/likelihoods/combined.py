@@ -80,8 +80,29 @@ class CombinedLikelihood(Likelihood):
                 else:
                     self._other_likelihoods.append(lik)
 
-        # Only optimize if all share the same cosmology class and there are >=2 low-z
-        if len(cosmo_classes) != 1 or len(self._low_z_likelihoods) < 2:
+        # Only optimize if there are >=2 low-z likelihoods
+        # and all cosmology classes share the same inheritance chain
+        # (e.g. wCDM inherits LCDM, so they share compatible E(z))
+        if len(self._low_z_likelihoods) < 2:
+            # Not enough low-z likelihoods to benefit from sharing
+            pass  # will be caught below
+        elif len(cosmo_classes) > 1:
+            # Check if all classes are related by inheritance
+            all_classes = list(cosmo_classes)
+            # Find the most derived class (child)
+            most_derived = all_classes[0]
+            for cls in all_classes[1:]:
+                if issubclass(cls, most_derived):
+                    most_derived = cls
+                elif not issubclass(most_derived, cls):
+                    # Unrelated classes — can't share
+                    self._low_z_likelihoods = []
+                    self._high_z_likelihoods = []
+                    self._other_likelihoods = list(self._likelihoods)
+                    return
+            cosmo_classes = {most_derived}
+
+        if len(self._low_z_likelihoods) < 2:
             # Fallback: no optimization
             self._low_z_likelihoods = []
             self._high_z_likelihoods = []
@@ -115,11 +136,12 @@ class CombinedLikelihood(Likelihood):
             return
 
         self._cosmo_class = cosmo_cls
-        self._shared_grid_func = make_compute_shared_grid(E_z_func)
+        self._shared_z_low = jnp.linspace(0.0, z_max_low, n_grid_low)
+
+        self._shared_grid_func = True  # Flag: shared grid is available
         logger.info(
             f"Shared grid optimization: low-z [{0:.1f}, {z_max_low:.1f}] "
-            f"N={n_grid_low}, high-z [{z_max_low:.1f}, 1100] N=2048, "
-            f"{len(self._low_z_likelihoods)} low-z + "
+            f"N={n_grid_low}, {len(self._low_z_likelihoods)} low-z + "
             f"{len(self._high_z_likelihoods)} high-z likelihoods"
         )
 
@@ -130,55 +152,44 @@ class CombinedLikelihood(Likelihood):
         When shared grid is available, computes distances ONCE
         and distributes to sub-likelihoods.
         """
-        if self._shared_grid_func is None:
-            # Fallback: no sharing (original behavior)
+        if self._shared_grid_func is None or not self._low_z_likelihoods:
+            # Fallback: no sharing
             total_log_L = 0.0
             for lik in self._likelihoods:
                 total_log_L = total_log_L + lik(**params)
             return total_log_L
 
-        # Shared grid path: compute distances once on the unified low-z grid
-        shared = self._shared_grid_func(
-            self._shared_z_low, self._shared_z_high, params
-        )
-
-        # Cache: temporarily replace compute_grid_traced on the cosmology class
-        # so that sub-likelihoods automatically reuse the precomputed grid.
-        # This avoids modifying any sub-likelihood interfaces.
+        # Shared grid: compute distances once for low-z likelihoods
+        # Each low-z likelihood provides _loglike_from_grid(cosmo_grid, z_grid, params_jax)
+        # We call compute_grid_traced ONCE, then dispatch to all from_grid functions.
         cosmo_cls = self._cosmo_class
-        original_cgt = cosmo_cls.compute_grid_traced
-        shared_low = shared["grid_low"]
-        shared_z_low = shared["z_low"]
+        z_low = self._shared_z_low
 
-        from jax import jit as _jit
+        # Prepare params for JAX (use first low-z likelihood's normalizer)
+        first_lik = self._low_z_likelihoods[0]
+        if hasattr(first_lik, '_prepare_params_dict'):
+            params_jax = first_lik._prepare_params_dict(params)
+        elif hasattr(first_lik, '_cosmology_class'):
+            params_jax = first_lik._cosmology_class.normalize_params(params)
+        else:
+            params_jax = params
 
-        @_jit
-        def _cached_compute_grid(z_grid, params_inner):
-            """Return precomputed grid if z_grid matches shared, else compute fresh."""
-            # Always return shared grid for low-z calls.
-            # High-z (CMB) calls have different z_grid shape and will need fresh computation,
-            # but we handle CMB separately below.
-            return {
-                "d_L": jnp.interp(z_grid, shared_z_low, shared_low["d_L"]),
-                "D_M": jnp.interp(z_grid, shared_z_low, shared_low["D_M"]),
-                "D_H": jnp.interp(z_grid, shared_z_low, shared_low["D_H"]),
-                "E_z": jnp.interp(z_grid, shared_z_low, shared_low["E_z"]),
-                "d_C": jnp.interp(z_grid, shared_z_low, shared_low["d_C"]),
-                "dVc_dz": jnp.zeros_like(z_grid),  # not needed by SN/BAO
-                "ddL_dz": jnp.zeros_like(z_grid),   # not needed by SN/BAO
-            }
+        # Compute shared distance grid ONCE
+        cosmo_grid = cosmo_cls.compute_grid_traced(z_low, params_jax)
 
         total_log_L = 0.0
 
-        # Low-z likelihoods: use cached compute_grid_traced
-        try:
-            cosmo_cls.compute_grid_traced = staticmethod(_cached_compute_grid)
-            for lik in self._low_z_likelihoods:
+        # Low-z likelihoods: use shared grid via _loglike_from_grid
+        for lik in self._low_z_likelihoods:
+            if hasattr(lik, '_loglike_from_grid') and lik._loglike_from_grid is not None:
+                total_log_L = total_log_L + lik._loglike_from_grid(
+                    cosmo_grid, z_low, params_jax
+                )
+            else:
+                # Fallback for likelihoods without _loglike_from_grid
                 total_log_L = total_log_L + lik(**params)
-        finally:
-            cosmo_cls.compute_grid_traced = original_cgt
 
-        # High-z likelihoods (CMB): use original path (separate z_grid to z_star)
+        # High-z likelihoods (CMB): independent path
         for lik in self._high_z_likelihoods:
             total_log_L = total_log_L + lik(**params)
 

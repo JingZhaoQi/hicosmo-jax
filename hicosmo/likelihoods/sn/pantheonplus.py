@@ -518,6 +518,31 @@ class PantheonPlusLikelihood(Likelihood):
 
         self._marginalized_likelihood_jit = jit(_marginalized_likelihood_impl)
 
+        # Build grid-accepting version (for CombinedLikelihood shared grid)
+        z_cmb = self.z_cmb
+        z_hel = self.z_hel
+        include_shoes = self.include_shoes
+        is_calibrator = self.is_calibrator
+        ceph_dist = self.ceph_dist
+        marginalize = self.marginalize_M_B
+
+        @jit
+        def _loglike_from_grid_impl(
+            cosmo_grid: Dict, grid_z: jnp.ndarray, params: Dict
+        ) -> jnp.ndarray:
+            d_L = jnp.interp(z_cmb, grid_z, cosmo_grid["d_L"])
+            d_A = d_L / (1.0 + z_cmb) ** 2
+            mu = 5.0 * jnp.log10((1.0 + z_cmb) * (1.0 + z_hel) * d_A) + 25.0
+            if include_shoes:
+                mu = jnp.where(is_calibrator, ceph_dist, mu)
+            if marginalize:
+                return _marginalized_likelihood_impl(mu)
+            else:
+                M_B = params.get("M_B", jnp.asarray(-19.3, dtype=mu.dtype))
+                return _fixed_likelihood_impl(mu, M_B)
+
+        self._loglike_from_grid = _loglike_from_grid_impl
+
     def _prepare_distance_grid(self) -> None:
         """Precompute redshift grid for JAX-based cosmology interpolation."""
         max_z = float(self.z_cmb.max()) + 0.5
