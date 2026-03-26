@@ -13,6 +13,7 @@ Key principles:
 """
 
 from abc import ABC, abstractmethod
+from functools import partial
 from typing import Dict, Union, Any
 import jax.numpy as jnp
 
@@ -447,6 +448,44 @@ def make_compute_grid_traced(E_z_func: Callable) -> Callable:
             "d_C": distances["d_C"],
         }
 
+    @partial(jit, static_argnums=(2,))
+    def compute_DM_at_z(
+        z_target: float, params: Dict[str, float], n_grid: int = 1024
+    ) -> float:
+        """
+        Compute D_M at a single redshift using minimal computation.
+
+        Much faster than compute_grid_traced for single-point evaluation
+        (e.g., CMB distance priors that only need D_M(z_star)).
+        Skips d_L, D_H, dVc_dz, ddL_dz entirely.
+        """
+        z_grid = jnp.linspace(0.0, z_target, n_grid)
+        E_z_grid = E_z_func(z_grid, params)
+        H0 = params["H0"]
+        Omega_k = params.get("Omega_k", 0.0)
+        D_H_0 = _C_KM_S / H0
+
+        integrand = 1.0 / E_z_grid
+        integral_values = cumulative_trapezoid(integrand, z_grid)
+        d_C = D_H_0 * integral_values[-1]  # Only need endpoint
+
+        # D_M with curvature
+        def flat_DM(_):
+            return d_C
+
+        def curved_DM(_):
+            delta = d_C / D_H_0
+            def open_DM(_):
+                return D_H_0 / jnp.sqrt(Omega_k) * jnp.sinh(jnp.sqrt(Omega_k) * delta)
+            def closed_DM(_):
+                return D_H_0 / jnp.sqrt(-Omega_k) * jnp.sin(jnp.sqrt(-Omega_k) * delta)
+            return lax.cond(Omega_k > 0, open_DM, closed_DM, operand=None)
+
+        return lax.cond(jnp.abs(Omega_k) < 1e-10, flat_DM, curved_DM, operand=None)
+
+    # Attach to the factory output
+    compute_grid_traced.compute_DM_at_z = compute_DM_at_z
+
     return compute_grid_traced
 
 
@@ -784,7 +823,9 @@ def register_cosmology_model(cls):
     cls._E_z_static = staticmethod(_E_z_static)
 
     # Generate factory methods
-    cls.compute_grid_traced = staticmethod(make_compute_grid_traced(_E_z_static))
+    _cgt = make_compute_grid_traced(_E_z_static)
+    cls.compute_grid_traced = staticmethod(_cgt)
+    cls.compute_DM_at_z = staticmethod(_cgt.compute_DM_at_z)
     cls.sound_horizon_traced = staticmethod(make_sound_horizon_traced())
     cls.sound_horizon_drag_traced = staticmethod(make_sound_horizon_drag_traced())
     cls.recombination_redshift_traced = staticmethod(

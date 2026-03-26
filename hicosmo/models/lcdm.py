@@ -1422,7 +1422,9 @@ from .base import (
     make_recombination_redshift_traced,
 )
 
-LCDM.compute_grid_traced = staticmethod(make_compute_grid_traced(LCDM._E_z_static))
+_lcdm_cgt = make_compute_grid_traced(LCDM._E_z_static)
+LCDM.compute_grid_traced = staticmethod(_lcdm_cgt)
+LCDM.compute_DM_at_z = staticmethod(_lcdm_cgt.compute_DM_at_z)
 LCDM.sound_horizon_traced = staticmethod(make_sound_horizon_traced())
 LCDM.sound_horizon_drag_traced = staticmethod(make_sound_horizon_drag_traced())
 LCDM.recombination_redshift_traced = staticmethod(make_recombination_redshift_traced())
