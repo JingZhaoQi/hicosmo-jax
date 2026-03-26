@@ -450,6 +450,87 @@ def make_compute_grid_traced(E_z_func: Callable) -> Callable:
     return compute_grid_traced
 
 
+def make_compute_shared_grid(E_z_func: Callable) -> Callable:
+    """
+    Factory for shared distance grid computation (used by CombinedLikelihood).
+
+    Computes distances on a two-segment grid:
+    - Low-z segment [0, z_low_max] with high density (for SN/BAO interpolation)
+    - High-z segment [z_low_max, z_high_max] with lower density (for CMB)
+
+    Returns a single dict covering the full range.
+    """
+
+    @jit
+    def compute_shared_grid(
+        z_grid_low: jnp.ndarray,
+        z_grid_high: jnp.ndarray,
+        params: Dict[str, float],
+    ) -> Dict[str, jnp.ndarray]:
+        """
+        Two-segment distance computation sharing a single E(z) evaluation path.
+
+        Parameters
+        ----------
+        z_grid_low : shape (N_low,), high-density grid for [0, z_low_max]
+        z_grid_high : shape (N_high,), lower-density grid for [z_low_max, z_high_max]
+        params : cosmological parameters
+
+        Returns
+        -------
+        Dict with keys: 'z_low', 'z_high', 'grid_low', 'grid_high'
+        """
+        H0 = params["H0"]
+        Omega_k = params.get("Omega_k", 0.0)
+
+        # Low-z segment: full distance computation
+        E_z_low = E_z_func(z_grid_low, params)
+        grid_low = compute_distances_core(z_grid_low, E_z_low, H0, Omega_k)
+
+        # High-z segment: E(z) + cumulative integral continuing from low-z endpoint
+        E_z_high = E_z_func(z_grid_high, params)
+        D_H_0 = _C_KM_S / H0
+        integrand_high = 1.0 / E_z_high
+        integral_high = cumulative_trapezoid(integrand_high, z_grid_high)
+        # Add the low-z endpoint integral value
+        d_C_high = D_H_0 * integral_high + grid_low["d_C"][-1]
+
+        # D_M for high-z (same curvature logic)
+        def flat_DM_high(_):
+            return d_C_high
+
+        def curved_DM_high(_):
+            delta = d_C_high / D_H_0
+            def open_DM(_):
+                sqrt_ok = jnp.sqrt(Omega_k)
+                return D_H_0 / sqrt_ok * jnp.sinh(sqrt_ok * delta)
+            def closed_DM(_):
+                sqrt_abs_ok = jnp.sqrt(-Omega_k)
+                return D_H_0 / sqrt_abs_ok * jnp.sin(sqrt_abs_ok * delta)
+            return lax.cond(Omega_k > 0, open_DM, closed_DM, operand=None)
+
+        D_M_high = lax.cond(
+            jnp.abs(Omega_k) < 1e-10, flat_DM_high, curved_DM_high, operand=None
+        )
+
+        grid_high = {
+            "d_C": d_C_high,
+            "D_M": D_M_high,
+            "d_L": (1.0 + z_grid_high) * D_M_high,
+            "D_H": D_H_0 / E_z_high,
+            "E_z": E_z_high,
+        }
+
+        return {
+            "z_low": z_grid_low,
+            "z_high": z_grid_high,
+            "grid_low": grid_low,
+            "grid_high": grid_high,
+        }
+
+    return compute_shared_grid
+
+
 def make_sound_horizon_traced() -> Callable:
     """
     Factory for traced sound horizon r_s(z) using EH98 fitting formula.
@@ -542,79 +623,39 @@ def compute_distances_from_E_z(
         Hubble constant in km/s/Mpc.
     Omega_k : float, optional
         Curvature density parameter. Default is 0.0 (flat universe).
-        - Omega_k = 0: flat universe
-        - Omega_k > 0: open (hyperbolic) universe
-        - Omega_k < 0: closed (spherical) universe
 
     Returns
     -------
     Dict[str, jnp.ndarray]
-        Dictionary containing:
-        - 'd_C': Line-of-sight comoving distance [Mpc]
-        - 'D_M': Transverse comoving distance [Mpc] (accounts for curvature)
-        - 'd_L': Luminosity distance [Mpc]
-        - 'D_H': Hubble distance c/H(z) [Mpc]
-        - 'dVc_dz': Differential comoving volume [Mpc^3]
-        - 'ddL_dz': Derivative of d_L w.r.t. z [Mpc]
-
-    Notes
-    -----
-    This function is JIT-compiled and traced-aware for NumPyro MCMC.
-    All array operations use JAX primitives.
-
-    The transverse comoving distance D_M differs from d_C only in curved universes:
-    - Flat (Omega_k = 0): D_M = d_C
-    - Open (Omega_k > 0): D_M = D_H * sinh(sqrt(Omega_k) * d_C / D_H) / sqrt(Omega_k)
-    - Closed (Omega_k < 0): D_M = D_H * sin(sqrt(-Omega_k) * d_C / D_H) / sqrt(-Omega_k)
+        Dictionary containing distance quantities.
     """
     one_plus_z = 1.0 + z_grid
-    D_H_0 = _C_KM_S / H0  # Hubble distance at z=0
-
-    # ==================== Comoving Distance ====================
-    # d_C = (c/H0) * integral of 1/E(z') from 0 to z
-    # Using cumulative trapezoidal integration
+    D_H_0 = _C_KM_S / H0
 
     integrand = 1.0 / E_z_grid
     integral_values = cumulative_trapezoid(integrand, z_grid)
-
     d_C_grid = D_H_0 * integral_values
-
-    # ==================== Transverse Comoving Distance ====================
-    # D_M accounts for spatial curvature (critical for BAO!)
-    # Using lax.cond for JIT-compatible branching
 
     def flat_DM(_):
         return d_C_grid
 
     def curved_DM(_):
-        delta = d_C_grid / D_H_0  # dimensionless
+        delta = d_C_grid / D_H_0
 
         def open_DM(_):
-            # Omega_k > 0: hyperbolic geometry
             sqrt_ok = jnp.sqrt(Omega_k)
             return D_H_0 / sqrt_ok * jnp.sinh(sqrt_ok * delta)
 
         def closed_DM(_):
-            # Omega_k < 0: spherical geometry
             sqrt_abs_ok = jnp.sqrt(-Omega_k)
             return D_H_0 / sqrt_abs_ok * jnp.sin(sqrt_abs_ok * delta)
 
         return lax.cond(Omega_k > 0, open_DM, closed_DM, operand=None)
 
     D_M_grid = lax.cond(jnp.abs(Omega_k) < 1e-10, flat_DM, curved_DM, operand=None)
-
-    # ==================== Hubble Distance D_H(z) = c/H(z) ====================
     D_H_grid = D_H_0 / E_z_grid
-
-    # ==================== Luminosity Distance ====================
-    # d_L = (1+z) * D_M  (using transverse distance, not line-of-sight!)
     d_L_grid = one_plus_z * D_M_grid
-
-    # ==================== Differential Comoving Volume ====================
-    # dVc/dz = 4*pi * (c/H0) * D_M^2 / E(z)  (using D_M for proper volume element)
     dVc_dz_grid = 4.0 * jnp.pi * D_H_0 * D_M_grid**2 / E_z_grid
-
-    # ==================== Derivative of Luminosity Distance ====================
     ddL_dz_grid = gradient_1d(d_L_grid, z_grid)
 
     return {
@@ -624,6 +665,50 @@ def compute_distances_from_E_z(
         "D_H": D_H_grid,
         "dVc_dz": dVc_dz_grid,
         "ddL_dz": ddL_dz_grid,
+    }
+
+
+@jit
+def compute_distances_core(
+    z_grid: jnp.ndarray, E_z_grid: jnp.ndarray, H0: float, Omega_k: float = 0.0
+) -> Dict[str, jnp.ndarray]:
+    """
+    Lightweight distance computation — only d_C, D_M, D_H, d_L, E_z.
+
+    Skips dVc_dz and ddL_dz (not needed by SN, BAO, or CMB likelihoods).
+    """
+    D_H_0 = _C_KM_S / H0
+
+    integrand = 1.0 / E_z_grid
+    integral_values = cumulative_trapezoid(integrand, z_grid)
+    d_C_grid = D_H_0 * integral_values
+
+    def flat_DM(_):
+        return d_C_grid
+
+    def curved_DM(_):
+        delta = d_C_grid / D_H_0
+
+        def open_DM(_):
+            sqrt_ok = jnp.sqrt(Omega_k)
+            return D_H_0 / sqrt_ok * jnp.sinh(sqrt_ok * delta)
+
+        def closed_DM(_):
+            sqrt_abs_ok = jnp.sqrt(-Omega_k)
+            return D_H_0 / sqrt_abs_ok * jnp.sin(sqrt_abs_ok * delta)
+
+        return lax.cond(Omega_k > 0, open_DM, closed_DM, operand=None)
+
+    D_M_grid = lax.cond(jnp.abs(Omega_k) < 1e-10, flat_DM, curved_DM, operand=None)
+    D_H_grid = D_H_0 / E_z_grid
+    d_L_grid = (1.0 + z_grid) * D_M_grid
+
+    return {
+        "d_C": d_C_grid,
+        "D_M": D_M_grid,
+        "d_L": d_L_grid,
+        "D_H": D_H_grid,
+        "E_z": E_z_grid,
     }
 
 

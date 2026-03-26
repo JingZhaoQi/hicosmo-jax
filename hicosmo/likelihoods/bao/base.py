@@ -320,6 +320,55 @@ class BAOLikelihood(Likelihood):
 
         self._loglike_fast = _loglike_impl
 
+        # Also build a version that accepts a precomputed grid
+        @jit
+        def _loglike_from_grid(
+            cosmo_grid: Dict[str, jnp.ndarray],
+            grid_z: jnp.ndarray,
+            params: Dict[str, jnp.ndarray],
+        ) -> jnp.ndarray:
+            DM_grid = cosmo_grid["D_M"]
+            DH_grid = cosmo_grid["D_H"]
+            E_z_g = cosmo_grid["E_z"]
+
+            volume_factor = grid_z * DM_grid**2 * DH_grid
+            DV_grid = jnp.exp((1.0 / 3.0) * jnp.log(volume_factor + 1e-30))
+            H_grid = params["H0"] * E_z_g
+
+            DM_obs = jnp.interp(z_obs, grid_z, DM_grid)
+            DH_obs = jnp.interp(z_obs, grid_z, DH_grid)
+            DV_obs = jnp.interp(z_obs, grid_z, DV_grid)
+            H_obs = jnp.interp(z_obs, grid_z, H_grid)
+
+            if use_rd_fid:
+                rd_val = rd_fid
+            else:
+                rd_val = rd_func(params)
+
+            theory = jnp.zeros_like(z_obs)
+            theory = jnp.where(obs_codes == 0, DM_obs / rd_val, theory)
+            theory = jnp.where(obs_codes == 1, DH_obs / rd_val, theory)
+            theory = jnp.where(obs_codes == 2, DV_obs / rd_val, theory)
+            theory = jnp.where(obs_codes == 3, rd_val / DV_obs, theory)
+            theory = jnp.where(obs_codes == 4, H_obs * rd_val, theory)
+            theory = jnp.where(obs_codes == 6, DM_obs / DH_obs, theory)
+
+            diff = theory - data_vec
+            chi2 = diff @ (inv_cov @ diff)
+            return -0.5 * chi2
+
+        self._loglike_from_grid = _loglike_from_grid
+
+    def _loglike_from_shared_grid(
+        self, cosmo_grid, z_grid, params
+    ) -> jnp.ndarray:
+        """Compute log-likelihood from a precomputed distance grid."""
+        if self._loglike_from_grid is not None:
+            params_jax = self._prepare_params_dict(params)
+            return self._loglike_from_grid(cosmo_grid, z_grid, params_jax)
+        # Fallback
+        return self.log_likelihood_from_params(params)
+
     def log_likelihood_from_params(self, params: Dict[str, Any]) -> jnp.ndarray:
         """Fast log-likelihood path using parameter dict (JAX-friendly)."""
         if not self._can_use_fast_params(params) or self._loglike_fast is None:
@@ -433,6 +482,13 @@ class BAOLikelihood(Likelihood):
 
     def __call__(self, **params) -> float:
         """Callable interface for samplers."""
+        _precomputed_grid = params.pop("_precomputed_grid", None)
+        _precomputed_z_grid = params.pop("_precomputed_z_grid", None)
+
+        if _precomputed_grid is not None and _precomputed_z_grid is not None:
+            return self._loglike_from_shared_grid(
+                _precomputed_grid, _precomputed_z_grid, params
+            )
         return self.log_likelihood_from_params(params)
 
     def get_derived_params(self, cosmology) -> Dict[str, float]:
