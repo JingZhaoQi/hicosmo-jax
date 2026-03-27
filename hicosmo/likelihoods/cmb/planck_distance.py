@@ -268,7 +268,7 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
 
             if has_dm_at_z:
                 # Lightweight: only compute D_M(z_star), ~4× faster
-                D_M = cosmology_class.compute_DM_at_z(z_star, params, 1024)
+                D_M = cosmology_class.compute_DM_at_z(z_star, params, 512)
             else:
                 # Fallback: full grid computation
                 z_grid = z_star * z_base
