@@ -158,7 +158,9 @@ def _merge_prior(param_name: str, param_spec: Any, prior_map: Dict[str, Any]) ->
     return param_spec
 
 
-def build_parameter_registry(config: Dict[str, Any]) -> ParameterRegistry:
+def build_parameter_registry(
+    config: Dict[str, Any], *, apply_selection: bool = True
+) -> ParameterRegistry:
     """Build a ParameterRegistry from a normalized config."""
     cfg = normalize_config(config)
     prior_map = cfg.get("prior", {})
@@ -207,11 +209,12 @@ def build_parameter_registry(config: Dict[str, Any]) -> ParameterRegistry:
                 description=param.description,
             )
 
-    free_list = cfg.get("free") or []
-    fixed_list = cfg.get("fixed") or []
-    if free_list:
-        registry.set_free(list(free_list))
-    if fixed_list:
-        registry.set_fixed(list(fixed_list))
+    if apply_selection:
+        free_list = cfg.get("free") or []
+        fixed_list = cfg.get("fixed") or []
+        if free_list:
+            registry.set_free(list(free_list))
+        if fixed_list:
+            registry.set_fixed(list(fixed_list))
 
     return registry

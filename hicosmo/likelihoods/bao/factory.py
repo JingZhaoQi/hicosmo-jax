@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 from .datasets import (
     BOSSDR12BAO,
     DESI2024BAO,
+    DESIDR2BAO,
     SDSSDR12BAO,
     SDSSDR16BAO,
     SixDFBAO,
@@ -21,6 +22,7 @@ def _normalize_key(value: str) -> str:
 
 _BAO_DATASETS: Dict[str, Callable[..., Any]] = {
     "desi2024": DESI2024BAO,
+    "desi_dr2": DESIDR2BAO,
     "sdss_dr12": SDSSDR12BAO,
     "sdss_dr16": SDSSDR16BAO,
     "boss_dr12": BOSSDR12BAO,
@@ -32,6 +34,10 @@ _BAO_ALIASES: Dict[str, str] = {
     "desi2024": "desi2024",
     "desidr1": "desi2024",
     "desi2024dr1": "desi2024",
+    "desidr2": "desi_dr2",
+    "desi2025": "desi_dr2",
+    "desiy3": "desi_dr2",
+    "desidr2bao": "desi_dr2",
     "sdss": "sdss_dr16",
     "sdssdr16": "sdss_dr16",
     "sdss16": "sdss_dr16",

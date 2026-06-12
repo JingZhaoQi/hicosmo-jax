@@ -10,7 +10,9 @@ Leverages NumPyro's NUTS sampler for efficient Bayesian inference.
 """
 
 from typing import Dict, Any, Optional, Callable, Union, List, Type
+import copy
 import os
+import sys
 import warnings
 import inspect
 from pathlib import Path
@@ -56,6 +58,7 @@ from .base import (
     InitializationError,
     ConvergenceError,
 )
+from .derived import compute_derived_parameters
 from .numpyro_backend import NumPyroSampler
 from .emcee_backend import EmceeSampler
 from ..utils.logging import get_logger
@@ -290,6 +293,7 @@ class MCMC:
         self._resume_total_steps = None
         self._resume_current_step = None
         self._resume_backend_state = None
+        self._mcmc_counts_are_per_chain = False
 
         # Sampler selection and validation (NEW - multi-sampler support)
         self.sampler_name = sampler.lower()
@@ -370,16 +374,14 @@ class MCMC:
         """
         from ..parameters import Parameter
 
-        # Get only free parameters for MCMC sampling
-        free_params = registry.get_free()
-
-        if not free_params:
+        all_params = registry.get_all()
+        if not any(param.is_free() for param in all_params.values()):
             raise ValueError(
                 "ParameterRegistry has no free parameters. "
                 "Use registry.set_free(['param1', 'param2']) to mark parameters for sampling."
             )
 
-        return ParameterConfig(parameters=free_params)
+        return ParameterConfig(parameters=copy.deepcopy(all_params))
 
     def _collect_nuisance_from_likelihoods(self, likelihoods: List) -> None:
         """Collect nuisance parameters from likelihood objects.
@@ -708,13 +710,17 @@ class MCMC:
 
         Smart Defaults Strategy:
         1. num_chains: Auto-detect based on available CPU cores
-        2. num_warmup: 20% of num_samples if not specified
-        3. optimize_init: False by default (standard warmup preferred)
-        4. checkpointing: Enabled by default
+        2. num_samples: interpreted as TOTAL across chains (split per chain)
+        3. num_warmup: interpreted as PER CHAIN (adaptation cannot be
+           amortized across chains); default max(200, min(1000, per-chain))
+        4. optimize_init: False by default (standard warmup preferred)
+        5. checkpointing: Enabled by default
 
         User can override any defaults explicitly.
         """
         verbose = mcmc_kwargs.get("verbose", True)
+        if self._mcmc_counts_are_per_chain:
+            return mcmc_kwargs
 
         # 1. Smart default for num_samples
         mcmc_kwargs.setdefault("num_samples", DEFAULT_NUM_SAMPLES)
@@ -756,51 +762,39 @@ class MCMC:
 
         num_chains = mcmc_kwargs["num_chains"]
 
-        # 3. Smart default for num_warmup: 20% of total samples
-        if "num_warmup" not in mcmc_kwargs:
-            total_warmup = max(10, int(total_samples * 0.2))
-            mcmc_kwargs["num_warmup"] = total_warmup
-            if verbose:
-                logger.debug(
-                    f"Auto-calculated total warmup: {total_warmup} (20% of {total_samples} total samples)"
-                )
-        else:
-            # User specified warmup value (treated as TOTAL, same as num_samples)
-            total_warmup = mcmc_kwargs["num_warmup"]
-            if verbose:
-                logger.debug(f"Using user-specified total warmup: {total_warmup}")
-
-        # 🔧 Convert total samples AND warmup to per-chain values
-        # BOTH num_samples and num_warmup are interpreted as TOTAL across all chains
+        # 🔧 num_samples is TOTAL across chains; num_warmup is PER CHAIN.
+        # Warmup is each chain's independent mass-matrix/step-size adaptation
+        # and cannot be amortized across chains: dividing it by num_chains
+        # (the previous behavior) left 4 chains with 100 steps each, far below
+        # what NUTS window adaptation needs, and degraded tau for d>=3.
         total_samples = mcmc_kwargs["num_samples"]
-        total_warmup = mcmc_kwargs["num_warmup"]
         num_chains = mcmc_kwargs["num_chains"]
 
-        if num_chains > 1:
-            # Distribute total samples across chains (ceiling division)
-            samples_per_chain = (total_samples + num_chains - 1) // num_chains
-            actual_total_samples = samples_per_chain * num_chains
-            mcmc_kwargs["num_samples"] = samples_per_chain
+        samples_per_chain = (total_samples + num_chains - 1) // num_chains
+        mcmc_kwargs["num_samples"] = samples_per_chain
 
-            # Distribute total warmup across chains (ceiling division)
-            warmup_per_chain = max(1, (total_warmup + num_chains - 1) // num_chains)
-            actual_total_warmup = warmup_per_chain * num_chains
+        # 3. Smart default for num_warmup: per-chain, aligned with NumPyro's
+        # adaptation needs (capped by the per-chain sample count for tiny runs)
+        if "num_warmup" not in mcmc_kwargs:
+            warmup_per_chain = max(200, min(1000, samples_per_chain))
             mcmc_kwargs["num_warmup"] = warmup_per_chain
-
             if verbose:
-                logger.debug(
-                    f"Sample distribution: {total_samples} total → {samples_per_chain}/chain × {num_chains} = {actual_total_samples}"
-                )
-                logger.debug(
-                    f"Warmup distribution: {total_warmup} total → {warmup_per_chain}/chain × {num_chains} = {actual_total_warmup}"
-                )
+                logger.debug(f"Auto-calculated warmup: {warmup_per_chain} per chain")
         else:
-            # Single chain: no conversion needed
+            warmup_per_chain = mcmc_kwargs["num_warmup"]
             if verbose:
                 logger.debug(
-                    f"Single chain: {total_samples} samples, {total_warmup} warmup"
+                    f"Using user-specified warmup: {warmup_per_chain} per chain"
                 )
 
+        if verbose and num_chains > 1:
+            logger.debug(
+                f"Sample distribution: {total_samples} total → "
+                f"{samples_per_chain}/chain × {num_chains}; "
+                f"warmup {warmup_per_chain}/chain"
+            )
+
+        self._mcmc_counts_are_per_chain = True
         return mcmc_kwargs
 
     def _setup_mcmc(self):
@@ -817,10 +811,31 @@ class MCMC:
             # Legacy path (should not reach here due to validation in __init__)
             raise ValueError(f"Unsupported sampler: {self.sampler_name}")
 
+    def _split_sampled_and_fixed_parameters(self) -> tuple[List[str], Dict[str, Any]]:
+        """Return sampled parameter names plus fixed values for likelihood calls."""
+        sampled_param_names = [
+            name
+            for name, param in self.param_config.parameters.items()
+            if param.is_free()
+        ]
+        fixed_values = {
+            name: param.value
+            for name, param in self.param_config.parameters.items()
+            if not param.is_free()
+        }
+        if not sampled_param_names:
+            raise ValueError(
+                "No free parameters configured for MCMC. "
+                "Mark at least one parameter as free before sampling."
+            )
+        return sampled_param_names, fixed_values
+
     def _setup_unified_backend(self, verbose: bool = True):
         """Set up unified sampler backend (NumPyro or emcee)."""
         # Explicit likelihood protocol: use base class rather than heuristics
         is_likelihood_object = isinstance(self.likelihood_func, Likelihood)
+
+        sampled_param_names, fixed_values = self._split_sampled_and_fixed_parameters()
 
         # For likelihood objects, we bypass the normal parameter mapping
         # and directly use the parameter names from config
@@ -828,8 +843,9 @@ class MCMC:
             # Auto-collect nuisance parameters from likelihood object(s)
             self._collect_nuisance_from_likelihood_object(self.likelihood_func, verbose)
 
-            # Get parameter names directly from config (including any added nuisance params)
-            param_names = list(self.param_config.parameters.keys())
+            sampled_param_names, fixed_values = (
+                self._split_sampled_and_fixed_parameters()
+            )
 
             # Create log probability function that directly calls the likelihood object
             def log_probability(params: Dict[str, float]) -> float:
@@ -837,29 +853,35 @@ class MCMC:
                 Log probability function for likelihood objects.
 
                 Directly passes parameters from sampler to likelihood.__call__(**params).
+
+                Exceptions must propagate: this runs during JAX tracing, so any
+                exception is a structural bug (shape/type/missing data), not a
+                numerical failure. Swallowing it and returning a constant would
+                make NUTS silently sample the prior. Numerical NaN/Inf at runtime
+                is handled by the backend's isfinite guard instead.
                 """
-                try:
-                    # Build kwargs from sampler params
-                    call_kwargs = {
-                        name: params[name] for name in param_names if name in params
+                # Build kwargs from sampler params
+                call_kwargs = dict(fixed_values)
+                call_kwargs.update(
+                    {
+                        name: params[name]
+                        for name in sampled_param_names
+                        if name in params
                     }
+                )
 
-                    # Call likelihood object directly
-                    log_L = self.likelihood_func(**call_kwargs)
+                # Call likelihood object directly
+                log_L = self.likelihood_func(**call_kwargs)
 
-                    # NumPyro expects JAX-friendly outputs; keep tracers untouched
-                    if _is_jax_value(log_L):
-                        return log_L
+                # NumPyro expects JAX-friendly outputs; keep tracers untouched
+                if _is_jax_value(log_L):
+                    return log_L
 
-                    return float(log_L)
-                except Exception as e:
-                    if verbose:
-                        logger.warning(f"Likelihood evaluation failed: {e}")
-                    return -1e10
+                return float(log_L)
 
             # Create a simple mapping result for compatibility
             mapping_result = MappingResult(
-                parameter_mapping={name: name for name in param_names},
+                parameter_mapping={name: name for name in sampled_param_names},
                 data_arguments={},
                 missing_parameters=[],
                 unused_parameters=[],
@@ -868,8 +890,9 @@ class MCMC:
             )
         else:
             # Standard function: use direct parameter mapping (simplified)
-            param_names = list(self.param_config.parameters.keys())
-            mapping_result = create_direct_mapping(param_names, self.data_kwargs)
+            mapping_result = create_direct_mapping(
+                sampled_param_names, self.data_kwargs
+            )
 
             # Capture data_kwargs in closure
             data_args = dict(self.data_kwargs) if self.data_kwargs else {}
@@ -878,35 +901,38 @@ class MCMC:
             def log_probability(params: Dict[str, float]) -> float:
                 """
                 Unified log probability function for sampler backends.
+
+                Exceptions must propagate (see likelihood-object variant above):
+                trace-time exceptions are structural bugs, and masking them with
+                a constant makes NUTS silently sample the prior.
                 """
-                try:
-                    # Build kwargs from sampler params (direct mapping)
-                    call_kwargs = {
-                        name: params[name] for name in param_names if name in params
+                # Build kwargs from sampler params (direct mapping)
+                call_kwargs = dict(fixed_values)
+                call_kwargs.update(
+                    {
+                        name: params[name]
+                        for name in sampled_param_names
+                        if name in params
                     }
+                )
 
-                    # Add data arguments
-                    call_kwargs.update(data_args)
+                # Add data arguments
+                call_kwargs.update(data_args)
 
-                    # Call likelihood function
-                    log_L = self.likelihood_func(**call_kwargs)
+                # Call likelihood function
+                log_L = self.likelihood_func(**call_kwargs)
 
-                    # NumPyro expects JAX-friendly outputs; keep tracers untouched
-                    if _is_jax_value(log_L):
-                        return log_L
+                # NumPyro expects JAX-friendly outputs; keep tracers untouched
+                if _is_jax_value(log_L):
+                    return log_L
 
-                    return float(log_L)
-                except Exception as e:
-                    if verbose:
-                        logger.warning(
-                            f"Likelihood evaluation failed for params={params}: {e}"
-                        )
-                    return -1e10
+                return float(log_L)
 
         # Extract parameter configuration for backend
         # Convert ParameterConfig to backend-compatible format
         parameters_dict = {}
-        for name, param in self.param_config.parameters.items():
+        for name in sampled_param_names:
+            param = self.param_config.parameters[name]
             parameters_dict[name] = {
                 "prior": param.prior,
                 "ref": param.value,  # Parameter uses 'value', not 'ref'
@@ -988,12 +1014,16 @@ class MCMC:
                         )
                     chain_method = "vectorized"
 
+                # Honor an explicit progress_bar setting; otherwise follow
+                # verbose but auto-disable on non-TTY output (NumPyro's
+                # per-step host callback costs 5-20% and floods logs).
+                default_progress = wrapper_self.verbose and sys.stdout.isatty()
                 return SamplerConfig(
                     num_samples=mcmc_config.get("num_samples", 1000),
                     num_chains=mcmc_config.get("num_chains", 4),
                     num_warmup=mcmc_config.get("num_warmup", 500),
                     seed=mcmc_config.get("seed", 42),
-                    progress_bar=wrapper_self.verbose,
+                    progress_bar=mcmc_config.get("progress_bar", default_progress),
                     chain_method=chain_method,
                     max_tree_depth=mcmc_config.get("max_tree_depth", 10),
                     n_walkers=mcmc_config.get("n_walkers", None),
@@ -1263,6 +1293,8 @@ class MCMC:
 
         # Update param_config.mcmc with overrides
         self.param_config.mcmc.update(mcmc_overrides)
+        if mcmc_overrides:
+            self._mcmc_counts_are_per_chain = False
 
         # If resuming and num_samples not explicitly set, finish remaining samples
         if self._is_resumed and "num_samples" not in mcmc_overrides:
@@ -1279,12 +1311,14 @@ class MCMC:
 
             if remaining > 0:
                 self.param_config.mcmc["num_samples"] = remaining
+                self._mcmc_counts_are_per_chain = False
                 logger.debug(f"Resuming: remaining total samples = {remaining}")
             else:
                 logger.warning(
                     "Resuming: no remaining samples detected; run() will be a no-op."
                 )
                 self.param_config.mcmc["num_samples"] = 0
+                self._mcmc_counts_are_per_chain = False
 
         # Apply intelligent defaults (convert total to per-chain)
         self.param_config.mcmc = self._apply_intelligent_defaults(
@@ -1414,72 +1448,8 @@ class MCMC:
         return samples
 
     def _compute_derived_parameters(self, samples: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Compute derived parameters from MCMC samples using likelihood objects.
-
-        Each likelihood's derived_parameters() method is called for every sample,
-        and results are added to the samples dictionary.
-
-        Parameters
-        ----------
-        samples : Dict[str, Any]
-            MCMC samples dictionary with parameter names as keys.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Updated samples dictionary including derived parameters.
-        """
-        if not self._likelihoods:
-            return samples
-
-        # Get sample count (assumes all parameters have same number of samples)
-        sample_key = next(iter(samples.keys()))
-        sample_array = samples[sample_key]
-        n_samples = len(sample_array)
-
-        # Collect derived parameters from all likelihoods
-        derived_names = set()
-        derived_arrays = {}
-
-        for lik in self._likelihoods:
-            if not hasattr(lik, "derived_parameters"):
-                continue
-
-            # Compute derived parameters for each sample
-            for i in range(n_samples):
-                # Build parameter dict for this sample
-                params = {name: float(samples[name][i]) for name in samples.keys()}
-
-                try:
-                    derived = lik.derived_parameters(**params)
-                except Exception:
-                    continue
-
-                if not derived:
-                    continue
-
-                # Initialize arrays on first iteration
-                for name, value in derived.items():
-                    if name not in derived_arrays:
-                        derived_arrays[name] = []
-                        derived_names.add(name)
-                    if i < len(derived_arrays[name]) or len(derived_arrays[name]) == i:
-                        derived_arrays[name].append(float(value))
-
-        # Convert lists to arrays and add to samples
-        import numpy as np
-
-        for name in derived_names:
-            if len(derived_arrays[name]) == n_samples:
-                samples[name] = np.array(derived_arrays[name])
-
-        if derived_names:
-            logger.debug(
-                f"Computed derived parameters: {', '.join(sorted(derived_names))}"
-            )
-
-        return samples
+        """Compute non-conflicting derived parameters from likelihood objects."""
+        return compute_derived_parameters(samples, self._likelihoods)
 
     def print_summary(self, prob: float = 0.9, burnin_frac: float = 0.1):
         """Print MCMC results summary with automatic burn-in removal."""
@@ -1488,6 +1458,33 @@ class MCMC:
             return
 
         self.sampler.print_summary(prob=prob, burnin_frac=burnin_frac)
+
+    def summary(self, prob: float = 0.9, burnin_frac: float = 0.1):
+        """Alias for :meth:`print_summary` (matches InferenceRunner)."""
+        self.print_summary(prob=prob, burnin_frac=burnin_frac)
+
+    def corner_plot(
+        self,
+        filename: Union[str, Path],
+        params: Optional[List[str]] = None,
+        **kwargs,
+    ):
+        """Generate a corner plot from current samples.
+
+        Mirrors ``InferenceRunner.corner_plot`` so the object returned by the
+        top-level ``hicosmo()`` API closes the sample-to-plot loop.
+        """
+        if self._samples is None:
+            raise RuntimeError("No samples available. Run MCMC first.")
+
+        from ..visualization import Plotter
+
+        plotter = Plotter(
+            self.get_samples(),
+            labels=self.labels,
+            ranges=self.ranges,
+        )
+        return plotter.corner(params=params, filename=filename, **kwargs)
 
     def get_samples(self, param: Optional[str] = None) -> Union[Dict, List]:
         """

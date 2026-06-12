@@ -9,7 +9,17 @@ Built for high-performance computing and modern MCMC methods.
 from __future__ import annotations
 
 import importlib
+import os
 from typing import Any
+
+# Cosmological distance integrals and covariance solves need float64.
+# Must run before any JAX computation; previously this relied on an import
+# side effect inside the optional GW module, which silently left the whole
+# framework in float32 when that module was absent.
+if os.environ.get("HICOSMO_DISABLE_X64", "0") != "1":
+    import jax as _jax
+
+    _jax.config.update("jax_enable_x64", True)
 
 __version__ = "0.1.0"
 __author__ = "Jingzhao Qi"
@@ -26,7 +36,6 @@ _MODULE_ALIASES = {
 
 _ATTRIBUTE_MAP = {
     # High-level API (3-line usage)
-    "hicosmo": ("hicosmo.hicosmo", "hicosmo"),
     "InferenceRunner": ("hicosmo.hicosmo", "InferenceRunner"),
     "list_likelihoods": ("hicosmo.hicosmo", "list_likelihoods"),
     "list_cosmologies": ("hicosmo.hicosmo", "list_cosmologies"),
@@ -42,10 +51,14 @@ _ATTRIBUTE_MAP = {
     "get_output_dir": ("hicosmo.samplers.constants", "get_output_dir"),
 }
 
-__all__ = list(_MODULE_ALIASES.keys()) + list(_ATTRIBUTE_MAP.keys())
+__all__ = list(_MODULE_ALIASES.keys()) + ["hicosmo"] + list(_ATTRIBUTE_MAP.keys())
 
 
 def __getattr__(name: str) -> Any:  # pragma: no cover - simple trampoline
+    if name == "hicosmo":
+        module = importlib.import_module("hicosmo.hicosmo")
+        globals()[name] = module
+        return module
     if name in _ATTRIBUTE_MAP:
         module_name, attr = _ATTRIBUTE_MAP[name]
         module = importlib.import_module(module_name)

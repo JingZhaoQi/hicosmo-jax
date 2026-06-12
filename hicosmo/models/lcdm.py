@@ -9,19 +9,13 @@ Now includes JAX-first integration tools tuned for performance and stability.
 
 from typing import Dict, Union, Optional, Literal
 import numbers
-import jax
 import jax.numpy as jnp
 from jax import jit, vmap, lax
-from functools import partial
-
-# Diffrax removed - now using ultra-fast integration engine
 
 from .base import CosmologyBase, compute_omega_r
 from .unified_parameters import CosmologicalParameters
 from ..utils.constants import c_km_s, c_cm_s, Mpc_km
 from ..utils.jax_tools import (
-    trapezoid,
-    cumulative_trapezoid,
     gauss_legendre_integrate_batch,
     integrate_batch_cumulative,
     bisection_root,
@@ -87,6 +81,7 @@ class LCDM(CosmologyBase):
             or "omega_m_h2" in kwargs
             or ("omega_b_h2" in kwargs and "omega_c_h2" in kwargs)
         )
+        has_omega_b_alt = "omega_b" in kwargs or "omega_b_h2" in kwargs
 
         param_dict = {}
 
@@ -98,9 +93,11 @@ class LCDM(CosmologyBase):
 
         # Always include these (no alternative forms commonly used)
         param_dict["Omega_k"] = Omega_k
-        param_dict["Omega_b"] = (
-            Omega_b  # Always include (needed for BAO rd calculation)
-        )
+        if not has_omega_b_alt:
+            # Needed for BAO rd calculation; must not shadow a user-supplied
+            # omega_b/omega_b_h2, otherwise the reverse derivation is skipped
+            # and the Planck default silently overrides the requested value.
+            param_dict["Omega_b"] = Omega_b
         param_dict["sigma8"] = sigma8
         param_dict["n_s"] = n_s
         param_dict["T_cmb"] = T_cmb
@@ -284,34 +281,23 @@ class LCDM(CosmologyBase):
         return results.get_derived_params()["rdrag"]
 
     def _sound_horizon_drag_eh98(self) -> float:
-        """Sound horizon via Eisenstein & Hu 1998 fitting formula (~2.7% error)."""
-        Omega_m_h2 = self.Omega_m_h2
-        Omega_b_h2 = self.Omega_b_h2
+        """Sound horizon via the CAMB-calibrated EH98 formula.
 
-        T_cmb = self.params.get("T_cmb", 2.7255)
-        theta_cmb = T_cmb / 2.7
+        Delegates to the single implementation in ``utils.jax_tools`` — the
+        same one used by the traced MCMC path — so derived parameters and
+        sampling can never diverge (previously the uncalibrated local copy
+        differed by 2.7%, about 4 Mpc).
+        """
+        from ..utils.jax_tools import sound_horizon_drag_eh98
 
-        # Eisenstein & Hu (1998) fitting formulas
-        b1 = 0.313 * Omega_m_h2 ** (-0.419) * (1 + 0.607 * Omega_m_h2**0.674)
-        b2 = 0.238 * Omega_m_h2**0.223
-        z_d = (
-            1291
-            * Omega_m_h2**0.251
-            / (1 + 0.659 * Omega_m_h2**0.828)
-            * (1 + b1 * Omega_b_h2**b2)
+        return float(
+            sound_horizon_drag_eh98(
+                self.params["H0"],
+                self.params["Omega_m"],
+                self.params["Omega_b"],
+                self.params.get("T_cmb", 2.7255),
+            )
         )
-
-        z_eq = 2.50e4 * Omega_m_h2 * theta_cmb**-4
-        k_eq = 7.46e-2 * Omega_m_h2 * theta_cmb**-2  # Mpc^{-1}
-
-        R_eq = 31.5 * Omega_b_h2 * theta_cmb**-4 * (1000.0 / z_eq)
-        R_d = 31.5 * Omega_b_h2 * theta_cmb**-4 * (1000.0 / z_d)
-
-        sqrt_term = jnp.sqrt(6.0 / R_eq)
-        log_arg = (jnp.sqrt(1.0 + R_d) + jnp.sqrt(R_d + R_eq)) / (1.0 + jnp.sqrt(R_eq))
-        s = (2.0 / (3.0 * k_eq)) * sqrt_term * jnp.log(log_arg)
-
-        return s
 
     def critical_density(
         self, z: Union[float, jnp.ndarray]
@@ -685,13 +671,9 @@ class LCDM(CosmologyBase):
         Examples
         --------
         >>> from hicosmo.models import LCDM
-        >>> from hicosmo.parameters import UnifiedParameterCollector
-        >>>
-        >>> # Auto-discover parameters for MCMC
-        >>> collector = UnifiedParameterCollector()
-        >>> collector.add_from_model(LCDM, free_params=['H0', 'Omega_m'])
-        >>> print(collector.get_free_names())
-        ['H0', 'Omega_m']
+        >>> names = [p.name for p in LCDM.get_parameters()]
+        >>> 'H0' in names and 'Omega_m' in names
+        True
         """
         from ..parameters import Parameter
 
@@ -1416,6 +1398,7 @@ LCDMModel = LCDM
 # ==================== Factory-Generated compute_grid_traced ====================
 # Generate compute_grid_traced using factory pattern (closure captures _E_z_static)
 from .base import (
+    make_compute_background_grid_traced,
     make_compute_grid_traced,
     make_sound_horizon_traced,
     make_sound_horizon_drag_traced,
@@ -1424,7 +1407,9 @@ from .base import (
 
 _lcdm_cgt = make_compute_grid_traced(LCDM._E_z_static)
 LCDM.compute_grid_traced = staticmethod(_lcdm_cgt)
-LCDM.compute_DM_at_z = staticmethod(_lcdm_cgt.compute_DM_at_z)
+LCDM.compute_background_grid_traced = staticmethod(
+    make_compute_background_grid_traced(LCDM._E_z_static)
+)
 LCDM.sound_horizon_traced = staticmethod(make_sound_horizon_traced())
 LCDM.sound_horizon_drag_traced = staticmethod(make_sound_horizon_drag_traced())
 LCDM.recombination_redshift_traced = staticmethod(make_recombination_redshift_traced())

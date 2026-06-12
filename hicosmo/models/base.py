@@ -13,7 +13,6 @@ Key principles:
 """
 
 from abc import ABC, abstractmethod
-from functools import partial
 from typing import Dict, Union, Any
 import jax.numpy as jnp
 
@@ -40,23 +39,30 @@ def compute_omega_r(params: Dict) -> float:
     Returns
     -------
     float
-        Omega_r = Omega_gamma * (1 + 0.2271 * N_eff)
+        Omega_r = Omega_gamma * (1 + 0.22711 * N_eff)
 
     Notes
     -----
-    Formula: Omega_gamma * h^2 = 2.47e-5 * (T_cmb / 2.7255)^4
-    The factor 0.2271 accounts for relativistic neutrinos.
+    Formula: Omega_gamma * h^2 = 2.4728e-5 * (T_cmb / 2.7255)^4
+    (photon density from sigma_B T^4; value as in Planck 2018 conventions).
+    The previous 3-digit constant 2.47e-5 underestimated the radiation
+    density by 0.10%, which propagated into a 0.09% bias of D_M(z_*) —
+    about 6 sigma of the Planck distance-prior l_a covariance.
+    The factor 0.22711 = (7/8)(4/11)^{4/3} accounts for relativistic
+    neutrinos.
     """
     if "Omega_r" in params:
         return params["Omega_r"]
+
+    from ..utils.constants import NEUTRINO_RADIATION_FACTOR, Omega_gamma_h2
 
     H0 = params["H0"]
     T_cmb = params.get("T_cmb", 2.7255)
     N_eff = params.get("N_eff", 3.046)
     h = H0 / 100.0
     theta = T_cmb / 2.7255
-    Omega_gamma_h2 = 2.47e-5 * theta**4
-    return (Omega_gamma_h2 / h**2) * (1.0 + 0.2271 * N_eff)
+    omega_gamma_h2 = Omega_gamma_h2 * theta**4
+    return (omega_gamma_h2 / h**2) * (1.0 + NEUTRINO_RADIATION_FACTOR * N_eff)
 
 
 class CosmologyBase(ABC):
@@ -84,7 +90,33 @@ class CosmologyBase(ABC):
         # This allows Fisher code to use .params['H0'] and .params.get('sigma8', default)
         self.params = self.cosmology_params
 
+        self._warn_if_traced_methods_inherit_other_physics()
+
         self._validate_params()
+
+    def _warn_if_traced_methods_inherit_other_physics(self) -> None:
+        """Warn when a subclass defines its own E(z) but was never registered.
+
+        Without @register_cosmology_model (or manual wiring), the inherited
+        compute_grid_traced closure is still bound to the PARENT's E_z kernel:
+        plotting via instance methods would use the new physics while MCMC
+        silently samples the parent model.
+        """
+        cls = type(self)
+        defines_physics = "E_z" in cls.__dict__ or "_E_z_kernel" in cls.__dict__
+        has_own_traced = "compute_grid_traced" in cls.__dict__
+        if defines_physics and not has_own_traced:
+            import warnings
+
+            warnings.warn(
+                f"{cls.__name__} defines its own E_z but is not decorated with "
+                "@register_cosmology_model: compute_grid_traced and the other "
+                "traced methods are inherited and still evaluate the PARENT "
+                "model's physics. MCMC sampling would silently use the wrong "
+                "E(z). Add the decorator to wire this class's physics.",
+                UserWarning,
+                stacklevel=3,
+            )
 
     @abstractmethod
     def _validate_params(self) -> None:
@@ -298,14 +330,15 @@ class CosmologyBase(ABC):
         Returns
         -------
         Dict[str, jnp.ndarray]
-            Dictionary containing cosmology quantities, all shape (N,):
-            {
-                'd_L': Luminosity distance [Mpc],
-                'dVc_dz': Differential comoving volume [Mpc^3],
-                'ddL_dz': Derivative of d_L w.r.t. z [Mpc],
-                'E_z': Hubble parameter E(z) = H(z)/H0,
-                'd_C': Comoving distance [Mpc] (optional)
-            }
+            Dictionary containing cosmology quantities, all shape (N,)::
+
+                {
+                    'd_L': Luminosity distance [Mpc],
+                    'dVc_dz': Differential comoving volume [Mpc^3],
+                    'ddL_dz': Derivative of d_L w.r.t. z [Mpc],
+                    'E_z': Hubble parameter E(z) = H(z)/H0,
+                    'd_C': Comoving distance [Mpc] (optional)
+                }
 
         Notes
         -----
@@ -329,12 +362,20 @@ class CosmologyBase(ABC):
         See Also
         --------
         LCDM.compute_grid_traced : Reference implementation
-        hicosmo.likelihoods.hierarchical_jax_fast.HierarchicalGWLikelihood :
-            Primary user of this interface
         """
         raise NotImplementedError(
             "Subclasses must implement compute_grid_traced using "
             "make_compute_grid_traced() factory function"
+        )
+
+    @staticmethod
+    def compute_background_grid_traced(
+        z_grid: jnp.ndarray, params: Dict[str, float]
+    ) -> Dict[str, jnp.ndarray]:
+        """Return the lightweight distance grid needed by SN/BAO-like probes."""
+        raise NotImplementedError(
+            "Subclasses must implement compute_background_grid_traced using "
+            "make_compute_background_grid_traced() factory function"
         )
 
     @staticmethod
@@ -448,126 +489,32 @@ def make_compute_grid_traced(E_z_func: Callable) -> Callable:
             "d_C": distances["d_C"],
         }
 
-    @partial(jit, static_argnums=(2,))
-    def compute_DM_at_z(
-        z_target: float, params: Dict[str, float], n_grid: int = 1024
-    ) -> float:
-        """
-        Compute D_M at a single redshift using minimal computation.
-
-        Much faster than compute_grid_traced for single-point evaluation
-        (e.g., CMB distance priors that only need D_M(z_star)).
-        Skips d_L, D_H, dVc_dz, ddL_dz entirely.
-        """
-        z_grid = jnp.linspace(0.0, z_target, n_grid)
-        E_z_grid = E_z_func(z_grid, params)
-        H0 = params["H0"]
-        Omega_k = params.get("Omega_k", 0.0)
-        D_H_0 = _C_KM_S / H0
-
-        integrand = 1.0 / E_z_grid
-        integral_values = cumulative_trapezoid(integrand, z_grid)
-        d_C = D_H_0 * integral_values[-1]  # Only need endpoint
-
-        # D_M with curvature
-        def flat_DM(_):
-            return d_C
-
-        def curved_DM(_):
-            delta = d_C / D_H_0
-            def open_DM(_):
-                return D_H_0 / jnp.sqrt(Omega_k) * jnp.sinh(jnp.sqrt(Omega_k) * delta)
-            def closed_DM(_):
-                return D_H_0 / jnp.sqrt(-Omega_k) * jnp.sin(jnp.sqrt(-Omega_k) * delta)
-            return lax.cond(Omega_k > 0, open_DM, closed_DM, operand=None)
-
-        return lax.cond(jnp.abs(Omega_k) < 1e-10, flat_DM, curved_DM, operand=None)
-
-    # Attach to the factory output
-    compute_grid_traced.compute_DM_at_z = compute_DM_at_z
-
     return compute_grid_traced
 
 
-def make_compute_shared_grid(E_z_func: Callable) -> Callable:
-    """
-    Factory for shared distance grid computation (used by CombinedLikelihood).
-
-    Computes distances on a two-segment grid:
-    - Low-z segment [0, z_low_max] with high density (for SN/BAO interpolation)
-    - High-z segment [z_low_max, z_high_max] with lower density (for CMB)
-
-    Returns a single dict covering the full range.
-    """
+def make_compute_background_grid_traced(E_z_func: Callable) -> Callable:
+    """Create a lightweight traced background grid for distance-only likelihoods."""
 
     @jit
-    def compute_shared_grid(
-        z_grid_low: jnp.ndarray,
-        z_grid_high: jnp.ndarray,
-        params: Dict[str, float],
+    def compute_background_grid_traced(
+        z_grid: jnp.ndarray, params: Dict[str, float]
     ) -> Dict[str, jnp.ndarray]:
-        """
-        Two-segment distance computation sharing a single E(z) evaluation path.
-
-        Parameters
-        ----------
-        z_grid_low : shape (N_low,), high-density grid for [0, z_low_max]
-        z_grid_high : shape (N_high,), lower-density grid for [z_low_max, z_high_max]
-        params : cosmological parameters
-
-        Returns
-        -------
-        Dict with keys: 'z_low', 'z_high', 'grid_low', 'grid_high'
-        """
+        E_z_grid = E_z_func(z_grid, params)
         H0 = params["H0"]
         Omega_k = params.get("Omega_k", 0.0)
+        return compute_distances_core(z_grid, E_z_grid, H0, Omega_k)
 
-        # Low-z segment: full distance computation
-        E_z_low = E_z_func(z_grid_low, params)
-        grid_low = compute_distances_core(z_grid_low, E_z_low, H0, Omega_k)
+    return compute_background_grid_traced
 
-        # High-z segment: E(z) + cumulative integral continuing from low-z endpoint
-        E_z_high = E_z_func(z_grid_high, params)
-        D_H_0 = _C_KM_S / H0
-        integrand_high = 1.0 / E_z_high
-        integral_high = cumulative_trapezoid(integrand_high, z_grid_high)
-        # Add the low-z endpoint integral value
-        d_C_high = D_H_0 * integral_high + grid_low["d_C"][-1]
 
-        # D_M for high-z (same curvature logic)
-        def flat_DM_high(_):
-            return d_C_high
-
-        def curved_DM_high(_):
-            delta = d_C_high / D_H_0
-            def open_DM(_):
-                sqrt_ok = jnp.sqrt(Omega_k)
-                return D_H_0 / sqrt_ok * jnp.sinh(sqrt_ok * delta)
-            def closed_DM(_):
-                sqrt_abs_ok = jnp.sqrt(-Omega_k)
-                return D_H_0 / sqrt_abs_ok * jnp.sin(sqrt_abs_ok * delta)
-            return lax.cond(Omega_k > 0, open_DM, closed_DM, operand=None)
-
-        D_M_high = lax.cond(
-            jnp.abs(Omega_k) < 1e-10, flat_DM_high, curved_DM_high, operand=None
-        )
-
-        grid_high = {
-            "d_C": d_C_high,
-            "D_M": D_M_high,
-            "d_L": (1.0 + z_grid_high) * D_M_high,
-            "D_H": D_H_0 / E_z_high,
-            "E_z": E_z_high,
-        }
-
-        return {
-            "z_low": z_grid_low,
-            "z_high": z_grid_high,
-            "grid_low": grid_low,
-            "grid_high": grid_high,
-        }
-
-    return compute_shared_grid
+def compute_background_grid_for_model(
+    cosmology_class: Any, z_grid: jnp.ndarray, params: Dict[str, float]
+) -> Dict[str, jnp.ndarray]:
+    """Compute the lightest traced distance grid a cosmology class provides."""
+    compute_grid = getattr(cosmology_class, "compute_background_grid_traced", None)
+    if compute_grid is None:
+        compute_grid = cosmology_class.compute_grid_traced
+    return compute_grid(z_grid, params)
 
 
 def make_sound_horizon_traced() -> Callable:
@@ -799,12 +746,25 @@ def register_cosmology_model(cls):
 
         cls.E_z = E_z_instance
 
-    # Fall back to _E_z_kernel if defined (backward compatibility)
-    elif hasattr(cls, "_E_z_kernel"):
-        E_z_static_func = cls._E_z_kernel
+    elif "E_z" in cls.__dict__:
+        # A plain function here is the classic typo (missing @staticmethod).
+        # Falling through would silently wire the PARENT's physics into all
+        # traced methods while the subclass believes its E_z is in use.
+        raise TypeError(
+            f"{cls.__name__}.E_z must be a @staticmethod taking (z, params). "
+            "Did you forget the @staticmethod decorator?"
+        )
+
+    # Fall back to _E_z_kernel if defined ON THIS CLASS (backward compatibility).
+    # An inherited kernel must not silently satisfy this check: registering a
+    # model that defines no physics of its own is almost certainly a mistake.
+    elif "_E_z_kernel" in cls.__dict__:
+        E_z_static_func = cls.__dict__["_E_z_kernel"]
     else:
         raise TypeError(
-            f"{cls.__name__} must define either E_z(z, params) or _E_z_kernel(z, params)"
+            f"{cls.__name__} must define either E_z(z, params) or _E_z_kernel(z, params). "
+            "If this subclass intentionally reuses the parent physics, drop the "
+            "@register_cosmology_model decorator and inherit the parent's traced methods."
         )
 
     # Generate JIT-compiled _E_z_static
@@ -825,7 +785,8 @@ def register_cosmology_model(cls):
     # Generate factory methods
     _cgt = make_compute_grid_traced(_E_z_static)
     cls.compute_grid_traced = staticmethod(_cgt)
-    cls.compute_DM_at_z = staticmethod(_cgt.compute_DM_at_z)
+    _background_cgt = make_compute_background_grid_traced(_E_z_static)
+    cls.compute_background_grid_traced = staticmethod(_background_cgt)
     cls.sound_horizon_traced = staticmethod(make_sound_horizon_traced())
     cls.sound_horizon_drag_traced = staticmethod(make_sound_horizon_drag_traced())
     cls.recombination_redshift_traced = staticmethod(

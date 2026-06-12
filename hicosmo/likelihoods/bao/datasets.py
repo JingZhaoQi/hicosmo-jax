@@ -16,6 +16,7 @@ import yaml
 
 from .base import BAOLikelihood, BAODataset, BAODataPoint
 from ..base import NuisanceList
+from ...utils.jax_tools import interp_linspace
 from ...utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -225,6 +226,7 @@ class BOSSDR12BAO(BAOLikelihood):
 
 import jax.numpy as jnp
 from ...models import LCDM
+from ...models.base import compute_background_grid_for_model
 
 
 class DESI2024BAO(BAOLikelihood):
@@ -239,13 +241,17 @@ class DESI2024BAO(BAOLikelihood):
         Cosmology model class (LCDM, wCDM, etc.). Default is LCDM.
     omega_b_mode : str, default 'h0rd'
         How to handle the r_d calculation (sound horizon at drag epoch):
-        - 'h0rd': (DEFAULT) Sample H0_rd = H0*r_d/(100 km/s) directly as nuisance.
-          This directly samples the BAO-constrained combination, avoiding the
-          need to compute r_d from Omega_b. r_d is derived as r_d = H0_rd*100/H0.
-        - 'bbn_prior': Sample Omega_b with BBN prior (Omega_b*h^2 = 0.02218 ± 0.00055).
-        - 'free': Sample Omega_b freely (uniform prior 0.03-0.07).
-        - 'fixed': Use Planck 2018 value (Omega_b = 0.0493). This implicitly
-          breaks the H0-r_d degeneracy (not recommended for BAO-only analysis).
+
+        * ``'h0rd'`` (default): sample ``H0_rd = H0*r_d/(100 km/s)`` directly
+          as a nuisance parameter. This samples the BAO-constrained
+          combination, avoiding the need to compute r_d from Omega_b;
+          r_d is derived as ``r_d = H0_rd*100/H0``.
+        * ``'bbn_prior'``: sample Omega_b with the BBN prior
+          (Omega_b*h^2 = 0.02218 ± 0.00055).
+        * ``'free'``: sample Omega_b freely (uniform prior 0.03-0.07).
+        * ``'fixed'``: use the Planck 2018 value (Omega_b = 0.0493). This
+          implicitly breaks the H0-r_d degeneracy (not recommended for
+          BAO-only analysis).
 
     Notes
     -----
@@ -301,7 +307,7 @@ class DESI2024BAO(BAOLikelihood):
                 f"omega_b_mode must be 'fixed', 'bbn_prior', 'free', or 'h0rd', got '{omega_b_mode}'"
             )
 
-        super().__init__(**kwargs)
+        super().__init__(cosmology_class=self._cosmology_class, **kwargs)
         self._setup_jax_metadata()
 
         # Print mode info
@@ -351,10 +357,34 @@ class DESI2024BAO(BAOLikelihood):
         inv_cov = self._inv_cov_jax
         cosmology_class = self._cosmology_class
         omega_b_mode = self.omega_b_mode
+        # Planck 2018 best-fit ombh2, used when omega_b_mode='fixed'
+        _OMBH2_FIXED = jnp.asarray(0.02237, dtype=self._dtype)
+        # BBN prior constants (Cooke et al. 2018), captured for the closures
+        bbn_mean = jnp.asarray(self.BBN_OMEGA_B_H2, dtype=self._dtype)
+        bbn_err = jnp.asarray(self.BBN_OMEGA_B_H2_ERR, dtype=self._dtype)
+        bbn_log_norm = jnp.log(bbn_err * jnp.sqrt(2.0 * jnp.pi))
+
+        def _maybe_add_bbn_prior(loglike, params):
+            """Apply the BBN prior exactly once, inside the JIT closures.
+
+            Both the standalone fast path and the shared-grid path go through
+            this helper, so the prior can never be double-counted by an outer
+            wrapper or silently dropped by the CombinedLikelihood dispatch.
+            The branch is static: omega_b_mode and dict-key presence are
+            trace-time constants.
+            """
+            if omega_b_mode == "bbn_prior" and "Omega_b" in params:
+                h = params["H0"] / 100.0
+                omega_b_h2 = params["Omega_b"] * h * h
+                diff = (omega_b_h2 - bbn_mean) / bbn_err
+                loglike = loglike - 0.5 * diff * diff - bbn_log_norm
+            return loglike
 
         @jit
         def _loglike_impl(params: Dict[str, jnp.ndarray]) -> jnp.ndarray:
-            cosmo_grid = cosmology_class.compute_grid_traced(z_grid, params)
+            cosmo_grid = compute_background_grid_for_model(
+                cosmology_class, z_grid, params
+            )
             DM_grid = cosmo_grid["D_M"]
             DH_grid = cosmo_grid["D_H"]
             E_z_grid = cosmo_grid["E_z"]
@@ -363,18 +393,23 @@ class DESI2024BAO(BAOLikelihood):
             DV_grid = jnp.exp((1.0 / 3.0) * jnp.log(volume_factor + 1e-30))
             H_grid = params["H0"] * E_z_grid
 
-            DM_obs = jnp.interp(z_obs, z_grid, DM_grid)
-            DH_obs = jnp.interp(z_obs, z_grid, DH_grid)
-            DV_obs = jnp.interp(z_obs, z_grid, DV_grid)
-            H_obs = jnp.interp(z_obs, z_grid, H_grid)
+            DM_obs = interp_linspace(z_obs, z_grid, DM_grid)
+            DH_obs = interp_linspace(z_obs, z_grid, DH_grid)
+            DV_obs = interp_linspace(z_obs, z_grid, DV_grid)
+            H_obs = interp_linspace(z_obs, z_grid, H_grid)
 
             # Compute rd based on mode
             if omega_b_mode == "h0rd":
                 # rd = H0_rd * 100 / H0
                 H0_rd = params.get("H0_rd", jnp.asarray(101.0, dtype=DM_obs.dtype))
                 rd_val = H0_rd * 100.0 / params["H0"]
+            elif omega_b_mode == "fixed":
+                # Fix ombh2 (not Omega_b) to match Cobaya/CAMB convention
+                h = params["H0"] / 100.0
+                rd_params = {**params, "Omega_b": _OMBH2_FIXED / (h * h)}
+                rd_val = cosmology_class.sound_horizon_drag_traced(rd_params)
             else:
-                # Use traced sound horizon calculation
+                # bbn_prior or free: Omega_b is sampled, use as-is
                 rd_val = cosmology_class.sound_horizon_drag_traced(params)
 
             theory = jnp.zeros_like(z_obs)
@@ -387,7 +422,7 @@ class DESI2024BAO(BAOLikelihood):
 
             diff = theory - data_vec
             chi2 = diff @ (inv_cov @ diff)
-            return -0.5 * chi2
+            return _maybe_add_bbn_prior(-0.5 * chi2, params)
 
         self._loglike_fast = _loglike_impl
 
@@ -406,15 +441,19 @@ class DESI2024BAO(BAOLikelihood):
             DV_grid = jnp.exp((1.0 / 3.0) * jnp.log(volume_factor + 1e-30))
             H_grid = params["H0"] * E_z_g
 
-            DM_obs = jnp.interp(z_obs, grid_z, DM_grid)
-            DH_obs = jnp.interp(z_obs, grid_z, DH_grid)
-            DV_obs = jnp.interp(z_obs, grid_z, DV_grid)
-            H_obs = jnp.interp(z_obs, grid_z, H_grid)
+            DM_obs = interp_linspace(z_obs, grid_z, DM_grid)
+            DH_obs = interp_linspace(z_obs, grid_z, DH_grid)
+            DV_obs = interp_linspace(z_obs, grid_z, DV_grid)
+            H_obs = interp_linspace(z_obs, grid_z, H_grid)
 
             # Same rd logic as _loglike_impl
             if omega_b_mode == "h0rd":
                 H0_rd = params.get("H0_rd", jnp.asarray(101.0, dtype=DM_obs.dtype))
                 rd_val = H0_rd * 100.0 / params["H0"]
+            elif omega_b_mode == "fixed":
+                h = params["H0"] / 100.0
+                rd_params = {**params, "Omega_b": _OMBH2_FIXED / (h * h)}
+                rd_val = cosmology_class.sound_horizon_drag_traced(rd_params)
             else:
                 rd_val = cosmology_class.sound_horizon_drag_traced(params)
 
@@ -428,7 +467,7 @@ class DESI2024BAO(BAOLikelihood):
 
             diff = theory - data_vec
             chi2 = diff @ (inv_cov @ diff)
-            return -0.5 * chi2
+            return _maybe_add_bbn_prior(-0.5 * chi2, params)
 
         self._loglike_from_grid = _loglike_from_grid_impl
 
@@ -492,8 +531,10 @@ class DESI2024BAO(BAOLikelihood):
             self._z_grid_min, self._z_grid_max, self._n_grid, dtype=self._dtype
         )
 
-        # Get all distances from cosmology model (curvature handled there!)
-        grid = self._cosmology_class.compute_grid_traced(z_grid, cosmo_params)
+        # Get background distances from cosmology model (curvature handled there!)
+        grid = compute_background_grid_for_model(
+            self._cosmology_class, z_grid, cosmo_params
+        )
 
         # Use D_M and D_H directly from model (no duplicate calculation!)
         DM_grid = grid["D_M"]  # Transverse comoving distance
@@ -506,10 +547,10 @@ class DESI2024BAO(BAOLikelihood):
         H_grid = cosmo_params["H0"] * E_z_grid
 
         # Interpolate to observed redshifts
-        DM_obs = jnp.interp(self._z_obs, z_grid, DM_grid)
-        DH_obs = jnp.interp(self._z_obs, z_grid, DH_grid)
-        DV_obs = jnp.interp(self._z_obs, z_grid, DV_grid)
-        H_obs = jnp.interp(self._z_obs, z_grid, H_grid)
+        DM_obs = interp_linspace(self._z_obs, z_grid, DM_grid)
+        DH_obs = interp_linspace(self._z_obs, z_grid, DH_grid)
+        DV_obs = interp_linspace(self._z_obs, z_grid, DV_grid)
+        H_obs = interp_linspace(self._z_obs, z_grid, H_grid)
 
         # Compute sound horizon
         rd_val = (
@@ -611,23 +652,11 @@ class DESI2024BAO(BAOLikelihood):
             # Omega_b fixed to Planck 2018 value, no nuisance needed
             return NuisanceList([])
 
-    def _bbn_log_prior_from_params(self, params: Dict[str, jnp.ndarray]) -> jnp.ndarray:
-        """Gaussian prior on Omega_b h^2 from BBN (Cooke et al. 2018)."""
-        h = params["H0"] / jnp.asarray(100.0, dtype=params["H0"].dtype)
-        omega_b = params["Omega_b"]
-        omega_b_h2 = omega_b * h * h
-        diff = (omega_b_h2 - self.BBN_OMEGA_B_H2) / self.BBN_OMEGA_B_H2_ERR
-        norm = self.BBN_OMEGA_B_H2_ERR * jnp.sqrt(2.0 * jnp.pi)
-        return -0.5 * diff * diff - jnp.log(norm)
-
-    def log_likelihood_from_params(self, params: Dict[str, Any]) -> jnp.ndarray:
-        """Fast log-likelihood with optional BBN prior on Omega_b h^2."""
-        loglike = super().log_likelihood_from_params(params)
-        # BBN prior only applied if Omega_b is explicitly provided
-        if self.omega_b_mode == "bbn_prior" and "Omega_b" in params:
-            params_jax = self._prepare_params_dict(params)
-            loglike = loglike + self._bbn_log_prior_from_params(params_jax)
-        return loglike
+    # NOTE: the BBN prior for the fast paths lives INSIDE the JIT closures
+    # (see _maybe_add_bbn_prior in _initialize_desi_fast_likelihood), so the
+    # params-dict path, __call__ and the shared-grid path all count it exactly
+    # once. Only the cosmology-object path below adds it separately, because
+    # that path bypasses the closures entirely.
 
     def log_likelihood(self, cosmology, **kwargs) -> float:
         """Log-likelihood with optional BBN prior on Omega_b h^2."""
@@ -672,6 +701,19 @@ class DESI2024BAO(BAOLikelihood):
             "H0_rd": H0 * rd,
         }
 
+    def derived_parameters_vectorized(self, samples: dict) -> dict:
+        """Compute BAO derived parameters for a full sample array at once."""
+        import numpy as np
+
+        H0 = np.asarray(samples.get("H0", 70.0), dtype=float)
+        H0_rd = np.asarray(samples.get("H0_rd", 101.0), dtype=float)
+        rd = H0_rd * 100.0 / H0
+        return {
+            "rd": rd,
+            "rd_h": rd * H0 / 100.0,
+            "H0_rd": H0 * rd,
+        }
+
     def __call__(self, **params) -> float:
         """
         Callable interface for MCMC sampling.
@@ -699,20 +741,64 @@ class DESI2024BAO(BAOLikelihood):
           as an additional log-likelihood term.
         - When omega_b_mode='h0rd', r_d is derived from H0_rd: r_d = H0_rd * 100 / H0.
         """
-        # Compute BAO likelihood (fast path if possible)
-        log_L = self.log_likelihood_from_params(params)
+        # Fast path already includes the BBN prior inside its JIT closure;
+        # adding it here again would double-count it (previous bug).
+        return self.log_likelihood_from_params(params)
 
-        # BBN prior only applied if Omega_b is explicitly provided
-        if self.omega_b_mode == "bbn_prior" and "Omega_b" in params:
-            H0_val = params.get("H0", 70.0)
-            h = H0_val / 100.0
-            omega_b_h2 = params["Omega_b"] * h**2
-            chi2_bbn = (
-                (omega_b_h2 - self.BBN_OMEGA_B_H2) / self.BBN_OMEGA_B_H2_ERR
-            ) ** 2
-            log_L = log_L - 0.5 * chi2_bbn
 
-        return log_L
+class DESIDR2BAO(DESI2024BAO):
+    """
+    DESI DR2 BAO measurements (Data Release 2 / Year 3).
+
+    Reference: DESI Collaboration 2025 (arXiv:2503.14738)
+
+    This class inherits all functionality from DESI2024BAO (DR1), including:
+    - All omega_b_mode options ('h0rd', 'bbn_prior', 'free', 'fixed')
+    - JAX JIT-compiled fast likelihood paths
+    - Shared grid support for CombinedLikelihood
+    - BBN prior on Omega_b h^2
+
+    The only difference is the data: DR2 has 13 measurements across 7 redshift
+    bins (vs DR1's 12 measurements across 7 bins). The QSO bin (z_eff=1.484)
+    now provides separate DM/rd and DH/rd instead of a single DV/rd.
+
+    Parameters
+    ----------
+    cosmology_class : type, optional
+        Cosmology model class (LCDM, wCDM, etc.). Default is LCDM.
+    omega_b_mode : str, default 'h0rd'
+        How to handle the r_d calculation. See DESI2024BAO for details.
+
+    Examples
+    --------
+    >>> from hicosmo.likelihoods import BAO_likelihood
+    >>> from hicosmo.models import LCDM
+    >>> bao = BAO_likelihood(LCDM, "desi_dr2")
+    >>>
+    >>> # With BBN prior
+    >>> bao = BAO_likelihood(LCDM, "desi_dr2", omega_b_mode='bbn_prior')
+    """
+
+    def _default_dataset_name(self) -> str:
+        return "desi_dr2"
+
+    def _load_dataset(self) -> BAODataset:
+        """Load DESI DR2 BAO data."""
+        base_path = Path(self.data_path) / "desi_dr2"
+        data_file = base_path / "desi_dr2_gaussian_bao_ALL_GCcomb_mean.txt"
+        cov_file = base_path / "desi_dr2_gaussian_bao_ALL_GCcomb_cov.txt"
+
+        entries = _read_data_file(data_file)
+        covariance = np.loadtxt(cov_file)
+
+        dataset = _build_dataset(
+            name="DESI DR2 BAO",
+            entries=entries,
+            covariance=covariance,
+            reference="DESI Collaboration 2025",
+            year=2025,
+        )
+        return dataset
 
 
 class SixDFBAO(BAOLikelihood):
@@ -810,6 +896,7 @@ def get_available_datasets() -> List[str]:
         "sdss_dr16",
         "boss_dr12",
         "desi_2024",
+        "desi_dr2",
         "sixdf",
     ]
 
@@ -830,6 +917,7 @@ def create_bao_likelihood(dataset: str, **kwargs) -> BAOLikelihood:
         "sdss_dr16": SDSSDR16BAO,
         "boss_dr12": BOSSDR12BAO,
         "desi_2024": DESI2024BAO,
+        "desi_dr2": DESIDR2BAO,
         "sixdf": SixDFBAO,
     }
 

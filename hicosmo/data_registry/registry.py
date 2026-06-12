@@ -86,6 +86,7 @@ class DataRegistry:
         # SN
         "pantheon+shoes": "Pantheon+ with SH0ES Cepheid calibration (1701 SNe Ia)",
         "pantheon+": "Pantheon+ SNe Ia compilation (1701 SNe Ia)",
+        "union3": "Union3 SNe Ia with UNITY1.5 standardization (2087 SNe, 22 bins)",
         # H0
         "h0licow": "H0LiCOW strong lensing time delays (6 lenses)",
         # Lensing
@@ -157,6 +158,7 @@ class DataRegistry:
 
             # Handle SNe data
             elif dirname == "sne":
+                # Top-level files (Pantheon+)
                 files = [
                     f.name
                     for f in subdir.iterdir()
@@ -176,6 +178,27 @@ class DataRegistry:
                         files=files,
                     )
                     result["sn"].append(info)
+
+                # Subdirectories (Union3, future datasets)
+                for sn_subdir in subdir.iterdir():
+                    if sn_subdir.is_dir() and not sn_subdir.name.startswith("."):
+                        sub_files = [
+                            f.name
+                            for f in sn_subdir.iterdir()
+                            if f.is_file() and not f.name.startswith(".")
+                        ]
+                        if sub_files:
+                            sn_name = sn_subdir.name
+                            info = DatasetInfo(
+                                name=sn_name,
+                                category="sn",
+                                path=sn_subdir,
+                                description=self._DESCRIPTIONS.get(
+                                    sn_name, f"SN data from {sn_name}"
+                                ),
+                                files=sub_files,
+                            )
+                            result["sn"].append(info)
 
             # Handle H0LiCOW data
             elif dirname == "h0licow":

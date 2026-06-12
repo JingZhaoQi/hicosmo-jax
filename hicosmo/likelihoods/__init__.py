@@ -39,6 +39,7 @@ from .bao import (
     BOSSDR12BAO,
     CustomBAO,
     DESI2024BAO,
+    DESIDR2BAO,
     SDSSDR12BAO,
     SDSSDR16BAO,
     SixDFBAO,
@@ -51,10 +52,14 @@ from .bao import (
 # SN submodule
 from .sn import (
     PantheonPlusLikelihood,
+    Union3Likelihood,
+    DESY5Likelihood,
     SN_likelihood,
     SNLikelihood,
     available_sn_datasets,
     create_pantheonplus_likelihood,
+    create_union3_likelihood,
+    create_desy5_likelihood,
     register_sn_dataset,
 )
 
@@ -68,11 +73,21 @@ from .h0 import SH0ESLikelihood
 from .lensing import (
     ExternalLensLikelihood,
     H0LiCOWLikelihood,
-    HierarchicalGWLikelihood,
     HierarchicalTDCOSMO,
     KappaPrior,
     TDCOSMOLikelihood,
 )
+
+
+def __getattr__(name):
+    # HierarchicalGWLikelihood lives behind the optional GW module; resolve
+    # it lazily so importing hicosmo.likelihoods works without that module.
+    if name == "HierarchicalGWLikelihood":
+        from .lensing import HierarchicalGWLikelihood
+
+        return HierarchicalGWLikelihood
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     # Base
@@ -82,7 +97,11 @@ __all__ = [
     "CombinedLikelihood",
     # Supernova
     "PantheonPlusLikelihood",
+    "Union3Likelihood",
+    "DESY5Likelihood",
     "create_pantheonplus_likelihood",
+    "create_union3_likelihood",
+    "create_desy5_likelihood",
     "SN_likelihood",
     "SNLikelihood",
     "register_sn_dataset",
@@ -95,6 +114,7 @@ __all__ = [
     "SDSSDR16BAO",
     "BOSSDR12BAO",
     "DESI2024BAO",
+    "DESIDR2BAO",
     "SixDFBAO",
     "CustomBAO",
     # BAO utilities

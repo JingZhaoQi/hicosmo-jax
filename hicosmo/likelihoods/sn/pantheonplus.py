@@ -16,8 +16,9 @@ import numpy as np
 from typing import Optional, Dict, Tuple, Union, Any
 from pathlib import Path
 
-from ...models.base import CosmologyBase
+from ...models.base import CosmologyBase, compute_background_grid_for_model
 from ..base import Likelihood, NuisanceList
+from ...utils.jax_tools import interp_linspace
 from ...utils.logging import get_logger
 from ...models import LCDM
 
@@ -378,6 +379,7 @@ class PantheonPlusLikelihood(Likelihood):
         >>> sne = PantheonPlusLikelihood(cosmology_class=LCDM, marginalize_M_B=False)
         >>> log_L = sne(H0=70, Omega_m=0.3, M_B=-19.3)
         """
+        self._warn_unknown_params(params)
         # Extract M_B if present and marginalize_M_B=False
         # Use .get() instead of .pop() to avoid modifying original dict
         M_B = None
@@ -389,27 +391,11 @@ class PantheonPlusLikelihood(Likelihood):
                     "Either include M_B in params or set marginalize_M_B=True."
                 )
 
-        # Extract precomputed grid if provided by CombinedLikelihood
-        _precomputed_grid = params.pop("_precomputed_grid", None)
-        _precomputed_z_grid = params.pop("_precomputed_z_grid", None)
-
         # Filter out M_B from cosmology params (don't pass to cosmology model)
         cosmo_params = {k: v for k, v in params.items() if k != "M_B"}
 
         # Fast path: avoid constructing model when direct parameters are available
-        if _precomputed_grid is not None and _precomputed_z_grid is not None:
-            # Shared grid path: interpolate from precomputed distances
-            d_L_grid = _precomputed_grid["d_L"]
-            d_L = jnp.interp(self.z_cmb, _precomputed_z_grid, d_L_grid)
-            d_A = d_L / (1.0 + self.z_cmb) ** 2
-            mu_hubble = 5.0 * jnp.log10(
-                (1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A
-            ) + 25.0
-            if self.include_shoes:
-                theory_mu = jnp.where(self.is_calibrator, self.ceph_dist, mu_hubble)
-            else:
-                theory_mu = mu_hubble
-        elif self._can_use_fast_params(cosmo_params):
+        if self._can_use_fast_params(cosmo_params):
             mu_hubble = self._distance_modulus_from_params(cosmo_params)
             if self.include_shoes:
                 theory_mu = jnp.where(self.is_calibrator, self.ceph_dist, mu_hubble)
@@ -465,11 +451,11 @@ class PantheonPlusLikelihood(Likelihood):
             elif hasattr(v, "shape"):
                 # Array-like (jnp.ndarray, np.ndarray)
                 cosmo_params[k] = jnp.asarray(v, dtype=dtype)
-        cosmo_grid = self._cosmology_class.compute_grid_traced(
-            self._z_grid, cosmo_params
+        cosmo_grid = compute_background_grid_for_model(
+            self._cosmology_class, self._z_grid, cosmo_params
         )
         d_L_grid = cosmo_grid["d_L"]
-        d_L = jnp.interp(self.z_cmb, self._z_grid, d_L_grid)
+        d_L = interp_linspace(self.z_cmb, self._z_grid, d_L_grid)
         d_A = d_L / (1.0 + self.z_cmb) ** 2
         return 5.0 * jnp.log10((1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A) + 25.0
 
@@ -530,7 +516,7 @@ class PantheonPlusLikelihood(Likelihood):
         def _loglike_from_grid_impl(
             cosmo_grid: Dict, grid_z: jnp.ndarray, params: Dict
         ) -> jnp.ndarray:
-            d_L = jnp.interp(z_cmb, grid_z, cosmo_grid["d_L"])
+            d_L = interp_linspace(z_cmb, grid_z, cosmo_grid["d_L"])
             d_A = d_L / (1.0 + z_cmb) ** 2
             mu = 5.0 * jnp.log10((1.0 + z_cmb) * (1.0 + z_hel) * d_A) + 25.0
             if include_shoes:
@@ -563,11 +549,11 @@ class PantheonPlusLikelihood(Likelihood):
     def _distance_modulus_from_model(self, model: CosmologyBase) -> jnp.ndarray:
         """Compute distance modulus vector using pure JAX traced cosmology."""
         cosmo_params = self._extract_cosmo_params(model)
-        cosmo_grid = self._cosmology_class.compute_grid_traced(
-            self._z_grid, cosmo_params
+        cosmo_grid = compute_background_grid_for_model(
+            self._cosmology_class, self._z_grid, cosmo_params
         )
         d_L_grid = cosmo_grid["d_L"]
-        d_L = jnp.interp(self.z_cmb, self._z_grid, d_L_grid)
+        d_L = interp_linspace(self.z_cmb, self._z_grid, d_L_grid)
         d_A = d_L / (1.0 + self.z_cmb) ** 2
         return 5.0 * jnp.log10((1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A) + 25.0
 
