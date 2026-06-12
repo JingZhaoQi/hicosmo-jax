@@ -14,25 +14,41 @@ Key features:
 - Professional validation and diagnostics
 """
 
+import jax
 import jax.numpy as jnp
 from jax import config as jax_config
-from jax import hessian, jit
+from jax import hessian, jacobian, jit
 from typing import Dict, List, Optional, Callable, Tuple, Union
 from dataclasses import dataclass
 import warnings
 
 from ..models.unified_parameters import CosmologicalParameters
 from ..utils.logging import get_logger
-from .numerical_derivatives import (
-    compute_step_sizes,
-    finite_difference_hessian,
-    finite_difference_jacobian,
-)
 
 logger = get_logger(__name__)
 
-_X64_ENABLED = bool(jax_config.read("jax_enable_x64"))
-_DEFAULT_DTYPE = jnp.float64 if _X64_ENABLED else jnp.float32
+
+def _default_dtype():
+    """Resolve dtype at call time so the x64 setting is never frozen at import."""
+    return jnp.float64 if jax_config.read("jax_enable_x64") else jnp.float32
+
+
+def _robust_inv(matrix: jnp.ndarray, rcond: float, context: str) -> jnp.ndarray:
+    """Invert with a finite-result check instead of exception handling.
+
+    jnp.linalg.inv never raises on singular input — it returns inf/nan — so
+    ``except jnp.linalg.LinAlgError`` guards (which JAX doesn't even define)
+    can never fire. Detect the failure from the result and fall back to the
+    pseudo-inverse.
+    """
+    inverse = jnp.linalg.inv(matrix)
+    if not bool(jnp.isfinite(inverse).all()):
+        warnings.warn(
+            f"{context}: matrix is singular or ill-conditioned; "
+            "using pseudo-inverse."
+        )
+        inverse = jnp.linalg.pinv(matrix, rcond=rcond)
+    return inverse
 
 
 @dataclass
@@ -163,65 +179,9 @@ class FisherMatrix:
         fiducial_vector: jnp.ndarray,
         parameters: CosmologicalParameters,
     ) -> jnp.ndarray:
-        """Select differentiation strategy and compute Hessian."""
-        method = (self.config.differentiation_method or "automatic").lower()
-        step_sizes = compute_step_sizes(
-            fiducial_vector, self.config.step_size, self.config.step_method
-        )
-
-        if method == "automatic":
-            try:
-                return self._compute_hessian_matrix(
-                    likelihood_func, param_names, fiducial_vector, parameters
-                )
-            except Exception as exc:
-                if not self.config.fallback_to_numerical:
-                    raise
-                warnings.warn(
-                    f"Automatic differentiation failed ({exc}); falling back to numerical Hessian.",
-                    RuntimeWarning,
-                )
-                return self._compute_hessian_numerical(
-                    likelihood_func,
-                    param_names,
-                    fiducial_vector,
-                    parameters,
-                    step_sizes,
-                )
-
-        if method == "numerical":
-            return self._compute_hessian_numerical(
-                likelihood_func, param_names, fiducial_vector, parameters, step_sizes
-            )
-
-        if method == "hybrid":
-            try:
-                auto = self._compute_hessian_matrix(
-                    likelihood_func, param_names, fiducial_vector, parameters
-                )
-            except Exception as exc:
-                warnings.warn(
-                    f"Hybrid mode: automatic differentiation failed ({exc}); using numerical Hessian.",
-                    RuntimeWarning,
-                )
-                auto = None
-
-            if auto is not None:
-                numerical = self._compute_hessian_numerical(
-                    likelihood_func,
-                    param_names,
-                    fiducial_vector,
-                    parameters,
-                    step_sizes,
-                )
-                return 0.5 * (auto + numerical)
-
-            return self._compute_hessian_numerical(
-                likelihood_func, param_names, fiducial_vector, parameters, step_sizes
-            )
-
-        raise ValueError(
-            f"Unknown differentiation method '{self.config.differentiation_method}'"
+        """Compute Hessian using JAX automatic differentiation."""
+        return self._compute_hessian_matrix(
+            likelihood_func, param_names, fiducial_vector, parameters
         )
 
     def combine_fisher_matrices(
@@ -335,20 +295,12 @@ class FisherMatrix:
 
         # True marginalization: Fisher → Covariance → Extract → Fisher
         # This is the correct procedure for integrating over nuisance parameters
-        try:
-            cov_full = jnp.linalg.inv(fisher_matrix)
-            cov_subset = cov_full[jnp.ix_(keep_indices, keep_indices)]
-            marginalized_fisher = jnp.linalg.inv(cov_subset)
-        except jnp.linalg.LinAlgError:
-            warnings.warn(
-                "Fisher matrix inversion failed during marginalization. "
-                "Using pseudo-inverse with SVD threshold."
-            )
-            cov_full = jnp.linalg.pinv(fisher_matrix, rcond=self.config.svd_threshold)
-            cov_subset = cov_full[jnp.ix_(keep_indices, keep_indices)]
-            marginalized_fisher = jnp.linalg.pinv(
-                cov_subset, rcond=self.config.svd_threshold
-            )
+        rcond = self.config.svd_threshold
+        cov_full = _robust_inv(fisher_matrix, rcond, "marginalize_parameters")
+        cov_subset = cov_full[jnp.ix_(keep_indices, keep_indices)]
+        marginalized_fisher = _robust_inv(
+            cov_subset, rcond, "marginalize_parameters (subset)"
+        )
 
         logger.info(
             f"Marginalized over {len(marginalize_over)} parameters: {marginalize_over}"
@@ -443,20 +395,20 @@ class FisherMatrix:
             )
 
         # Compute covariance matrix (inverse of Fisher matrix)
-        try:
-            covariance = jnp.linalg.inv(fisher_matrix)
-        except jnp.linalg.LinAlgError:
-            # Use pseudo-inverse for singular matrices
-            covariance = jnp.linalg.pinv(fisher_matrix, rcond=self.config.svd_threshold)
-            warnings.warn("Fisher matrix is singular; using pseudo-inverse")
+        covariance = _robust_inv(
+            fisher_matrix, self.config.svd_threshold, "compute_parameter_errors"
+        )
 
         # Extract 1σ errors from diagonal
         errors = {}
         for i, name in enumerate(param_names):
             variance = covariance[i, i]
-            if variance < 0:
-                warnings.warn(f"Negative variance for parameter {name}: {variance}")
-                errors[name] = jnp.nan
+            if not bool(jnp.isfinite(variance)) or variance < 0:
+                warnings.warn(
+                    f"Invalid variance for parameter {name}: {variance} "
+                    "(singular or non-positive-definite Fisher matrix)"
+                )
+                errors[name] = float(jnp.nan)
             else:
                 errors[name] = float(jnp.sqrt(variance))
 
@@ -466,18 +418,21 @@ class FisherMatrix:
         self, fisher_matrix: jnp.ndarray, regularize: bool = True
     ) -> jnp.ndarray:
         """Return covariance matrix by inverting the Fisher matrix."""
-        try:
-            return jnp.linalg.inv(fisher_matrix)
-        except (jnp.linalg.LinAlgError, RuntimeError):
-            if not regularize:
-                raise
-            warnings.warn(
-                "Fisher matrix inversion failed; applying pseudo-inverse with regularization.",
-                RuntimeWarning,
+        covariance = jnp.linalg.inv(fisher_matrix)
+        if bool(jnp.isfinite(covariance).all()):
+            return covariance
+        if not regularize:
+            raise RuntimeError(
+                "Fisher matrix is singular and regularize=False; "
+                "cannot return a finite covariance."
             )
-            epsilon = self.config.reg_lambda if self.config.regularization else 1e-12
-            regulated = fisher_matrix + epsilon * jnp.eye(fisher_matrix.shape[0])
-            return jnp.linalg.pinv(regulated, rcond=self.config.svd_threshold)
+        warnings.warn(
+            "Fisher matrix inversion failed; applying pseudo-inverse with regularization.",
+            RuntimeWarning,
+        )
+        epsilon = self.config.reg_lambda if self.config.regularization else 1e-12
+        regulated = fisher_matrix + epsilon * jnp.eye(fisher_matrix.shape[0])
+        return jnp.linalg.pinv(regulated, rcond=self.config.svd_threshold)
 
     def transform_fisher_matrix(
         self,
@@ -492,26 +447,23 @@ class FisherMatrix:
             if fiducial_vector is None:
                 raise ValueError("fiducial_vector required when transform is callable")
 
-            steps = compute_step_sizes(
-                fiducial_vector, self.config.step_size, self.config.step_method
-            )
-
             def wrapper(theta: jnp.ndarray) -> jnp.ndarray:
                 param_dict = dict(zip(param_names, theta))
                 result = transform(param_dict)
-                return jnp.asarray(result, dtype=_DEFAULT_DTYPE)
+                return jnp.asarray(result, dtype=_default_dtype())
 
-            jacobian = finite_difference_jacobian(wrapper, fiducial_vector, steps)
+            # Use JAX automatic Jacobian instead of finite differences
+            jac_matrix = jit(jacobian(wrapper))(fiducial_vector)
         else:
-            jacobian = jnp.asarray(transform, dtype=_DEFAULT_DTYPE)
+            jac_matrix = jnp.asarray(transform, dtype=_default_dtype())
 
-        transformed = jacobian @ fisher_matrix @ jacobian.T
+        transformed = jac_matrix @ fisher_matrix @ jac_matrix.T
 
         if new_param_names is None:
-            if jacobian.shape[0] == len(param_names):
+            if jac_matrix.shape[0] == len(param_names):
                 new_param_names = list(param_names)
             else:
-                new_param_names = [f"param_{i}" for i in range(jacobian.shape[0])]
+                new_param_names = [f"param_{i}" for i in range(jac_matrix.shape[0])]
 
         return transformed, new_param_names
 
@@ -530,33 +482,13 @@ class FisherMatrix:
             # Update parameter manager and compute derived parameters
             updated_params = parameters.update_and_compute_derived(param_dict)
             value = likelihood_func(updated_params)
-            return jnp.asarray(value, dtype=_DEFAULT_DTYPE)
+            return jnp.asarray(value, dtype=_default_dtype())
 
         # Use JAX hessian for automatic differentiation
         hessian_func = jit(hessian(likelihood_wrapper))
         hessian_matrix = hessian_func(fiducial_vector)
 
         return hessian_matrix
-
-    def _compute_hessian_numerical(
-        self,
-        likelihood_func: Callable,
-        param_names: List[str],
-        fiducial_vector: jnp.ndarray,
-        parameters: CosmologicalParameters,
-        step_sizes: jnp.ndarray,
-    ) -> jnp.ndarray:
-        """Compute Hessian via central finite differences."""
-
-        def likelihood_wrapper(param_vector: jnp.ndarray) -> jnp.ndarray:
-            param_dict = dict(zip(param_names, param_vector))
-            updated_params = parameters.update_and_compute_derived(param_dict)
-            value = likelihood_func(updated_params)
-            return jnp.asarray(value, dtype=_DEFAULT_DTYPE)
-
-        return finite_difference_hessian(
-            likelihood_wrapper, fiducial_vector, step_sizes
-        )
 
     def _validate_fiducial_values(
         self, fiducial_values: Dict[str, float], param_names: List[str]
@@ -587,13 +519,12 @@ class FisherMatrix:
                 # Symmetrize
                 fisher_matrix = 0.5 * (fisher_matrix + fisher_matrix.T)
 
-        # Check condition number
-        try:
-            cond_num = jnp.linalg.cond(fisher_matrix)
-            if cond_num > self.config.max_condition_number:
-                warnings.warn(f"Fisher matrix poorly conditioned: {cond_num}")
-        except jnp.linalg.LinAlgError:
-            warnings.warn("Could not compute Fisher matrix condition number")
+        # Check condition number (jnp.linalg.cond returns inf, never raises)
+        cond_num = jnp.linalg.cond(fisher_matrix)
+        if not bool(jnp.isfinite(cond_num)):
+            warnings.warn("Fisher matrix condition number is not finite (singular)")
+        elif cond_num > self.config.max_condition_number:
+            warnings.warn(f"Fisher matrix poorly conditioned: {cond_num}")
 
         # Regularization for numerical stability
         if self.config.regularization:
@@ -602,9 +533,10 @@ class FisherMatrix:
             reg_matrix = self.config.reg_lambda * jnp.eye(n_params)
             fisher_matrix = fisher_matrix + reg_matrix
 
-        # Check positive definiteness
+        # Check positive definiteness (matrix is symmetrized above, so use
+        # eigvalsh: real eigenvalues, no complex dtype surprises)
         if self.config.check_positive_definite:
-            eigenvals = jnp.linalg.eigvals(fisher_matrix)
+            eigenvals = jnp.linalg.eigvalsh(fisher_matrix)
             min_eigenval = jnp.min(eigenvals)
             if min_eigenval <= 0:
                 warnings.warn(
@@ -634,13 +566,12 @@ class FisherMatrix:
             "frobenius_norm": float(jnp.linalg.norm(fisher_matrix, "fro")),
         }
 
-        try:
-            summary["condition_number"] = float(jnp.linalg.cond(fisher_matrix))
-        except jnp.linalg.LinAlgError:
-            summary["condition_number"] = jnp.inf
+        summary["condition_number"] = float(jnp.linalg.cond(fisher_matrix))
 
-        # Eigenvalue analysis
-        eigenvals = jnp.linalg.eigvals(fisher_matrix)
+        # Eigenvalue analysis. Fisher matrices are symmetric (symmetrized in
+        # _validate_and_regularize_fisher), so eigvalsh gives real eigenvalues;
+        # eigvals returned complex dtype and float(complex) crashed here.
+        eigenvals = jnp.linalg.eigvalsh(0.5 * (fisher_matrix + fisher_matrix.T))
         abs_eigs = jnp.abs(eigenvals)
         summary["max_eigenvalue"] = float(jnp.max(eigenvals))
         summary["min_eigenvalue"] = float(jnp.min(eigenvals))

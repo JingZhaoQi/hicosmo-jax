@@ -325,12 +325,17 @@ class CosmologicalParameters:
         h = params.get("h", 0.6736)
         h2 = h**2
 
-        # Radiation density from CMB temperature
+        # Radiation density from CMB temperature (single source of truth for
+        # the photon constant lives in utils.constants)
+        from ..utils.constants import NEUTRINO_RADIATION_FACTOR, Omega_gamma_h2
+
         T_cmb = params.get("T_cmb", 2.7255)
         N_eff = params.get("N_eff", 3.046)
-        Omega_gamma_h2 = 2.47e-5 * (T_cmb / 2.7255) ** 4
-        params["Omega_gamma"] = Omega_gamma_h2 / h2
-        params["Omega_r"] = params["Omega_gamma"] * (1 + 0.2271 * N_eff)
+        omega_gamma_h2 = Omega_gamma_h2 * (T_cmb / 2.7255) ** 4
+        params["Omega_gamma"] = omega_gamma_h2 / h2
+        params["Omega_r"] = params["Omega_gamma"] * (
+            1 + NEUTRINO_RADIATION_FACTOR * N_eff
+        )
         params["omega_r"] = params["Omega_r"] * h2
 
         # Dark energy from closure (if not already set)

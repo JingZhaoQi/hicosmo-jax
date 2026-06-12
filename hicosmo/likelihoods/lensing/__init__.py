@@ -25,7 +25,6 @@ from .tdcosmo import (
     KappaPrior,
     TDCOSMOLikelihood,
 )
-from .hierarchical_helper import HierarchicalGWLikelihood
 
 __all__ = [
     "H0LiCOWLikelihood",
@@ -35,3 +34,14 @@ __all__ = [
     "KappaPrior",
     "HierarchicalGWLikelihood",
 ]
+
+
+def __getattr__(name):
+    # Lazy: hierarchical_helper depends on the optional GW module, which is
+    # not part of the tracked repository. Importing it eagerly would make
+    # `import hicosmo.likelihoods` crash on a fresh clone.
+    if name == "HierarchicalGWLikelihood":
+        from .hierarchical_helper import HierarchicalGWLikelihood
+
+        return HierarchicalGWLikelihood
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

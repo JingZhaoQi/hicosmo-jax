@@ -123,11 +123,12 @@ class Likelihood(ABC):
         Override this method to tell the sampler what cosmological quantities
         need to be computed. Default returns empty dict.
 
-        Example return value:
-        {
-            'luminosity_distance': {'z': self.z_data},
-            'H': {'z': self.z_data}
-        }
+        Example return value::
+
+            {
+                'luminosity_distance': {'z': self.z_data},
+                'H': {'z': self.z_data}
+            }
 
         Returns:
             Dictionary of required quantities
@@ -246,6 +247,82 @@ class Likelihood(ABC):
             elif hasattr(v, "shape"):
                 result[k] = jnp.asarray(v, dtype=dtype)
         return result
+
+    # Parameter-basis aliases understood by normalize_params and the
+    # CosmologicalParameters reverse relations.
+    _PARAM_ALIAS_NAMES = frozenset(
+        {
+            "h",
+            "omega_b",
+            "omega_m",
+            "omega_b_h2",
+            "Omega_b_h2",
+            "omega_m_h2",
+            "Omega_m_h2",
+            "omega_c_h2",
+            "Omega_Lambda",
+            "Omega_r",
+            "Omega_k",
+            "T_cmb",
+            "N_eff",
+        }
+    )
+
+    def _warn_unknown_params(self, params: Dict[str, Any]) -> None:
+        """Warn (once per name) about parameter names nobody recognizes.
+
+        Cosmology kernels read parameters with ``params.get(name, default)``,
+        so a misspelled name (``w`` instead of ``w0``) is otherwise silently
+        ignored and the likelihood quietly evaluates a different model.
+        The check is skipped when the model declares no parameter names.
+        """
+        known = getattr(self, "_known_param_names", None)
+        if known is None:
+            known = set(self._PARAM_ALIAS_NAMES)
+            cosmo_cls = self._get_cosmology_class()
+            declared = getattr(cosmo_cls, "get_parameters", None)
+            try:
+                known |= {p.name for p in declared()}
+            except Exception:
+                known = frozenset()  # model declares nothing: disable check
+            if "H0" not in known:
+                known = frozenset()  # sanity gate: declaration list unusable
+            else:
+                nuisance = getattr(self, "nuisance_parameters", None)
+                try:
+                    items = nuisance() if callable(nuisance) else nuisance
+                    known |= {p.name for p in items or []}
+                except Exception:
+                    pass
+            self._known_param_names = known
+            self._warned_param_names = set()
+
+        if not known:
+            return
+
+        new_unknown = [
+            k for k in params if k not in known and k not in self._warned_param_names
+        ]
+        if not new_unknown:
+            return
+        self._warned_param_names.update(new_unknown)
+
+        import difflib
+        import warnings
+
+        hints = []
+        for name in new_unknown:
+            close = difflib.get_close_matches(name, sorted(known), n=1)
+            suffix = f" (did you mean '{close[0]}'?)" if close else ""
+            hints.append(f"'{name}'{suffix}")
+        warnings.warn(
+            f"{self.__class__.__name__} received unknown parameter(s) "
+            f"{', '.join(hints)}. Unrecognized names are ignored by the "
+            "cosmology kernel, so the likelihood may silently evaluate a "
+            "different model than intended.",
+            UserWarning,
+            stacklevel=3,
+        )
 
     def _call_log_likelihood(self, model, params: Dict[str, Any]) -> float:
         """Call log_likelihood with smart argument matching."""
