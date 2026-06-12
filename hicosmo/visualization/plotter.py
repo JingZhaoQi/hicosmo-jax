@@ -151,19 +151,86 @@ class Plotter:
     @classmethod
     def from_fisher(
         cls,
-        mean: Union[np.ndarray, List[float]],
-        covariance: Union[np.ndarray, List[List[float]]],
+        mean: Union[np.ndarray, List[float], List[np.ndarray], List[List[float]]],
+        covariance: Union[
+            np.ndarray,
+            List[List[float]],
+            List[np.ndarray],
+            List[List[List[float]]],
+        ],
         param_names: List[str],
         *,
+        chain_labels: Optional[List[str]] = None,
         nsample: int = 200_000,
         **kwargs,
     ) -> "Plotter":
-        """Create Plotter from Fisher matrix results."""
-        mean_arr = np.asarray(mean, dtype=float)
-        cov_arr = np.asarray(covariance, dtype=float)
+        """Create Plotter from Fisher matrix results.
 
+        Supports both single and multi-Fisher overlay:
+
+        Single Fisher:
+            Plotter.from_fisher(mean, cov, ['w0', 'wa'])
+
+        Multi-Fisher (survey comparison):
+            Plotter.from_fisher(
+                [mean1, mean2, mean3],
+                [cov1, cov2, cov3],
+                ['w0', 'Omega_m'],
+                chain_labels=['SKA1', 'MeerKAT', 'BINGO'],
+            )
+        """
+        latex_labels = _prepare_latex_labels(param_names)
+
+        # Detect multi-Fisher: mean is a list of arrays
+        mean_arr = np.asarray(mean, dtype=float)
+        if mean_arr.ndim == 2:
+            # Multiple Fisher matrices
+            cov_list = [np.asarray(c, dtype=float) for c in covariance]
+            n_fisher = mean_arr.shape[0]
+            n_params = mean_arr.shape[1]
+            if len(cov_list) != n_fisher:
+                raise ValueError(
+                    f"Got {n_fisher} mean vectors but {len(cov_list)} covariance matrices"
+                )
+            if len(param_names) != n_params:
+                raise ValueError("Number of parameter names must equal mean size")
+
+            samples_list = []
+            for i in range(n_fisher):
+                gaussian = GaussianND(
+                    mean_arr[i],
+                    cov_list[i],
+                    names=param_names,
+                    labels=latex_labels,
+                )
+                mc = gaussian.MCSamples(nsample)
+                mc.label = (
+                    chain_labels[i]
+                    if chain_labels and i < len(chain_labels)
+                    else f"Fisher {i+1}"
+                )
+                samples_list.append(mc)
+
+            plotter = cls.__new__(cls)
+            plotter.style = kwargs.get("style", "modern")
+            plotter.results_dir = Path(kwargs.get("results_dir", "results"))
+            plotter.results_dir.mkdir(exist_ok=True)
+            plotter._user_labels = None
+            plotter._user_ranges = None
+            plotter._chain_labels = chain_labels
+            plotter._file_metadata = {}
+            plotter._samples_list = samples_list
+            plotter._is_multichain = True
+            plotter._param_names = param_names
+            plotter._raw_samples = None
+            plotter._chain_name = None
+            plotter._chain_names = []
+            return plotter
+
+        # Single Fisher matrix (original behavior)
         if mean_arr.ndim != 1:
-            raise ValueError("mean must be a 1-D array")
+            raise ValueError("mean must be a 1-D array or list of 1-D arrays")
+        cov_arr = np.asarray(covariance, dtype=float)
         if cov_arr.ndim != 2 or cov_arr.shape[0] != cov_arr.shape[1]:
             raise ValueError("covariance must be a square 2-D array")
         if cov_arr.shape[0] != mean_arr.shape[0]:
@@ -171,7 +238,6 @@ class Plotter:
         if len(param_names) != mean_arr.shape[0]:
             raise ValueError("Number of parameter names must equal mean size")
 
-        latex_labels = _prepare_latex_labels(param_names)
         gaussian = GaussianND(mean_arr, cov_arr, names=param_names, labels=latex_labels)
         samples = gaussian.MCSamples(nsample)
         return cls(samples, **kwargs)
@@ -545,8 +611,10 @@ class Plotter:
         self._build_multichain_samples(all_samples, effective_labels, effective_ranges)
 
     def _load_multichain_from_data(self, data_list):
-        """Load multiple chains from data list (dicts/arrays)."""
-        all_samples = [d for d in data_list if isinstance(d, (dict, np.ndarray))]
+        """Load multiple chains from data list (dicts/arrays/MCSamples)."""
+        all_samples = [
+            d for d in data_list if isinstance(d, (dict, np.ndarray, MCSamples))
+        ]
         unified_ranges = self._user_ranges or self._compute_unified_ranges(all_samples)
         self._build_multichain_samples(data_list, self._user_labels, unified_ranges)
 

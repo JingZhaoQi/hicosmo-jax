@@ -142,21 +142,80 @@ class EmceeSampler(SamplerBackend):
         """
         Compute log prior probability.
 
+        Evaluates the actual prior density declared in the parameter config.
+        Previously only bounds were checked and 0.0 returned, which silently
+        treated every prior (normal, truncnorm, ...) as uniform — the emcee
+        backend then sampled a different posterior than the numpyro backend.
+
         Args:
             theta: Parameter array in order of self.param_names
 
         Returns:
-            float: Log prior probability (0 for uniform, -inf for out of bounds)
+            float: Log prior probability (-inf outside support)
         """
+        log_prior = 0.0
         for i, param_name in enumerate(self.param_names):
-            value = theta[i]
+            value = float(theta[i])
             min_val, max_val = self.param_bounds[param_name]
-
-            # Check bounds
             if not (min_val <= value <= max_val):
                 return -np.inf
 
-        return 0.0  # Uniform prior log probability = 0 within bounds
+            prior = self.parameters[param_name].get("prior", {})
+            dist_type = str(prior.get("dist", "uniform")).lower()
+            dist_type = {
+                "log_normal": "lognormal",
+                "truncated_normal": "truncnorm",
+                "half_normal": "halfnormal",
+                "half_cauchy": "halfcauchy",
+            }.get(dist_type, dist_type)
+
+            if dist_type == "uniform":
+                log_prior -= np.log(max_val - min_val)
+            elif dist_type in ("normal", "truncnorm"):
+                mu = prior["loc"]
+                sigma = prior["scale"]
+                log_prior += -0.5 * ((value - mu) / sigma) ** 2 - np.log(
+                    sigma * np.sqrt(2.0 * np.pi)
+                )
+                if dist_type == "truncnorm":
+                    # Renormalize over the truncated support
+                    from math import erf
+
+                    lo = (min_val - mu) / (sigma * np.sqrt(2.0))
+                    hi = (max_val - mu) / (sigma * np.sqrt(2.0))
+                    mass = 0.5 * (erf(hi) - erf(lo))
+                    if mass <= 0.0:
+                        return -np.inf
+                    log_prior -= np.log(mass)
+            elif dist_type == "lognormal":
+                if value <= 0.0:
+                    return -np.inf
+                mu = prior["loc"]
+                sigma = prior["scale"]
+                log_x = np.log(value)
+                log_prior += (
+                    -0.5 * ((log_x - mu) / sigma) ** 2
+                    - np.log(sigma * np.sqrt(2.0 * np.pi))
+                    - log_x
+                )
+            elif dist_type == "halfnormal":
+                sigma = prior["scale"]
+                log_prior += (
+                    np.log(2.0)
+                    - 0.5 * (value / sigma) ** 2
+                    - np.log(sigma * np.sqrt(2.0 * np.pi))
+                )
+            elif dist_type == "halfcauchy":
+                scale = prior["scale"]
+                log_prior += np.log(2.0) - np.log(
+                    np.pi * scale * (1.0 + (value / scale) ** 2)
+                )
+            elif dist_type == "exponential":
+                rate = prior["rate"]
+                log_prior += np.log(rate) - rate * value
+            # Unknown distributions: bounds check only (flat within bounds)
+
+        return log_prior
 
     def _log_likelihood_wrapper(self, theta: np.ndarray) -> float:
         """

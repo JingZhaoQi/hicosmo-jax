@@ -236,6 +236,28 @@ def cumulative_trapezoid(y: Array, x: Array) -> Array:
     return jnp.concatenate([jnp.array([0.0]), cumulative])
 
 
+def interp_linspace(x_query: Array, x_grid: Array, values: Array) -> Array:
+    """Linear interpolation on an EQUALLY-SPACED grid.
+
+    Numerically equivalent to ``jnp.interp(x_query, x_grid, values)`` when
+    ``x_grid`` is a uniform ``jnp.linspace`` (out-of-range queries clamp to
+    the endpoint values, matching jnp.interp), but indexing is O(1) arithmetic
+    instead of searchsorted, and the AD reverse path is a plain scatter-add.
+    On the SN likelihood gradient this is ~30% faster end to end; jnp.interp's
+    vjp dominated the gradient cost of the whole joint likelihood.
+
+    Do NOT use with non-uniform grids — results would be silently wrong.
+    """
+    x_query = jnp.asarray(x_query)
+    x_grid = jnp.asarray(x_grid)
+    values = jnp.asarray(values)
+    dx = x_grid[1] - x_grid[0]
+    pos = (x_query - x_grid[0]) / dx
+    idx = jnp.clip(jnp.floor(pos).astype(jnp.int32), 0, x_grid.shape[0] - 2)
+    w = jnp.clip(pos - idx, 0.0, 1.0)
+    return values[idx] * (1.0 - w) + values[idx + 1] * w
+
+
 def integrate_batch_cumulative(
     func: Callable[[Array], Array],
     z_array: Array,
@@ -628,4 +650,5 @@ __all__ = [
     "solve_ivp_rk4",
     "sound_horizon_drag_eh98",
     "sound_horizon_eh98",
+    "interp_linspace",
 ]

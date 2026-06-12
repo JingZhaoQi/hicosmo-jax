@@ -199,29 +199,32 @@ class ParameterConfig:
         """
         Create ParameterConfig from dictionary.
 
-        Supports both nested and flat dictionary formats:
+        Supports both nested and flat dictionary formats.
 
-        Nested format (with 'parameters' key):
-        {
-            'parameters': {
-                'a': {'prior': {'dist': 'uniform', 'min': 0, 'max': 10}, 'ref': 3.5}
-            },
-            'mcmc': {'num_samples': 1000}
-        }
+        Nested format (with 'parameters' key)::
 
-        Flat format (parameters at top level):
-        {
-            'a': {'prior': {'dist': 'uniform', 'min': 0, 'max': 10}, 'ref': 3.5},
-            'mcmc': {'num_samples': 1000}
-        }
-
-        Simplified tuple/list/set format:
-        {
-            'parameters': {
-                'a': (3.5, 0, 10, '$a$'),  # or [3.5, 0, 10] or {3.5, 0, 10, '$a$'}
-                'b': [2.0, 0, 4, '$b$']
+            {
+                'parameters': {
+                    'a': {'prior': {'dist': 'uniform', 'min': 0, 'max': 10}, 'ref': 3.5}
+                },
+                'mcmc': {'num_samples': 1000}
             }
-        }
+
+        Flat format (parameters at top level)::
+
+            {
+                'a': {'prior': {'dist': 'uniform', 'min': 0, 'max': 10}, 'ref': 3.5},
+                'mcmc': {'num_samples': 1000}
+            }
+
+        Simplified tuple/list format::
+
+            {
+                'parameters': {
+                    'a': (3.5, 0, 10, '$a$'),  # or [3.5, 0, 10]
+                    'b': [2.0, 0, 4, '$b$']
+                }
+            }
         """
         # Extract MCMC config first
         mcmc_config = data.get("mcmc", {})
