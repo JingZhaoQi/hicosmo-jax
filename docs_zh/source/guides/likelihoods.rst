@@ -141,6 +141,42 @@ Pantheon+ (Brout et al. 2022) 包含 1701 个 Ia 型超新星，是目前最大�
        marginalize_M_B=True         # 边际化绝对星等
    )
 
+Union3 数据集
+~~~~~~~~~~~~~
+
+Union3 (Rubin et al. 2023) 将 2087 个 Ia 型超新星通过 UNITY 框架压缩为
+22 个红移 bin 的距离模数测量。绝对星等已在 UNITY 框架内边际化，
+因此无需 ``M_B`` 处理：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import SN_likelihood
+   from hicosmo.models import LCDM
+
+   union3 = SN_likelihood(LCDM, "union3")
+   log_L = union3(H0=70.0, Omega_m=0.3)   # 无 M_B 参数
+
+DESY5 数据集
+~~~~~~~~~~~~
+
+DES Year 5 (DES Collaboration 2024) 包含 1829 个光度分类的 Ia 型超新星
+（含低红移外部样本）。星等偏移 ``M`` 的处理与 Pantheon+ 的 ``M_B`` 类似：
+
+.. code-block:: python
+
+   # 解析边际化 M（默认，与官方 Dovekie 流水线一致）
+   desy5 = SN_likelihood(LCDM, "desy5")
+   log_L = desy5(H0=70.0, Omega_m=0.3)
+
+   # M 作为自由参数
+   desy5_free = SN_likelihood(LCDM, "desy5", M="free")
+   log_L = desy5_free(H0=70.0, Omega_m=0.3, M=-19.3)
+
+.. note::
+
+   三个 SN 数据集（``pantheon+`` / ``union3`` / ``desy5``）都实现了
+   ``CombinedLikelihood`` 的共享距离网格协议，组合分析时距离积分只计算一次。
+
 BAO (重子声学振荡)
 ------------------
 
@@ -182,7 +218,10 @@ HIcosmo 支持以下 BAO 观测量：
      - 参考文献
    * - ``desi2024``
      - 2024
-     - DESI Collaboration 2024
+     - DESI Collaboration 2024 (DR1, arXiv:2404.03002)
+   * - ``desi_dr2``
+     - 2025
+     - DESI Collaboration 2025 (DR2, arXiv:2503.14738)
    * - ``sdss_dr12``
      - 2017
      - Alam et al. 2017, MNRAS 470, 2617
@@ -254,6 +293,28 @@ HIcosmo 提供多种处理模式：
    # 固定 Omega_b（使用 Planck 值）
    bao_fixed = BAO_likelihood(LCDM, "desi2024", omega_b_mode='fixed')
    # 无 nuisance 参数
+
+.. note::
+
+   ``'bbn_prior'`` 模式下，BBN 先验在 JIT 闭包内部恰好计入一次：
+   无论通过 ``bao(**params)``、``log_likelihood_from_params`` 还是
+   ``CombinedLikelihood`` 共享网格路径求值，结果完全一致
+   （由 ``tests/test_desi_dr2.py`` 的回归测试保证）。
+
+DESI DR2
+~~~~~~~~
+
+DESI DR2（2025，arXiv:2503.14738）提供 7 个红移 bin 共 13 个 BAO 测量，
+红移覆盖 :math:`0.295 \le z \le 2.330`，是当前统计功效最强的 BAO 数据集。
+接口与 ``desi2024`` 完全一致（继承全部 ``omega_b_mode`` 选项与共享网格支持）：
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import BAO_likelihood
+   from hicosmo.models import LCDM
+
+   bao = BAO_likelihood(LCDM, "desi_dr2")
+   log_L = bao(H0=70.0, Omega_m=0.3, H0_rd=101.0)
 
 **物理说明**：
 

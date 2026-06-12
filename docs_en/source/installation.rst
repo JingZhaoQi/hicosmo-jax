@@ -164,9 +164,6 @@ After installation, run the following commands to verify:
    # Run the test suite
    pytest tests/ -v --tb=short
 
-   # Quick test (skip slow tests)
-   pytest tests/ -v -m "not slow"
-
 **Python verification**:
 
 .. code-block:: python
@@ -174,10 +171,20 @@ After installation, run the following commands to verify:
    import hicosmo
    print(hicosmo.__version__)
 
-   # Verify JAX
+   # Verify JAX and precision configuration
+   import jax
    import jax.numpy as jnp
    x = jnp.array([1.0, 2.0, 3.0])
    print(f"JAX working: {x.sum()}")
+   print(f"float64 enabled: {jax.config.jax_enable_x64}")  # should be True
+
+.. note::
+
+   Cosmological distance integrals and covariance solves need float64,
+   so ``import hicosmo`` automatically enables JAX's x64 mode. Import
+   hicosmo before running any JAX computation. If you genuinely need
+   float32 (e.g. tight GPU memory), set the environment variable
+   ``HICOSMO_DISABLE_X64=1`` before importing.
 
    # Verify NumPyro
    import numpyro

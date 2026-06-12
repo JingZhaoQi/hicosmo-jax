@@ -189,29 +189,33 @@ LCDM Basic Usage
 Parameter Consistency and Updates
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-All model parameters use ``model.params`` as the single source of truth (internally ``CosmologicalParameters``). Model attributes
-``w / w0 / wa / beta`` are lightweight wrappers around ``params``, ensuring consistency between instance methods and
-``compute_grid_traced`` physics calculations.
-
-Recommended way to update parameters:
+All model parameters use ``model.params`` as the single source of truth
+(internally ``CosmologicalParameters``). The recommended way to update
+parameters is to **rebuild the instance**: this matches JAX's immutable
+style and prevents already-JIT-compiled distance methods from silently
+using stale parameter values.
 
 .. code-block:: python
 
    from hicosmo.models import LCDM, wCDM, CPL, ILCDM
 
-   model = LCDM()
-   model.params['H0'] = 70.0
-   model.params['Omega_m'] = 0.3
+   model = LCDM(H0=70.0, Omega_m=0.3)
 
-   w_model = wCDM(w=-1.0)
-   w_model.w = -0.9                 # Equivalent to w_model.params['w'] = -0.9
+   # NOTE: the wCDM equation-of-state parameter is named w0 (NOT w).
+   # Misspelled names are ignored by the physics kernel; the likelihood
+   # layer emits a UserWarning when it sees an unrecognized name.
+   w_model = wCDM(w0=-1.0)
+   w_model = wCDM(w0=-0.9)          # updating a parameter = rebuilding
 
-   cpl = CPL(w0=-1.0, wa=0.0)
-   cpl.w0 = -0.95                   # Equivalent to cpl.params['w0'] = -0.95
-   cpl.wa = 0.2
+   cpl = CPL(w0=-0.95, wa=0.2)
 
-   ilcdm = ILCDM(beta=0.0)
-   ilcdm.beta = 0.05                # Equivalent to ilcdm.params['beta'] = 0.05
+   ilcdm = ILCDM(beta=0.05)
+
+.. warning::
+
+   Do not update parameters through attribute assignment (e.g.
+   ``w_model.w0 = -0.9``): it merely creates an unrelated instance
+   attribute and leaves ``params`` unchanged.
 
 Sound Horizon Calculation
 ~~~~~~~~~~~~~~~~~~~~~~~~~

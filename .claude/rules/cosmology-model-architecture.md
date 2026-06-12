@@ -14,10 +14,13 @@ Rules for creating and maintaining cosmological models in HIcosmo.
 
 ```python
 # ✅ CORRECT: Minimal subclass
+# NOTE: the actual wCDM parameter is named `w0` (NOT `w`) — keep examples
+# in sync with hicosmo/models/wcdm.py, misspelled names are ignored by
+# params.get() and would silently evaluate LCDM physics.
 @register_cosmology_model
 class wCDM(LCDM):
-    def __init__(self, w=-1.0, **kwargs):
-        super().__init__(w=w, **kwargs)
+    def __init__(self, w0=-1.0, **kwargs):
+        super().__init__(w0=w0, **kwargs)
 
     @staticmethod
     def E_z(z, params):
@@ -44,7 +47,7 @@ Benefits:
 @staticmethod
 def E_z(z, params):
     Omega_m = params['Omega_m']
-    w = params.get('w', -1.0)
+    w0 = params.get('w0', -1.0)
     ...
 
 # ❌ Expanded parameters (hard to extend)
