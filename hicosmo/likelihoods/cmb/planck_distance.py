@@ -99,7 +99,13 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
 
     @staticmethod
     def _camb_ratio(coef, omega_b_h2, omega_m_h2):
-        """Evaluate the quadratic CAMB-calibration ratio (JAX-traceable)."""
+        """Evaluate the quadratic CAMB-calibration ratio (JAX-traceable).
+
+        Inputs are clamped to the calibration-grid range so the quadratic
+        is never extrapolated; outside the grid the boundary value is used.
+        """
+        omega_b_h2 = jnp.clip(omega_b_h2, 0.018, 0.028)
+        omega_m_h2 = jnp.clip(omega_m_h2, 0.10, 0.22)
         x = (omega_b_h2 - 0.02237) / 0.01
         y = (omega_m_h2 - 0.1430) / 0.1
         return (
