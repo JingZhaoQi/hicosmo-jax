@@ -78,21 +78,23 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
     # has since been fixed in compute_omega_r.
     # ratio = c0 + c1*x + c2*y + c3*x^2 + c4*x*y + c5*y^2,
     # x = (omega_b_h2 - 0.02237)/0.01, y = (omega_m_h2 - 0.1430)/0.1
+    # Fitted against CAMB with massless neutrinos and N_eff = 3.046
+    # (tools/calibrate_rs_zstar.py), matching the HIcosmo background.
     _RS_CAL_COEF = (
-        9.98975730e-01,
-        -5.91048262e-04,
-        3.37320595e-04,
-        -6.28955632e-05,
-        1.59326538e-04,
-        -7.70064498e-05,
+        9.98906632e-01,
+        -5.90829211e-04,
+        3.55180946e-04,
+        -6.29441857e-05,
+        1.58865758e-04,
+        -8.29375684e-05,
     )
     _ZSTAR_CAL_COEF = (
-        9.98242260e-01,
-        8.44026766e-04,
-        1.15633371e-04,
-        1.41197434e-04,
-        -1.72541508e-04,
-        -8.48441118e-05,
+        9.98244044e-01,
+        8.43271796e-04,
+        1.15458404e-04,
+        1.41130128e-04,
+        -1.71962756e-04,
+        -8.46687057e-05,
     )
 
     @staticmethod
