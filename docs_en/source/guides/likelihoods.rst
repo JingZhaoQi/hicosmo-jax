@@ -141,6 +141,46 @@ Supernova analysis requires handling the absolute magnitude :math:`\mathcal{M}_B
        marginalize_M_B=True         # Marginalize absolute magnitude
    )
 
+Union3 Dataset
+~~~~~~~~~~~~~~
+
+Union3 (Rubin et al. 2023) compresses 2087 Type Ia supernovae into 22
+redshift-binned distance-modulus measurements through the UNITY framework.
+The absolute magnitude is already marginalized within UNITY, so no ``M_B``
+handling is needed:
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import SN_likelihood
+   from hicosmo.models import LCDM
+
+   union3 = SN_likelihood(LCDM, "union3")
+   log_L = union3(H0=70.0, Omega_m=0.3)   # no M_B parameter
+
+DESY5 Dataset
+~~~~~~~~~~~~~
+
+DES Year 5 (DES Collaboration 2024) contains 1829 photometrically
+classified Type Ia supernovae (including an external low-z sample). The
+magnitude offset ``M`` is handled analogously to Pantheon+'s ``M_B``:
+
+.. code-block:: python
+
+   # Analytic marginalization over M (default, matches the official
+   # Dovekie pipeline)
+   desy5 = SN_likelihood(LCDM, "desy5")
+   log_L = desy5(H0=70.0, Omega_m=0.3)
+
+   # M as a free parameter
+   desy5_free = SN_likelihood(LCDM, "desy5", M="free")
+   log_L = desy5_free(H0=70.0, Omega_m=0.3, M=-19.3)
+
+.. note::
+
+   All three SN datasets (``pantheon+`` / ``union3`` / ``desy5``) implement
+   the ``CombinedLikelihood`` shared-distance-grid protocol, so joint
+   analyses compute the distance integral only once.
+
 BAO (Baryon Acoustic Oscillations)
 -----------------------------------
 
@@ -182,7 +222,10 @@ Available Datasets
      - Reference
    * - ``desi2024``
      - 2024
-     - DESI Collaboration 2024
+     - DESI Collaboration 2024 (DR1, arXiv:2404.03002)
+   * - ``desi_dr2``
+     - 2025
+     - DESI Collaboration 2025 (DR2, arXiv:2503.14738)
    * - ``sdss_dr12``
      - 2017
      - Alam et al. 2017, MNRAS 470, 2617
@@ -254,6 +297,30 @@ HIcosmo provides multiple handling modes:
    # Fixed Omega_b (Planck value)
    bao_fixed = BAO_likelihood(LCDM, "desi2024", omega_b_mode='fixed')
    # No nuisance parameters
+
+.. note::
+
+   In ``'bbn_prior'`` mode the BBN prior is applied exactly once, inside
+   the JIT closure: evaluating through ``bao(**params)``,
+   ``log_likelihood_from_params``, or the ``CombinedLikelihood``
+   shared-grid path gives identical results (guaranteed by the
+   regression tests in ``tests/test_desi_dr2.py``).
+
+DESI DR2
+~~~~~~~~
+
+DESI DR2 (2025, arXiv:2503.14738) provides 13 BAO measurements across 7
+redshift bins covering :math:`0.295 \le z \le 2.330`, currently the most
+constraining BAO dataset. The interface is identical to ``desi2024``
+(inheriting all ``omega_b_mode`` options and shared-grid support):
+
+.. code-block:: python
+
+   from hicosmo.likelihoods import BAO_likelihood
+   from hicosmo.models import LCDM
+
+   bao = BAO_likelihood(LCDM, "desi_dr2")
+   log_L = bao(H0=70.0, Omega_m=0.3, H0_rd=101.0)
 
 **Physical explanation**:
 

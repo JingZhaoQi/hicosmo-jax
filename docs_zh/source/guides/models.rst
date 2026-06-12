@@ -189,29 +189,29 @@ LCDM 基本使用
 参数一致性与更新
 ~~~~~~~~~~~~~~~~~~~~~~
 
-所有模型的参数都以 ``model.params`` 为单一真相（内部为 ``CosmologicalParameters``），模型属性
-``w / w0 / wa / beta`` 只是对 ``params`` 的轻量封装，保证实例方法与
-``compute_grid_traced`` 的物理计算一致。
-
-推荐的参数更新方式：
+所有模型的参数都以 ``model.params`` 为单一真相（内部为 ``CosmologicalParameters``）。
+更新参数的推荐方式是**重建实例**：这与 JAX 的不可变风格一致，也避免已经
+JIT 编译的距离方法继续引用旧参数。
 
 .. code-block:: python
 
    from hicosmo.models import LCDM, wCDM, CPL, ILCDM
 
-   model = LCDM()
-   model.params['H0'] = 70.0
-   model.params['Omega_m'] = 0.3
+   model = LCDM(H0=70.0, Omega_m=0.3)
 
-   w_model = wCDM(w=-1.0)
-   w_model.w = -0.9                 # 等价于 w_model.params['w'] = -0.9
+   # 注意：wCDM 的状态方程参数名是 w0（不是 w）。
+   # 拼错的参数名会被静默忽略，似然层会发出 UserWarning 提示。
+   w_model = wCDM(w0=-1.0)
+   w_model = wCDM(w0=-0.9)          # 更新参数 = 重建实例
 
-   cpl = CPL(w0=-1.0, wa=0.0)
-   cpl.w0 = -0.95                   # 等价于 cpl.params['w0'] = -0.95
-   cpl.wa = 0.2
+   cpl = CPL(w0=-0.95, wa=0.2)
 
-   ilcdm = ILCDM(beta=0.0)
-   ilcdm.beta = 0.05                # 等价于 ilcdm.params['beta'] = 0.05
+   ilcdm = ILCDM(beta=0.05)
+
+.. warning::
+
+   不要用属性赋值（如 ``w_model.w0 = -0.9``）更新参数：它只会创建一个
+   与模型无关的普通实例属性，``params`` 中的值并不会改变。
 
 声音视界计算
 ~~~~~~~~~~~~

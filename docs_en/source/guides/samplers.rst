@@ -258,11 +258,26 @@ Sampling Parameters
    samples = mcmc.run(
        num_samples=4000,      # Total number of samples (all chains combined)
        num_chains=4,          # Number of parallel chains
-       num_warmup=1000,       # Number of warmup steps
+       num_warmup=1000,       # Warmup steps PER CHAIN
        progress_bar=True      # Show progress bar
    )
 
-**Note**: ``num_samples`` is the **total** across all chains. 4 chains with 4000 samples means 1000 samples per chain.
+**The two count parameters have different semantics**:
+
+- ``num_samples`` is the **total** across all chains: 4 chains with 4000
+  samples means 1000 samples per chain.
+- ``num_warmup`` is **per chain**: warmup is each chain's independent
+  mass-matrix and step-size adaptation and cannot be amortized across
+  chains. When unspecified it defaults to
+  ``max(200, min(1000, samples_per_chain))``.
+
+.. note::
+
+   When ``progress_bar`` is not given explicitly, the bar is shown only on
+   interactive terminals (TTY) and auto-disabled when output is redirected
+   or running in batch jobs. NumPyro's progress bar triggers a host
+   callback every step, costing 5–20% for millisecond-scale likelihoods,
+   and floods log files.
 
 Chain Parallelization Method
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

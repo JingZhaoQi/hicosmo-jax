@@ -164,9 +164,6 @@ HIcosmo 的核心依赖包括：
    # 运行测试套件
    pytest tests/ -v --tb=short
 
-   # 快速测试（跳过慢测试）
-   pytest tests/ -v -m "not slow"
-
 **Python 验证**：
 
 .. code-block:: python
@@ -174,10 +171,19 @@ HIcosmo 的核心依赖包括：
    import hicosmo
    print(hicosmo.__version__)
 
-   # 验证 JAX
+   # 验证 JAX 与精度配置
+   import jax
    import jax.numpy as jnp
    x = jnp.array([1.0, 2.0, 3.0])
    print(f"JAX working: {x.sum()}")
+   print(f"float64 enabled: {jax.config.jax_enable_x64}")  # 应为 True
+
+.. note::
+
+   宇宙学距离积分和协方差矩阵运算需要 float64 精度，因此
+   ``import hicosmo`` 会自动启用 JAX 的 x64 模式。请在任何 JAX
+   计算之前先导入 hicosmo。如确需 float32（例如受限的 GPU 显存），
+   可在导入前设置环境变量 ``HICOSMO_DISABLE_X64=1``。
 
    # 验证 NumPyro
    import numpyro
