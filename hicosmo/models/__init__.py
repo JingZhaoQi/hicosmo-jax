@@ -23,7 +23,9 @@ from .cpl import CPL
 from .ilcdm import ILCDM, planck2018_ilcdm
 from .base import (
     CosmologyBase,
+    compute_background_grid_for_model,
     compute_distances_from_E_z,
+    make_compute_background_grid_traced,
     make_compute_grid_traced,
     make_sound_horizon_traced,
     make_sound_horizon_drag_traced,
@@ -38,7 +40,9 @@ __all__ = [
     "ILCDM",
     "planck2018_ilcdm",
     "CosmologyBase",
+    "compute_background_grid_for_model",
     "compute_distances_from_E_z",
+    "make_compute_background_grid_traced",
     "make_compute_grid_traced",
     "make_sound_horizon_traced",
     "make_sound_horizon_drag_traced",

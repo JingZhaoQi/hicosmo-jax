@@ -14,6 +14,7 @@ from .config import (
     validate_config,
 )
 from .datasets import ensure_dataset, resolve_data_root
+from ..parameters.setup import apply_requested_free_params, register_model_parameters
 from ..utils.logging import get_logger
 from ..utils.manifest import write_run_manifest
 
@@ -36,8 +37,9 @@ def run_from_config(
     cfg = normalize_config(raw_cfg)
     validate_config(cfg)
 
-    registry = build_parameter_registry(cfg)
     theory_class = resolve_theory(cfg.get("theory"))
+    registry = build_parameter_registry(cfg, apply_selection=False)
+    model_param_names = register_model_parameters(registry, theory_class)
 
     data_cfg = cfg.get("data") or {}
     data_root = resolve_data_root(data_cfg.get("root"))
@@ -53,6 +55,13 @@ def run_from_config(
 
     for likelihood in likelihoods:
         registry.add_from_likelihood(likelihood)
+
+    free_list = cfg.get("free") or []
+    fixed_list = cfg.get("fixed") or []
+    if free_list:
+        apply_requested_free_params(registry, list(free_list), model_param_names)
+    if fixed_list:
+        registry.set_fixed(list(fixed_list))
 
     sampler_name, sampler_options = resolve_sampler(cfg.get("sampler"))
 

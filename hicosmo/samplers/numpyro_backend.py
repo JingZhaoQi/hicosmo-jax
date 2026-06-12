@@ -80,6 +80,30 @@ class NumPyroSampler(SamplerBackend):
         self.mcmc = None
         self.numpyro_model = None
 
+    def _resolve_init_strategy(self):
+        """Resolve NumPyro initialization with stable cosmology defaults."""
+        init_strategy_name = self.config.get("init_strategy", "median")
+
+        if init_strategy_name == "value":
+            init_values = self.config.get("init_values")
+            if not init_values:
+                init_values = {
+                    name: spec["ref"]
+                    for name, spec in self.parameters.items()
+                    if spec.get("ref") is not None
+                }
+            if not init_values:
+                raise ValueError(
+                    "init_strategy='value' requires 'init_values' or parameter refs"
+                )
+            init_values = {k: jnp.array(v) for k, v in init_values.items()}
+            return init_strategy_name, init_to_value(values=init_values)
+
+        if init_strategy_name not in self.INIT_STRATEGIES:
+            init_strategy_name = "median"
+
+        return init_strategy_name, self.INIT_STRATEGIES[init_strategy_name]
+
     def _build_numpyro_model(self):
         """
         Build NumPyro model function from parameter configuration.
@@ -206,19 +230,7 @@ class NumPyroSampler(SamplerBackend):
         self.numpyro_model = self._build_numpyro_model()
 
         # Select initialization strategy
-        init_strategy_name = self.config.get("init_strategy", "uniform")
-        init_strategy = self.INIT_STRATEGIES.get(init_strategy_name, init_to_uniform)
-
-        # Handle custom initial values
-        if init_strategy_name == "value":
-            init_values = self.config.get("init_values", {})
-            if not init_values:
-                raise ValueError(
-                    "init_strategy='value' requires 'init_values' in config"
-                )
-            # Convert to JAX arrays
-            init_values = {k: jnp.array(v) for k, v in init_values.items()}
-            init_strategy = init_to_value(values=init_values)
+        init_strategy_name, init_strategy = self._resolve_init_strategy()
 
         # Configure NUTS kernel
         dense_mass = self.config.get("dense_mass")
@@ -393,17 +405,7 @@ class NumPyroSampler(SamplerBackend):
         self.numpyro_model = self._build_numpyro_model()
 
         # Select initialization strategy
-        init_strategy_name = self.config.get("init_strategy", "uniform")
-        init_strategy = self.INIT_STRATEGIES.get(init_strategy_name, init_to_uniform)
-
-        if init_strategy_name == "value":
-            init_values = self.config.get("init_values", {})
-            if not init_values:
-                raise ValueError(
-                    "init_strategy='value' requires 'init_values' in config"
-                )
-            init_values = {k: jnp.array(v) for k, v in init_values.items()}
-            init_strategy = init_to_value(values=init_values)
+        init_strategy_name, init_strategy = self._resolve_init_strategy()
 
         dense_mass = self.config.get("dense_mass")
         if dense_mass is None:
@@ -436,7 +438,19 @@ class NumPyroSampler(SamplerBackend):
         num_chains = int(sampler_config.num_chains)
         total_target = total_per_chain * num_chains
 
-        default_chunk = max(10, min(100, total_per_chain))
+        if checkpoint_interval_steps:
+            interval_per_chain = max(1, int(checkpoint_interval_steps) // num_chains)
+            default_chunk = max(1, min(total_per_chain, interval_per_chain))
+        elif checkpoint_interval_seconds:
+            default_chunk = max(
+                10,
+                min(
+                    int(self.config.get("checkpoint_initial_chunk_size", 1000)),
+                    total_per_chain,
+                ),
+            )
+        else:
+            default_chunk = total_per_chain
         chunk_size = int(self.config.get("checkpoint_chunk_size", default_chunk))
         chunk_size = max(1, min(chunk_size, total_per_chain))
 

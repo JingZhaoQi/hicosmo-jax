@@ -69,7 +69,9 @@ THEORY_REGISTRY.register(
     "wcdm", _lazy_class("hicosmo.models.wcdm", "wCDM"), aliases=["wCDM"]
 )
 THEORY_REGISTRY.register(
-    "cpl", _lazy_class("hicosmo.models.cpl", "CPL"), aliases=["CPL"]
+    "cpl",
+    _lazy_class("hicosmo.models.cpl", "CPL"),
+    aliases=["CPL", "w0wa", "w0wacdm", "w0waCDM", "W0WACDM", "w0wa_cdm"],
 )
 THEORY_REGISTRY.register(
     "ilcdm", _lazy_class("hicosmo.models.ilcdm", "ILCDM"), aliases=["ILCDM"]

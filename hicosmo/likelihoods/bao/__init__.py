@@ -6,6 +6,7 @@ Provides likelihood implementations for BAO measurements from various surveys.
 
 Available Datasets:
 - DESI2024BAO: DESI DR1 2024 BAO measurements
+- DESIDR2BAO: DESI DR2 2025 BAO measurements
 - SDSSDR12BAO: SDSS DR12 consensus BAO
 - SDSSDR16BAO: SDSS DR16 (eBOSS) BAO
 - BOSSDR12BAO: BOSS DR12 BAO
@@ -23,6 +24,7 @@ from .base import BAOCollection, BAOLikelihood
 from .datasets import (
     BOSSDR12BAO,
     DESI2024BAO,
+    DESIDR2BAO,
     SDSSDR12BAO,
     SDSSDR16BAO,
     CustomBAO,
@@ -43,6 +45,7 @@ __all__ = [
     "BAOCollection",
     # Specific datasets
     "DESI2024BAO",
+    "DESIDR2BAO",
     "SDSSDR12BAO",
     "SDSSDR16BAO",
     "BOSSDR12BAO",

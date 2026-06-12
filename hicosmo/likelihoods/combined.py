@@ -15,9 +15,10 @@ Example
 """
 
 import logging
-from typing import List, Callable, Dict, Any, Optional
+from typing import List, Callable, Dict, Any
 
 from .base import Likelihood, NuisanceList
+from ..models.base import compute_background_grid_for_model
 import jax.numpy as jnp
 
 logger = logging.getLogger(__name__)
@@ -43,9 +44,8 @@ class CombinedLikelihood(Likelihood):
                 self._likelihoods.append(lik)
 
         # Attempt to set up shared distance grid
-        self._shared_grid_func = None
+        self._shared_grid_enabled = False
         self._shared_z_low = None
-        self._shared_z_high = None
         self._low_z_likelihoods = []
         self._high_z_likelihoods = []
         self._other_likelihoods = []
@@ -53,28 +53,30 @@ class CombinedLikelihood(Likelihood):
 
     def _setup_shared_grid(self):
         """Detect shared cosmology class and build unified distance grid."""
-        from ..models.base import make_compute_shared_grid
-
-        # Classify likelihoods by z_grid range
+        # Classify likelihoods by z_grid range and grid-consumer support.
         cosmo_classes = set()
         low_z_grids = []
 
         for lik in self._likelihoods:
-            cosmo_cls = getattr(lik, '_cosmology_class', None)
-            if cosmo_cls is not None:
-                cosmo_classes.add(cosmo_cls)
-
-            z_grid = getattr(lik, '_z_grid', None)
+            z_grid = getattr(lik, "_z_grid", None)
             if z_grid is not None and len(z_grid) > 0:
                 z_max = float(z_grid[-1])
                 if z_max < 10:
-                    self._low_z_likelihoods.append(lik)
-                    low_z_grids.append(z_grid)
+                    loglike_from_grid = getattr(lik, "_loglike_from_grid", None)
+                    cosmo_cls = getattr(lik, "_cosmology_class", None) or getattr(
+                        lik, "cosmology_class", None
+                    )
+                    if loglike_from_grid is not None and cosmo_cls is not None:
+                        self._low_z_likelihoods.append(lik)
+                        low_z_grids.append(z_grid)
+                        cosmo_classes.add(cosmo_cls)
+                    else:
+                        self._other_likelihoods.append(lik)
                 else:
                     self._high_z_likelihoods.append(lik)
             else:
                 # CMB has no _z_grid but has _z_base
-                z_base = getattr(lik, '_z_base', None)
+                z_base = getattr(lik, "_z_base", None)
                 if z_base is not None:
                     self._high_z_likelihoods.append(lik)
                 else:
@@ -117,20 +119,9 @@ class CombinedLikelihood(Likelihood):
         # the original sub-likelihood densities are validated for NUTS.
         z_max_low = max(float(g[-1]) for g in low_z_grids)
         n_grid_low = max(len(g) for g in low_z_grids)
-        self._shared_z_low = jnp.linspace(0.0, z_max_low, n_grid_low)
-
-        # Build high-z extension grid for CMB (z_low_max to ~1100)
-        if self._high_z_likelihoods:
-            z_high_max = 1100.0  # Conservative upper bound for z_star
-            n_grid_high = 2048
-            self._shared_z_high = jnp.linspace(
-                z_max_low, z_high_max, n_grid_high
-            )
-        else:
-            self._shared_z_high = jnp.array([z_max_low])  # dummy
 
         # Get the E_z function from the cosmology class
-        E_z_func = getattr(cosmo_cls, '_E_z_static', None)
+        E_z_func = getattr(cosmo_cls, "_E_z_static", None)
         if E_z_func is None:
             # Fallback
             self._low_z_likelihoods = []
@@ -139,9 +130,12 @@ class CombinedLikelihood(Likelihood):
             return
 
         self._cosmo_class = cosmo_cls
+        # MUST stay an equally-spaced linspace: sub-likelihood _loglike_from_grid
+        # closures interpolate with interp_linspace (O(1) indexing), which is
+        # silently wrong on non-uniform grids.
         self._shared_z_low = jnp.linspace(0.0, z_max_low, n_grid_low)
 
-        self._shared_grid_func = True  # Flag: shared grid is available
+        self._shared_grid_enabled = True
         logger.info(
             f"Shared grid optimization: low-z [{0:.1f}, {z_max_low:.1f}] "
             f"N={n_grid_low}, {len(self._low_z_likelihoods)} low-z + "
@@ -155,7 +149,7 @@ class CombinedLikelihood(Likelihood):
         When shared grid is available, computes distances ONCE
         and distributes to sub-likelihoods.
         """
-        if self._shared_grid_func is None or not self._low_z_likelihoods:
+        if not self._shared_grid_enabled or not self._low_z_likelihoods:
             # Fallback: no sharing
             total_log_L = 0.0
             for lik in self._likelihoods:
@@ -170,23 +164,33 @@ class CombinedLikelihood(Likelihood):
 
         # Prepare params for JAX (use first low-z likelihood's normalizer)
         first_lik = self._low_z_likelihoods[0]
-        if hasattr(first_lik, '_prepare_params_dict'):
+        if hasattr(first_lik, "_prepare_params_dict"):
             params_jax = first_lik._prepare_params_dict(params)
-        elif hasattr(first_lik, '_cosmology_class'):
+        elif hasattr(first_lik, "_cosmology_class"):
             params_jax = first_lik._cosmology_class.normalize_params(params)
         else:
             params_jax = params
 
-        # Compute shared distance grid ONCE
-        cosmo_grid = cosmo_cls.compute_grid_traced(z_low, params_jax)
+        # Compute the low-z background grid once. SN/BAO-style likelihoods only
+        # need distance and E(z) arrays, so prefer the lightweight model method
+        # and keep the full dVc/ddL grid for GW paths that request it directly.
+        cosmo_grid = compute_background_grid_for_model(cosmo_cls, z_low, params_jax)
 
         total_log_L = 0.0
 
         # Low-z likelihoods: use shared grid via _loglike_from_grid
         for lik in self._low_z_likelihoods:
-            if hasattr(lik, '_loglike_from_grid') and lik._loglike_from_grid is not None:
+            if (
+                hasattr(lik, "_loglike_from_grid")
+                and lik._loglike_from_grid is not None
+            ):
+                # Each likelihood may need different default params (e.g., BAO needs Omega_b)
+                if hasattr(lik, "_prepare_params_dict") and lik is not first_lik:
+                    lik_params = lik._prepare_params_dict(params)
+                else:
+                    lik_params = params_jax
                 total_log_L = total_log_L + lik._loglike_from_grid(
-                    cosmo_grid, z_low, params_jax
+                    cosmo_grid, z_low, lik_params
                 )
             else:
                 # Fallback for likelihoods without _loglike_from_grid

@@ -18,6 +18,8 @@ import yaml
 import warnings
 
 from ..base import Likelihood
+from ...models.base import compute_background_grid_for_model
+from ...utils.jax_tools import interp_linspace
 from ...utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -287,7 +289,9 @@ class BAOLikelihood(Likelihood):
 
         @jit
         def _loglike_impl(params: Dict[str, jnp.ndarray]) -> jnp.ndarray:
-            cosmo_grid = cosmology_class.compute_grid_traced(z_grid, params)
+            cosmo_grid = compute_background_grid_for_model(
+                cosmology_class, z_grid, params
+            )
             DM_grid = cosmo_grid["D_M"]
             DH_grid = cosmo_grid["D_H"]
             E_z_grid = cosmo_grid["E_z"]
@@ -296,10 +300,10 @@ class BAOLikelihood(Likelihood):
             DV_grid = jnp.exp((1.0 / 3.0) * jnp.log(volume_factor + 1e-30))
             H_grid = params["H0"] * E_z_grid
 
-            DM_obs = jnp.interp(z_obs, z_grid, DM_grid)
-            DH_obs = jnp.interp(z_obs, z_grid, DH_grid)
-            DV_obs = jnp.interp(z_obs, z_grid, DV_grid)
-            H_obs = jnp.interp(z_obs, z_grid, H_grid)
+            DM_obs = interp_linspace(z_obs, z_grid, DM_grid)
+            DH_obs = interp_linspace(z_obs, z_grid, DH_grid)
+            DV_obs = interp_linspace(z_obs, z_grid, DV_grid)
+            H_obs = interp_linspace(z_obs, z_grid, H_grid)
 
             if use_rd_fid:
                 rd_val = rd_fid
@@ -335,10 +339,10 @@ class BAOLikelihood(Likelihood):
             DV_grid = jnp.exp((1.0 / 3.0) * jnp.log(volume_factor + 1e-30))
             H_grid = params["H0"] * E_z_g
 
-            DM_obs = jnp.interp(z_obs, grid_z, DM_grid)
-            DH_obs = jnp.interp(z_obs, grid_z, DH_grid)
-            DV_obs = jnp.interp(z_obs, grid_z, DV_grid)
-            H_obs = jnp.interp(z_obs, grid_z, H_grid)
+            DM_obs = interp_linspace(z_obs, grid_z, DM_grid)
+            DH_obs = interp_linspace(z_obs, grid_z, DH_grid)
+            DV_obs = interp_linspace(z_obs, grid_z, DV_grid)
+            H_obs = interp_linspace(z_obs, grid_z, H_grid)
 
             if use_rd_fid:
                 rd_val = rd_fid
@@ -359,18 +363,9 @@ class BAOLikelihood(Likelihood):
 
         self._loglike_from_grid = _loglike_from_grid
 
-    def _loglike_from_shared_grid(
-        self, cosmo_grid, z_grid, params
-    ) -> jnp.ndarray:
-        """Compute log-likelihood from a precomputed distance grid."""
-        if self._loglike_from_grid is not None:
-            params_jax = self._prepare_params_dict(params)
-            return self._loglike_from_grid(cosmo_grid, z_grid, params_jax)
-        # Fallback
-        return self.log_likelihood_from_params(params)
-
     def log_likelihood_from_params(self, params: Dict[str, Any]) -> jnp.ndarray:
         """Fast log-likelihood path using parameter dict (JAX-friendly)."""
+        self._warn_unknown_params(params)
         if not self._can_use_fast_params(params) or self._loglike_fast is None:
             model = self._cosmology_class(**params)
             return self.log_likelihood(model)
@@ -482,13 +477,6 @@ class BAOLikelihood(Likelihood):
 
     def __call__(self, **params) -> float:
         """Callable interface for samplers."""
-        _precomputed_grid = params.pop("_precomputed_grid", None)
-        _precomputed_z_grid = params.pop("_precomputed_z_grid", None)
-
-        if _precomputed_grid is not None and _precomputed_z_grid is not None:
-            return self._loglike_from_shared_grid(
-                _precomputed_grid, _precomputed_z_grid, params
-            )
         return self.log_likelihood_from_params(params)
 
     def get_derived_params(self, cosmology) -> Dict[str, float]:
