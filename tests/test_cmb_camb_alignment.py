@@ -29,7 +29,7 @@ def _camb_side(H0, wb, wm):
     pars = camb.CAMBparams()
     pars.set_cosmology(
         H0=H0, ombh2=wb, omch2=wm - wb, TCMB=2.7255,
-        num_massive_neutrinos=0, mnu=0.0,
+        num_massive_neutrinos=0, mnu=0.0, nnu=3.046,
     )
     res = camb.get_background(pars)
     d = res.get_derived_params()

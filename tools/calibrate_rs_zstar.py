@@ -24,7 +24,7 @@ def camb_rs_zstar(H0, omega_b, omega_c):
     pars = camb.CAMBparams()
     pars.set_cosmology(
         H0=H0, ombh2=omega_b, omch2=omega_c, TCMB=2.7255,
-        num_massive_neutrinos=0, mnu=0.0,
+        num_massive_neutrinos=0, mnu=0.0, nnu=3.046,
     )
     r = camb.get_background(pars)
     d = r.get_derived_params()
