@@ -153,33 +153,16 @@ class Config:
                 if normalized_devices > 1:
                     preferred_num_chains = normalized_devices
 
+            # The CPU device count is fixed only when JAX initializes its
+            # backend (the first computation or jax.devices() call), not merely
+            # when jax is imported. Importing hicosmo imports jax to enable x64
+            # but runs no computation, so hc.init() can still set the requested
+            # CPU device count -- provided XLA_FLAGS is set before the backend is
+            # touched (verified after setup, below). For GPU the host-platform
+            # device-count flag does not apply, so the count is left to JAX.
             allow_xla_flags = True
-
-            # If JAX is already imported, device count is fixed
-            if "jax" in sys.modules:
+            if device_type == "gpu" and "jax" in sys.modules:
                 allow_xla_flags = False
-                try:
-                    import jax
-
-                    actual_devices = len(jax.devices())
-                    if (
-                        device_type == "cpu"
-                        and normalized_devices != actual_devices
-                        and verbose
-                    ):
-                        logger.warning(
-                            "JAX already imported; requested %s devices ignored "
-                            "(using %s). Call hc.init() before importing JAX.",
-                            normalized_devices,
-                            actual_devices,
-                        )
-                    normalized_devices = actual_devices
-                except Exception:
-                    if verbose:
-                        logger.warning(
-                            "JAX already imported; device count may be fixed. "
-                            "Call hc.init() before importing JAX for multi-device CPU."
-                        )
 
             # Set up devices
             success = cls._setup_multicore(
@@ -192,6 +175,27 @@ class Config:
             )
             if not success and verbose:
                 logger.warning("Multi-core setup had issues, continuing with defaults")
+
+            # Verify the requested CPU device count took effect. This is the
+            # first jax.devices() call, which initializes the backend with the
+            # XLA_FLAGS set above. If a JAX computation already ran before
+            # hc.init(), the backend is fixed and the count cannot change.
+            if device_type == "cpu":
+                try:
+                    import jax
+
+                    actual_devices = len(jax.devices())
+                    if actual_devices != normalized_devices and verbose:
+                        logger.warning(
+                            "Requested %s CPU devices but JAX is already "
+                            "initialized with %s; call hc.init() before any JAX "
+                            "computation to use all requested devices.",
+                            normalized_devices,
+                            actual_devices,
+                        )
+                    normalized_devices = actual_devices
+                except Exception:
+                    pass
 
             # Mark as initialized
             cls._initialized = True
