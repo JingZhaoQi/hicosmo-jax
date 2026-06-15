@@ -131,6 +131,76 @@ class PantheonPlusLikelihood(Likelihood):
                 f"M_B treatment: {'marginalized' if self.marginalize_M_B else 'free parameter'}"
             )
 
+    @classmethod
+    def from_arrays(
+        cls,
+        z: Union[np.ndarray, jnp.ndarray],
+        mu_obs: Union[np.ndarray, jnp.ndarray],
+        covariance: Union[np.ndarray, jnp.ndarray],
+        *,
+        z_hel: Optional[Union[np.ndarray, jnp.ndarray]] = None,
+        cosmology_class: type = None,
+        marginalize_M_B: bool = True,
+        verbose: bool = False,
+    ) -> "PantheonPlusLikelihood":
+        """Build an SN likelihood from in-memory arrays instead of data files.
+
+        Intended for synthetic or forecast datasets (e.g. scaling benchmarks of
+        arbitrary size N); the real survey loaders remain file-based. The result
+        is a fully functional likelihood: it goes through the same covariance
+        inversion, distance-grid preparation and JIT-compiled M_B-marginalized
+        kernels as the file-loaded path, so ``MCMC(params, lik)`` works unchanged.
+
+        Parameters
+        ----------
+        z : array (N,)
+            Redshifts (used as the CMB-frame redshift, and as the heliocentric
+            redshift unless ``z_hel`` is given).
+        mu_obs : array (N,)
+            Observed distance-modulus vector. The absolute offset M_B is
+            marginalized analytically, so any constant offset is irrelevant.
+        covariance : array (N, N)
+            Data covariance matrix.
+        z_hel : array (N,), optional
+            Heliocentric redshifts; defaults to ``z``.
+        cosmology_class : type, optional
+            Cosmology class providing ``compute_grid_traced`` (default LCDM).
+        marginalize_M_B : bool, optional
+            Marginalize the absolute magnitude analytically (default True).
+        """
+        self = cls.__new__(cls)
+        z = jnp.asarray(z)
+        n = int(z.shape[0])
+
+        self.data_path = "<arrays>"
+        self.include_shoes = False
+        self.include_systematics = True
+        self.z_min = float(jnp.min(z))
+        self.z_max = float(jnp.max(z))
+        self.apply_z_cut = False
+        self.marginalize_M_B = marginalize_M_B
+        self._cosmology_class = cosmology_class if cosmology_class is not None else LCDM
+        self.verbose = verbose
+
+        self.z_cmb = z
+        self.z_hd = z
+        self.redshifts = z
+        self.z_hel = jnp.asarray(z_hel) if z_hel is not None else z
+        self.m_obs = jnp.asarray(mu_obs)
+        self.is_calibrator = jnp.zeros(n, dtype=bool)
+        self.ceph_dist = jnp.zeros(n, dtype=self.m_obs.dtype)
+        self.ww = jnp.ones(n, dtype=bool)
+        self.covariance = jnp.asarray(covariance)
+        self.n_sne = n
+
+        # Same post-load processing as __init__ (covariance inverse + JIT
+        # kernels + interpolation grid).
+        self._precompute_covariance()
+        self._prepare_distance_grid()
+        if self.verbose:
+            logger.info(f"Synthetic SN likelihood from arrays: {n} objects")
+        return self
+
     def _load_data(self):
         """Load real PantheonPlus data from configured data_path."""
         self._load_real_data()
