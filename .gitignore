@@ -12,10 +12,6 @@
 !tutorials/**
 !README.md
 !.gitignore
-!.github/
-!.github/**
-!tests/
-!tests/**
 !pyproject.toml
 !requirements.txt
 
