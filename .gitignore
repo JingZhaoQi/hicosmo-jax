@@ -14,13 +14,6 @@
 !.gitignore
 !.github/
 !.github/**
-!.claude/
-!.claude/**
-!CLAUDE.md
-!docs_zh/
-!docs_zh/**
-!docs_en/
-!docs_en/**
 !tests/
 !tests/**
 !pyproject.toml
