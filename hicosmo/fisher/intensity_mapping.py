@@ -264,7 +264,8 @@ class IntensityMappingSurvey:
                 elif telescope_type == "cylinder_array":
                     # Map cylinder parameters to equivalent single-dish parameters
                     # ncylinders → ndish
-                    # cylinder_length_m → dish_diameter_m (effective aperture)
+                    # cylinder_width_m → dish_diameter_m (beam set by cylinder width,
+                    #   not length; Bull et al. 2015 Table 1 uses D = W_cyl)
                     # nfeeds → total feeds (distribute to nbeam)
                     ncylinders = inst.get("ncylinders", 1)
                     nfeeds_total = inst.get("nfeeds", 1)
@@ -272,7 +273,7 @@ class IntensityMappingSurvey:
                         {
                             "ndish": ncylinders,
                             "dish_diameter_m": inst.get(
-                                "cylinder_length_m", inst.get("cylinder_width_m", 1.0)
+                                "cylinder_width_m", inst.get("cylinder_length_m", 1.0)
                             ),
                             "nbeam": (
                                 nfeeds_total // ncylinders if ncylinders > 0 else 1

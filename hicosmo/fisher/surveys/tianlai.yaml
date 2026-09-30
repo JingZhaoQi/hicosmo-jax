@@ -1,34 +1,35 @@
-# Tianlai Survey Configuration
-# Reference: Bull et al. (2016)
+# Tianlai Full-Scale Survey Configuration
+# Reference: Xu, Wang & Chen (2015) ApJ 798, 40; Bull et al. (2015) ApJ 803, 21
 #
 # This file contains ONLY hardware specifications and observing strategy.
 # Cosmological model parameters should be specified in analysis scripts.
 
 name: Tianlai
 description: |
-  Tianlai (天籁) cylinder array intensity mapping pathfinder covering 0.8 < z < 1.6.
-  Three-cylinder interferometer with north-south drift scan.
+  Tianlai (天籁) Full-Scale cylinder array for 21cm intensity mapping
+  covering 0.5 < z < 1.6. Eight-cylinder interferometer with north-south
+  drift scan. Configuration follows Xu, Wang & Chen (2015) and Bull et al. (2015).
 
 # Hardware configuration
 instrument:
   telescope_type: cylinder_array
-  ncylinders: 3  # Three cylindrical reflectors
-  cylinder_length_m: 40.0
+  ncylinders: 8
+  cylinder_length_m: 120.0
   cylinder_width_m: 15.0
-  nfeeds: 96  # Feeds per cylinder (estimated)
+  nfeeds: 2048  # 256 feeds per cylinder × 8 cylinders
 
 # Observing strategy
 observing:
-  survey_area_deg2: 14427.0  # ~35% sky fraction
-  total_time_hours: 8760.0  # 1 year = 8760 hours
-  frequency_range_MHz: [700, 800]  # 21cm at z=0.78-1.03
+  survey_area_deg2: 10000.0  # From Xu et al. (2015)
+  total_time_hours: 8760.0   # 1 year
+  frequency_range_MHz: [550, 950]  # z=0.49-1.58
   channel_width_MHz: 0.50
   channel_width_hz: 500000.0
-  redshift_range: [0.8, 1.6]
+  redshift_range: [0.5, 1.6]
 
 # Noise parameters
 noise:
-  system_temperature_K: 60.0  # Typical for pathfinder
+  system_temperature_K: 50.0
   sky_temperature:
     model: power_law
     T_ref_K: 25.0
@@ -46,21 +47,25 @@ hi_tracers:
 
 # Redshift binning strategy
 redshift_bins:
-  default_delta_z: 0.3
+  default_delta_z: 0.15
   centers:
-    - 0.90
-    - 1.20
-    - 1.50
+    - 0.55
+    - 0.70
+    - 0.85
+    - 1.00
+    - 1.15
+    - 1.30
+    - 1.45
 
 # Metadata
 metadata:
-  reference: "Li et al. (2020) Sci. China Phys. Mech. Astron. 63, 129862; Bull et al. (2016)"
+  reference: "Xu, Wang & Chen (2015) ApJ 798, 40; Bull et al. (2015) ApJ 803, 21"
   notes: |
-    Three 40m×15m cylinder reflectors oriented in north-south direction.
-    96 dual-polarization receiver units total (31, 32, 33 per cylinder).
-    Pathfinder array for 21cm intensity mapping via drift scanning.
-    Configuration verified against official Science China 2020 publication.
+    Full-Scale Tianlai design: 8 cylinders, each 120m × 15m.
+    256 dual-polarization feeds per cylinder = 2048 total.
+    Beam set by cylinder width (15m), following Bull et al. (2015) Table 2.
+    Pathfinder (3 cyl × 40m × 15m, 96 feeds) is a separate, smaller array.
   telescope_location: "Hongliuxia, Xinjiang, China"
   date_created: "2025-10-28"
-  date_verified: "2025-10-28"
+  date_updated: "2026-06-18"
   schema_version: "2.0"
