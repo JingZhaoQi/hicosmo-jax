@@ -11,6 +11,7 @@ from jax import jit
 
 from ..base import Likelihood, NuisanceList
 from ...utils.constants import c_km_s
+from ...utils.jax_tools import camb_calibration_ratio
 from ...utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -99,23 +100,8 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
 
     @staticmethod
     def _camb_ratio(coef, omega_b_h2, omega_m_h2):
-        """Evaluate the quadratic CAMB-calibration ratio (JAX-traceable).
-
-        Inputs are clamped to the calibration-grid range so the quadratic
-        is never extrapolated; outside the grid the boundary value is used.
-        """
-        omega_b_h2 = jnp.clip(omega_b_h2, 0.018, 0.028)
-        omega_m_h2 = jnp.clip(omega_m_h2, 0.10, 0.22)
-        x = (omega_b_h2 - 0.02237) / 0.01
-        y = (omega_m_h2 - 0.1430) / 0.1
-        return (
-            coef[0]
-            + coef[1] * x
-            + coef[2] * y
-            + coef[3] * x * x
-            + coef[4] * x * y
-            + coef[5] * y * y
-        )
+        """Quadratic CAMB-calibration ratio (JAX-traceable, clamped to the grid)."""
+        return camb_calibration_ratio(coef, omega_b_h2, omega_m_h2)
 
     def __init__(
         self,
@@ -321,7 +307,7 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
         camb_ratio = self._camb_ratio
 
         @jit
-        def _loglike_impl(params: Dict[str, jnp.ndarray]) -> jnp.ndarray:
+        def _model_vector(params: Dict[str, jnp.ndarray]) -> jnp.ndarray:
             H0 = params["H0"]
             Omega_m = params["Omega_m"]
             Omega_b = params["Omega_b"]
@@ -349,9 +335,13 @@ class Planck2018DistancePriorsLikelihood(Likelihood):
             shift_R = jnp.sqrt(Omega_m) * (H0 / c_km_s) * D_A * (1.0 + z_star)
             l_a = jnp.pi * D_A * (1.0 + z_star) / r_s
 
-            model_vec = jnp.stack([shift_R, l_a, omega_b_h2])
-            diff = model_vec - obs_vec
+            return jnp.stack([shift_R, l_a, omega_b_h2])
+
+        @jit
+        def _loglike_impl(params: Dict[str, jnp.ndarray]) -> jnp.ndarray:
+            diff = _model_vector(params) - obs_vec
             chi2 = diff @ (inv_cov @ diff)
             return -0.5 * chi2
 
+        self._model_vector_fast = _model_vector
         self._loglike_fast = _loglike_impl

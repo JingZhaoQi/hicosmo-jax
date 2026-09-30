@@ -315,6 +315,13 @@ class H0LiCOWLens:
         raise ValueError(f"Unsupported lens kind '{kind}'.")
 
 
+# The six H0LiCOW XIII lenses (Wong et al. 2020). DES0408 (STRIDES) is
+# available but must be requested explicitly through lens_names.
+H0LICOW_LENSES = frozenset(
+    {"B1608", "RXJ1131", "HE0435", "J1206", "WFI2033", "PG1115"}
+)
+
+
 class H0LiCOWLikelihood:
     """
     H0LiCOW strong-lensing time-delay likelihood.
@@ -329,7 +336,8 @@ class H0LiCOWLikelihood:
     data_path : str or Path, optional
         Path to H0LiCOW data directory. If None, uses default package location.
     lens_names : list of str, optional
-        Subset of lenses to use. If None, uses all available lenses.
+        Subset of lenses to use. If None, uses the six H0LiCOW XIII lenses
+        (Wong et al. 2020); add "DES0408" explicitly to include STRIDES.
     cosmology_class : type, optional
         Cosmology model class (default: LCDM).
 
@@ -386,11 +394,8 @@ class H0LiCOWLikelihood:
             )
 
         configs = self._get_default_lens_configs()
-        selected = [
-            cfg
-            for cfg in configs
-            if self.lens_names is None or cfg.name in self.lens_names
-        ]
+        wanted = self.lens_names if self.lens_names is not None else H0LICOW_LENSES
+        selected = [cfg for cfg in configs if cfg.name in wanted]
 
         if not selected:
             available = ", ".join(cfg.name for cfg in configs)
@@ -418,12 +423,19 @@ class H0LiCOWLikelihood:
 
         def compute_distances(params: Dict[str, float]):
             cosmo = cosmology_class.compute_grid_traced(z_grid, params)
-            d_c_grid = cosmo["d_C"]
-            d_c_l = jnp.interp(z_l, z_grid, d_c_grid)
-            d_c_s = jnp.interp(z_s, z_grid, d_c_grid)
-            dd = d_c_l / (1.0 + z_l)
-            ds = d_c_s / (1.0 + z_s)
-            dds = (d_c_s - d_c_l) / (1.0 + z_s)
+            d_m_grid = cosmo["D_M"]
+            d_m_l = jnp.interp(z_l, z_grid, d_m_grid)
+            d_m_s = jnp.interp(z_s, z_grid, d_m_grid)
+            # Lens-source transverse distance, valid for any curvature;
+            # reduces to D_M(z_s) - D_M(z_l) for Omega_k = 0
+            omega_k = params.get("Omega_k", 0.0)
+            d_hubble0 = cosmo["D_H"][0]
+            d_m_ls = d_m_s * jnp.sqrt(
+                1.0 + omega_k * (d_m_l / d_hubble0) ** 2
+            ) - d_m_l * jnp.sqrt(1.0 + omega_k * (d_m_s / d_hubble0) ** 2)
+            dd = d_m_l / (1.0 + z_l)
+            ds = d_m_s / (1.0 + z_s)
+            dds = d_m_ls / (1.0 + z_s)
             ddt = (1.0 + z_l) * dd * ds / dds
             return dd, ddt
 

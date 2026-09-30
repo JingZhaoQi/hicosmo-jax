@@ -129,104 +129,74 @@ def _build_dataset(
     )
 
 
-class SDSSDR12BAO(BAOLikelihood):
-    """
-    SDSS DR12 consensus BAO measurements.
-
-    Reference: Alam et al. 2017, MNRAS 470, 2617
-    https://arxiv.org/abs/1607.03155
-    """
-
-    def _default_dataset_name(self) -> str:
-        return "sdss_dr12_consensus"
-
-    def _load_dataset(self) -> BAODataset:
-        """Load SDSS DR12 consensus BAO data from official files."""
-        base_path = Path(self.data_path) / "sdss_dr12"
-        data_file = base_path / "sdss_DR12Consensus_bao.dat"
-        cov_file = base_path / "BAO_consensus_covtot_dM_Hz.txt"
-
-        if not data_file.exists():
-            # Fallback to simplified in-repo dataset (z, DV/rd, error)
-            alt_data = base_path / "consensus_data.txt"
-            alt_cov = base_path / "covariance.txt"
-            if not alt_data.exists():
-                raise FileNotFoundError(f"SDSS DR12 data file not found: {data_file}")
-            raw = np.loadtxt(alt_data)
-            entries = [
-                (float(z), float(val), float(err), "DV_over_rd") for z, val, err in raw
-            ]
-            covariance = np.loadtxt(alt_cov) if alt_cov.exists() else None
-        else:
-            entries = _read_data_file(data_file)
-            covariance = np.loadtxt(cov_file)
-
-        return _build_dataset(
-            name="SDSS DR12 Consensus BAO",
-            entries=entries,
-            covariance=covariance,
-            reference="Alam et al. 2017, MNRAS 470, 2617",
-            year=2017,
-        )
-
-
-class SDSSDR16BAO(BAOLikelihood):
-    """
-    SDSS DR16 BAO measurements from eBOSS.
-
-    Reference: eBOSS Collaboration 2020
-    """
-
-    def _default_dataset_name(self) -> str:
-        return "sdss_dr16_bao"
-
-    def _load_dataset(self) -> BAODataset:
-        """Load SDSS DR16 BAO data."""
-        base_path = Path(self.data_path) / "sdss_dr16"
-        data_file = base_path / "eboss_bao_data.txt"
-
-        entries = _read_data_file(data_file)
-
-        return _build_dataset(
-            name="SDSS DR16 eBOSS BAO",
-            entries=entries,
-            covariance=None,
-            reference="eBOSS Collaboration 2020",
-            year=2020,
-        )
-
-
-class BOSSDR12BAO(BAOLikelihood):
-    """
-    BOSS DR12 BAO measurements with anisotropic clustering.
-
-    Reference: Alam et al. 2017
-    """
-
-    def _default_dataset_name(self) -> str:
-        return "boss_dr12"
-
-    def _load_dataset(self) -> BAODataset:
-        """Load BOSS DR12 BAO data with DM and DH separately."""
-        base_path = Path(self.data_path) / "boss_dr12"
-        data_file = base_path / "sdss_DR12_LRG_BAO_DMDH.dat"
-        cov_file = base_path / "sdss_DR12_LRG_BAO_DMDH_covtot.txt"
-
-        entries = _read_data_file(data_file)
-        covariance = np.loadtxt(cov_file)
-
-        return _build_dataset(
-            name="BOSS DR12 Anisotropic BAO",
-            entries=entries,
-            covariance=covariance,
-            reference="Alam et al. 2017, MNRAS 470, 2617",
-            year=2017,
-        )
-
-
 import jax.numpy as jnp
+from jax.scipy.ndimage import map_coordinates
 from ...models import LCDM
 from ...models.base import compute_background_grid_for_model
+
+
+def _rescale_dataset(
+    entries: Sequence[Tuple[float, float, Optional[float], str]],
+    covariance: np.ndarray,
+    scale: Dict[str, float],
+) -> Tuple[List[Tuple[float, float, Optional[float], str]], np.ndarray]:
+    """Multiply each measurement by scale[observable] and propagate to the covariance."""
+    s = np.array([scale.get(obs, 1.0) for _, _, _, obs in entries])
+    new_entries = [
+        (z, value * f, None if err is None else err * f, obs)
+        for (z, value, err, obs), f in zip(entries, s)
+    ]
+    return new_entries, covariance * np.outer(s, s)
+
+
+def _load_grid_term(
+    path: Path, z: float, observables: Tuple[str, ...], upsample: int = 4
+) -> Dict[str, Any]:
+    """Tabulated (non-Gaussian) BAO likelihood, as released by eBOSS DR16.
+
+    The file holds the probability on a regular grid of one or two BAO
+    observables. As in Cobaya, log(prob) is interpolated with a cubic spline;
+    the spline is evaluated here on an ``upsample``-times finer grid that is
+    then interpolated linearly inside JAX.
+    """
+    from scipy.interpolate import RectBivariateSpline, UnivariateSpline
+
+    data = np.loadtxt(path)
+    if data.shape[1] == 2:
+        x = data[:, 0]
+        spline = UnivariateSpline(x, np.log(data[:, 1]), s=0)
+        xf = np.linspace(x[0], x[-1], upsample * (len(x) - 1) + 1)
+        axes = (xf,)
+        logp = spline(xf)
+    else:
+        x, y = np.unique(data[:, 0]), np.unique(data[:, 1])
+        table = np.log(data[:, 2]).reshape(len(x), len(y))
+        spline = RectBivariateSpline(x, y, table, kx=3, ky=3)
+        xf = np.linspace(x[0], x[-1], upsample * (len(x) - 1) + 1)
+        yf = np.linspace(y[0], y[-1], upsample * (len(y) - 1) + 1)
+        axes = (xf, yf)
+        logp = spline(xf, yf)
+    return {
+        "z": float(z),
+        "observables": observables,
+        "origin": [float(a[0]) for a in axes],
+        "step": [float(a[1] - a[0]) for a in axes],
+        "logp": jnp.asarray(logp, dtype=jnp.float64),
+    }
+
+
+def _grid_terms_loglike(grid_terms, DM_grid, DH_grid, DV_grid, grid_z, rd_val):
+    """Sum of the tabulated log-likelihoods (grid_terms is a static list)."""
+    total = 0.0
+    distances = {"DM_over_rd": DM_grid, "DH_over_rd": DH_grid, "DV_over_rd": DV_grid}
+    for term in grid_terms:
+        z = jnp.asarray([term["z"]], dtype=grid_z.dtype)
+        coords = [
+            (interp_linspace(z, grid_z, distances[obs]) / rd_val - o) / d
+            for obs, o, d in zip(term["observables"], term["origin"], term["step"])
+        ]
+        total = total + map_coordinates(term["logp"], coords, order=1, mode="nearest")[0]
+    return total
 
 
 class DESI2024BAO(BAOLikelihood):
@@ -329,7 +299,9 @@ class DESI2024BAO(BAOLikelihood):
             obs: jnp.array([o == obs for o in self._observables], dtype=bool)
             for obs in set(self._observables)
         }
-        self._z_grid_max = float(self._z_obs.max()) + 0.5
+        self._grid_terms = self._load_grid_terms()
+        z_grid_terms = [t["z"] for t in self._grid_terms]
+        self._z_grid_max = max([float(self._z_obs.max()), *z_grid_terms]) + 0.5
         self._z_grid_min = 0.0
         grid_points = int(jnp.clip(self._z_grid_max / 5e-4, 4096, 16384))
         self._n_grid = grid_points
@@ -357,6 +329,7 @@ class DESI2024BAO(BAOLikelihood):
         inv_cov = self._inv_cov_jax
         cosmology_class = self._cosmology_class
         omega_b_mode = self.omega_b_mode
+        grid_terms = self._grid_terms
         # Planck 2018 best-fit ombh2, used when omega_b_mode='fixed'
         _OMBH2_FIXED = jnp.asarray(0.02237, dtype=self._dtype)
         # BBN prior constants (Cooke et al. 2018), captured for the closures
@@ -422,7 +395,10 @@ class DESI2024BAO(BAOLikelihood):
 
             diff = theory - data_vec
             chi2 = diff @ (inv_cov @ diff)
-            return _maybe_add_bbn_prior(-0.5 * chi2, params)
+            loglike = -0.5 * chi2 + _grid_terms_loglike(
+                grid_terms, DM_grid, DH_grid, DV_grid, z_grid, rd_val
+            )
+            return _maybe_add_bbn_prior(loglike, params)
 
         self._loglike_fast = _loglike_impl
 
@@ -467,9 +443,16 @@ class DESI2024BAO(BAOLikelihood):
 
             diff = theory - data_vec
             chi2 = diff @ (inv_cov @ diff)
-            return _maybe_add_bbn_prior(-0.5 * chi2, params)
+            loglike = -0.5 * chi2 + _grid_terms_loglike(
+                grid_terms, DM_grid, DH_grid, DV_grid, grid_z, rd_val
+            )
+            return _maybe_add_bbn_prior(loglike, params)
 
         self._loglike_from_grid = _loglike_from_grid_impl
+
+    def _load_grid_terms(self) -> List[Dict[str, Any]]:
+        """Tabulated non-Gaussian components; none for the DESI releases."""
+        return []
 
     @staticmethod
     def _observable_code(observable: str) -> int:
@@ -660,6 +643,11 @@ class DESI2024BAO(BAOLikelihood):
 
     def log_likelihood(self, cosmology, **kwargs) -> float:
         """Log-likelihood with optional BBN prior on Omega_b h^2."""
+        if self._grid_terms:
+            # Tabulated terms are evaluated only in the JIT path (which already
+            # includes the BBN prior)
+            params = self._prepare_params_dict(self._extract_cosmo_params(cosmology))
+            return self._loglike_fast(params)
         loglike = super().log_likelihood(cosmology, **kwargs)
         if self.omega_b_mode == "bbn_prior":
             H0 = jnp.asarray(cosmology.params["H0"], dtype=self._dtype)
@@ -801,28 +789,136 @@ class DESIDR2BAO(DESI2024BAO):
         return dataset
 
 
-class SixDFBAO(BAOLikelihood):
+class SDSSDR12BAO(DESI2024BAO):
     """
-    6dF Galaxy Survey BAO measurement.
+    BOSS DR12 consensus BAO (Alam et al. 2017), three bins z = 0.38, 0.51, 0.61.
 
-    Low-redshift anchor for BAO scale.
-    Reference: Beutler et al. 2011, MNRAS 416, 3017
+    The release quotes D_M r_d,fid / r_d [Mpc] and H r_d / r_d,fid [km/s/Mpc]
+    with r_d,fid = 147.78 Mpc; they are converted on load to D_M/r_d and
+    H r_d [km/s], with the covariance transformed accordingly. Shares the
+    r_d / omega_b treatment of DESI2024BAO. Overlaps with ``boss_dr12`` and
+    ``sdss_dr16`` (same galaxies), see CombinedLikelihood.
     """
+
+    RD_FID = 147.78  # Mpc
+
+    def _default_dataset_name(self) -> str:
+        return "sdss_dr12_consensus"
+
+    def _load_dataset(self) -> BAODataset:
+        base_path = Path(self.data_path) / "sdss_dr12"
+        entries = _read_data_file(base_path / "sdss_DR12Consensus_bao.dat")
+        covariance = np.loadtxt(base_path / "BAO_consensus_covtot_dM_Hz.txt")
+        entries, covariance = _rescale_dataset(
+            entries, covariance, {"DM_over_rd": 1.0 / self.RD_FID, "Hz_rs": self.RD_FID}
+        )
+        return _build_dataset(
+            name="BOSS DR12 consensus BAO",
+            entries=entries,
+            covariance=covariance,
+            reference="Alam et al. 2017, MNRAS 470, 2617",
+            year=2017,
+        )
+
+
+class BOSSDR12BAO(DESI2024BAO):
+    """
+    BOSS DR12 BAO at z = 0.38, 0.51 (D_M/r_d, D_H/r_d), as re-released with
+    eBOSS DR16 (Alam et al. 2021) for combination with the DR16 samples.
+    """
+
+    def _default_dataset_name(self) -> str:
+        return "boss_dr12"
+
+    def _load_dataset(self) -> BAODataset:
+        base_path = Path(self.data_path) / "boss_dr12"
+        entries = _read_data_file(base_path / "sdss_DR12_LRG_BAO_DMDH.dat")
+        covariance = np.loadtxt(base_path / "sdss_DR12_LRG_BAO_DMDH_covtot.txt")
+        return _build_dataset(
+            name="BOSS DR12 BAO (z=0.38, 0.51)",
+            entries=entries,
+            covariance=covariance,
+            reference="Alam et al. 2017; Alam et al. 2021",
+            year=2021,
+        )
+
+
+class SDSSDR16BAO(DESI2024BAO):
+    """
+    eBOSS DR16 BAO-only measurements (Alam et al. 2021):
+
+    * LRG, z = 0.698: D_M/r_d, D_H/r_d (Gaussian, full covariance)
+    * QSO, z = 1.48:  D_M/r_d, D_H/r_d (Gaussian, full covariance)
+    * ELG, z = 0.845: D_V/r_d (tabulated likelihood)
+    * Lya auto and Lya x QSO, z = 2.334: D_M/r_d, D_H/r_d (tabulated likelihoods)
+
+    Designed to be combined with ``boss_dr12`` (z = 0.38, 0.51), as in the
+    eBOSS DR16 cosmology analysis.
+    """
+
+    def _default_dataset_name(self) -> str:
+        return "sdss_dr16_bao"
+
+    def _load_dataset(self) -> BAODataset:
+        base_path = Path(self.data_path) / "sdss_dr16"
+        lrg = _read_data_file(base_path / "sdss_DR16_LRG_BAO_DMDH.dat")
+        qso = _read_data_file(base_path / "sdss_DR16_QSO_BAO_DMDH.txt")
+        cov_lrg = np.loadtxt(base_path / "sdss_DR16_LRG_BAO_DMDH_covtot.txt")
+        cov_qso = np.loadtxt(base_path / "sdss_DR16_QSO_BAO_DMDH_covtot.txt")
+        covariance = np.zeros((4, 4))
+        covariance[:2, :2] = cov_lrg
+        covariance[2:, 2:] = cov_qso
+        return _build_dataset(
+            name="eBOSS DR16 BAO",
+            entries=[*lrg, *qso],
+            covariance=covariance,
+            reference="Alam et al. 2021, PRD 103, 083533",
+            year=2021,
+        )
+
+    def _load_grid_terms(self) -> List[Dict[str, Any]]:
+        base_path = Path(self.data_path) / "sdss_dr16"
+        return [
+            _load_grid_term(
+                base_path / "sdss_DR16_ELG_BAO_DVtable.txt", 0.845, ("DV_over_rd",)
+            ),
+            _load_grid_term(
+                base_path / "sdss_DR16_LYAUTO_BAO_DMDHgrid.txt",
+                2.334,
+                ("DM_over_rd", "DH_over_rd"),
+            ),
+            _load_grid_term(
+                base_path / "sdss_DR16_LYxQSO_BAO_DMDHgrid.txt",
+                2.334,
+                ("DM_over_rd", "DH_over_rd"),
+            ),
+        ]
+
+
+class SixDFBAO(DESI2024BAO):
+    """
+    6dF Galaxy Survey BAO, r_s/D_V(z=0.106) = 0.336 +/- 0.015 (Beutler et al. 2011).
+
+    The measurement uses the Eisenstein-Hu r_s convention; as in Cobaya it is
+    mapped to the CAMB-like r_d with r_s/r_d = 153.9/149.8, applied here to
+    the data so that the theory is r_d/D_V.
+    """
+
+    RS_RESCALE = 153.9 / 149.8
 
     def _default_dataset_name(self) -> str:
         return "sixdf_2011"
 
     def _load_dataset(self) -> BAODataset:
-        """Load 6dFGS BAO data."""
-        base_path = Path(self.data_path) / "sixdf"
-        data_file = base_path / "sixdf_bao_data.txt"
-
-        entries = _read_data_file(data_file)
-
+        entries = _read_data_file(Path(self.data_path) / "sixdf" / "sixdf_bao_data.txt")
+        errors = np.array([e[2] for e in entries])
+        entries, covariance = _rescale_dataset(
+            entries, np.diag(errors**2), {"rs_over_DV": 1.0 / self.RS_RESCALE}
+        )
         return _build_dataset(
             name="6dF Galaxy Survey",
             entries=entries,
-            covariance=None,
+            covariance=covariance,
             reference="Beutler et al. 2011, MNRAS 416, 3017",
             year=2011,
         )

@@ -355,6 +355,7 @@ class NumPyroSampler(SamplerBackend):
 
         # Extract results
         samples = mcmc.get_samples()
+        self._grouped_samples = mcmc.get_samples(group_by_chain=True)
 
         # Compute diagnostics
         diagnostics = self.get_diagnostics()
@@ -480,6 +481,9 @@ class NumPyroSampler(SamplerBackend):
         self.mcmc = mcmc
 
         samples_accum: Dict[str, np.ndarray] = {}
+        # (chain, draw) arrays for multi-chain R-hat/ESS; samples resumed from a
+        # checkpoint are already flattened and are therefore not included
+        self._grouped_samples = {}
         total_collected = 0
         if initial_samples:
             for name, values in initial_samples.items():
@@ -512,6 +516,12 @@ class NumPyroSampler(SamplerBackend):
             chunk_elapsed = max(time.time() - chunk_start, 1e-6)
 
             new_samples = mcmc.get_samples()
+            for name, values in mcmc.get_samples(group_by_chain=True).items():
+                values_np = np.array(values)
+                prev = self._grouped_samples.get(name)
+                self._grouped_samples[name] = (
+                    values_np if prev is None else np.concatenate([prev, values_np], axis=1)
+                )
             for name, values in new_samples.items():
                 values_np = np.array(values)
                 if name not in samples_accum:
@@ -570,7 +580,7 @@ class NumPyroSampler(SamplerBackend):
 
         elapsed_time = time.time() - start_time
         samples = {k: jnp.array(v) for k, v in samples_accum.items()}
-        diagnostics = self._diagnostics_from_samples(samples)
+        diagnostics = self.get_diagnostics()
 
         results = SamplerResults(
             samples=samples,
@@ -591,21 +601,6 @@ class NumPyroSampler(SamplerBackend):
         self.mcmc = mcmc
 
         return results
-
-    def _diagnostics_from_samples(self, samples: Dict[str, Any]) -> Dict[str, Any]:
-        """Compute diagnostics from aggregated samples using NumPyro's summary."""
-        try:
-            from numpyro.diagnostics import summary
-
-            # summary returns: mean, std, median, 5%, 95%, n_eff, r_hat
-            stats = summary(samples, prob=0.9, group_by_chain=False)
-            return {
-                "rhat": {k: float(v["r_hat"]) for k, v in stats.items()},
-                "ess": {k: float(v["n_eff"]) for k, v in stats.items()},
-                "summary": stats,  # Full summary for advanced users
-            }
-        except Exception:
-            return {}
 
     def get_diagnostics(self) -> Dict[str, Any]:
         """
@@ -631,9 +626,11 @@ class NumPyroSampler(SamplerBackend):
         try:
             from numpyro.diagnostics import summary
 
-            samples = self.mcmc.get_samples()
-            # summary computes: mean, std, median, HPDI, n_eff (ESS), r_hat (split R-hat)
-            stats = summary(samples, prob=0.9, group_by_chain=False)
+            samples = getattr(self, "_grouped_samples", None) or self.mcmc.get_samples(
+                group_by_chain=True
+            )
+            # summary on (chain, draw) arrays: n_eff and split R-hat across chains
+            stats = summary(samples, prob=0.9, group_by_chain=True)
             diagnostics["rhat"] = {k: float(v["r_hat"]) for k, v in stats.items()}
             diagnostics["ess"] = {k: float(v["n_eff"]) for k, v in stats.items()}
             diagnostics["summary"] = stats  # Full summary for advanced access

@@ -557,23 +557,49 @@ def solve_ivp_rk4(
 # -----------------------------------------------------------------------------
 
 
+def camb_calibration_ratio(coef, omega_b_h2: Array, omega_m_h2: Array) -> Array:
+    """Polynomial CAMB/fitting-formula ratio in (omega_b h^2, omega_m h^2).
+
+    ratio = c0 + c1*x + c2*y + c3*x^2 + c4*x*y + c5*y^2
+            [+ c6*x^3 + c7*x^2*y + c8*x*y^2 + c9*y^3]  (quadratic: 6 coefficients,
+    cubic: 10), with x = (omega_b h^2 - 0.02237)/0.01 and
+    y = (omega_m h^2 - 0.1430)/0.1.
+    Inputs are clamped to the fitted grid (omega_b h^2 in [0.018, 0.028],
+    omega_m h^2 in [0.10, 0.22]); outside it the boundary value is used.
+    """
+    omega_b_h2 = jnp.clip(omega_b_h2, 0.018, 0.028)
+    omega_m_h2 = jnp.clip(omega_m_h2, 0.10, 0.22)
+    x = (omega_b_h2 - 0.02237) / 0.01
+    y = (omega_m_h2 - 0.1430) / 0.1
+    terms = (1.0, x, y, x * x, x * y, y * y, x**3, x * x * y, x * y * y, y**3)
+    return sum(c * t for c, t in zip(coef, terms[: len(coef)]))
+
+
+# CAMB/EH98 ratio of r_d (cubic), fitted on a 9x11 CAMB grid (massless
+# neutrinos, N_eff = 3.046; max residual 5e-6) by
+# scripts/calibration/calibrate_rd.py in the paper repository
+RD_CAMB_CAL_COEF = (
+    9.73616009e-01,
+    1.26533880e-03,
+    3.62461328e-03,
+    -5.30632497e-04,
+    5.61990109e-05,
+    -4.97442250e-03,
+    1.79646530e-04,
+    -2.06659656e-05,
+    1.57531004e-04,
+    1.26086157e-03,
+)
+
+
 @jax.jit
-def sound_horizon_drag_eh98(
+def sound_horizon_drag_eh98_raw(
     H0: Array,
     Omega_m: Array,
     Omega_b: Array,
     T_cmb: Array,
 ) -> Array:
-    """Sound horizon at drag epoch (Eisenstein & Hu 1998, CAMB-calibrated).
-
-    The original EH98 formula has ~2.7% systematic error compared to CAMB.
-    A constant calibration factor of 0.9736 is applied to match CAMB results.
-    This factor is derived from comparison across multiple cosmologies and
-    is stable to within 0.02% (see DESI 2024 VI, arXiv:2404.03002).
-    """
-    # CAMB calibration factor: CAMB_rd / EH98_rd = 0.9736 (stable across cosmologies)
-    CAMB_CALIBRATION = 0.9736
-
+    """Sound horizon at the drag epoch from the Eisenstein & Hu (1998) formulae."""
     h = H0 / 100.0
     Omega_m_h2 = Omega_m * h**2
     Omega_b_h2 = Omega_b * h**2
@@ -598,7 +624,27 @@ def sound_horizon_drag_eh98(
     log_arg = (jnp.sqrt(1.0 + R_d) + jnp.sqrt(R_d + R_eq)) / (1.0 + jnp.sqrt(R_eq))
     rd_eh98 = (2.0 / (3.0 * k_eq)) * sqrt_term * jnp.log(log_arg)
 
-    return rd_eh98 * CAMB_CALIBRATION
+    return rd_eh98
+
+
+@jax.jit
+def sound_horizon_drag_eh98(
+    H0: Array,
+    Omega_m: Array,
+    Omega_b: Array,
+    T_cmb: Array,
+) -> Array:
+    """Sound horizon at the drag epoch, EH98 calibrated against CAMB.
+
+    The raw EH98 value is multiplied by the CAMB/EH98 ratio fitted in
+    (omega_b h^2, omega_m h^2) (RD_CAMB_CAL_COEF); the ratio depends on the
+    physical densities only.
+    """
+    h = H0 / 100.0
+    ratio = camb_calibration_ratio(
+        RD_CAMB_CAL_COEF, Omega_b * h**2, Omega_m * h**2
+    )
+    return sound_horizon_drag_eh98_raw(H0, Omega_m, Omega_b, T_cmb) * ratio
 
 
 @jax.jit
