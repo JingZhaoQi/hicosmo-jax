@@ -227,8 +227,13 @@ class DESY5Likelihood(Likelihood):
         i_lower = np.tril_indices(n, -1)
         inv_cov_full[i_lower] = inv_cov_full.T[i_lower]
 
-        # Apply selection mask
-        inv_cov_selected = inv_cov_full[self.ww][:, self.ww]
+        # A sub-block of C^{-1} is not the inverse of the corresponding block
+        # of C, so a redshift cut must be applied to the covariance itself
+        if np.all(self.ww):
+            inv_cov_selected = inv_cov_full
+        else:
+            cov_full = np.linalg.inv(inv_cov_full)
+            inv_cov_selected = np.linalg.inv(cov_full[self.ww][:, self.ww])
 
         # Store as JAX array
         self.cov_inv = jnp.array(inv_cov_selected)

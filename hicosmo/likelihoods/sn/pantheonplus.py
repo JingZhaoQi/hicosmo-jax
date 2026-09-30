@@ -284,8 +284,10 @@ class PantheonPlusLikelihood(Likelihood):
             # SH0ES mode: z_HD > 0.01 OR is_calibrator
             self.ww = (z_hd_raw > 0.01) | is_calibrator_raw
         else:
-            # Pantheon+ mode: z_HD > 0.01 AND NOT is_calibrator
-            self.ww = (z_hd_raw > 0.01) & (~is_calibrator_raw)
+            # Pantheon+ mode: z_HD > 0.01 (1590 SNe, as in the official
+            # release and Cobaya sn.pantheonplus); calibrators above the cut
+            # stay in as ordinary Hubble-flow SNe
+            self.ww = z_hd_raw > 0.01
 
         # Apply additional redshift cuts if requested
         if self.apply_z_cut and (self.z_min != 0.01 or self.z_max is not None):

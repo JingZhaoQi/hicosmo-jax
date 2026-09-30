@@ -23,6 +23,13 @@ import jax.numpy as jnp
 
 logger = logging.getLogger(__name__)
 
+# BOSS DR12 consensus (z=0.38, 0.51, 0.61) reuses the galaxies of the BOSS DR12
+# z=0.38, 0.51 bins and of the eBOSS DR16 LRG sample (which absorbs z=0.61)
+_OVERLAPPING_BAO = (
+    {"sdss_dr12_consensus", "boss_dr12"},
+    {"sdss_dr12_consensus", "sdss_dr16_bao"},
+)
+
 
 class CombinedLikelihood(Likelihood):
     """
@@ -42,6 +49,31 @@ class CombinedLikelihood(Likelihood):
                 self._likelihoods.extend(lik._likelihoods)
             else:
                 self._likelihoods.append(lik)
+
+        # BAO 'fixed' pins ombh2 for r_d while a CMB likelihood (identified by
+        # _z_base, as in _setup_shared_grid) reads the sampled Omega_b: the joint
+        # model would then carry two different baryon densities.
+        fixed_bao = any(
+            getattr(lik, "omega_b_mode", None) == "fixed" for lik in self._likelihoods
+        )
+        has_cmb = any(
+            getattr(lik, "_z_base", None) is not None for lik in self._likelihoods
+        )
+        if fixed_bao and has_cmb:
+            raise ValueError(
+                "BAO omega_b_mode='fixed' cannot be combined with a CMB likelihood "
+                "that samples Omega_b; use omega_b_mode='free' so r_d follows the "
+                "sampled Omega_b."
+            )
+
+        # BAO releases built from the same galaxies must not be added together
+        names = {getattr(lik, "dataset_name", None) for lik in self._likelihoods}
+        for pair in _OVERLAPPING_BAO:
+            if pair <= names:
+                raise ValueError(
+                    f"BAO datasets {sorted(pair)} share galaxies and would be "
+                    "double-counted; use sdss_dr12 alone, or boss_dr12 + sdss_dr16."
+                )
 
         # Attempt to set up shared distance grid
         self._shared_grid_enabled = False

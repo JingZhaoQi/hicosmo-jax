@@ -504,12 +504,13 @@ def _prepare_getdist_samples(
     if isinstance(data, MCSamples):
         merged_ranges = _merge_range_dicts(_coerce_ranges_arg(ranges), param_ranges)
         param_names = [param.name for param in data.getParamNames().names]
-        resolved = _resolve_ranges(
-            param_names, data.samples, explicit_ranges=merged_ranges
-        )
-        if resolved:
+        # Keep the ranges the MCSamples already carries (e.g. prior bounds of a
+        # Cobaya chain); replacing them by the sample extent removes the hard
+        # prior edges and biases the 1D KDE near them
+        explicit = _filter_ranges_for_params(param_names, merged_ranges)
+        if explicit:
             copied = data.copy()
-            copied.setRanges(resolved)
+            copied.setRanges(explicit)
             return copied
         return data
 

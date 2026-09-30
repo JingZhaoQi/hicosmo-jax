@@ -331,7 +331,7 @@ def show_available_datasets(category=None):
         • desi_2024        : DESI 2024 DR1 BAO measurements (z=0.3-2.3)
         • boss_dr12        : BOSS DR12 Luminous Red Galaxy BAO
         • sdss_dr12        : SDSS DR12 consensus BAO
-        • sdss_dr16        : SDSS DR16 LRG and QSO BAO
+        • sdss_dr16        : eBOSS DR16 BAO (LRG, ELG, QSO, Lya)
         • sixdf            : 6dF Galaxy Survey BAO (z=0.1)
 
       SN (Type Ia Supernovae)
