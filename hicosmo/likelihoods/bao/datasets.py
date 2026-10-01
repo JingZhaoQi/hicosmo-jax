@@ -241,7 +241,7 @@ class DESI2024BAO(BAOLikelihood):
     >>> bao = BAO_likelihood(LCDM, "desi2024", omega_b_mode='fixed')
     """
 
-    # BBN constraint: Omega_b * h^2 = 0.02218 ± 0.00055 (Cooke et al. 2018)
+    # BBN constraint: Omega_b * h^2 = 0.02218 ± 0.00055 (Schoneberg 2024, as used by DESI 2024)
     BBN_OMEGA_B_H2 = 0.02218
     BBN_OMEGA_B_H2_ERR = 0.00055
 
@@ -332,7 +332,7 @@ class DESI2024BAO(BAOLikelihood):
         grid_terms = self._grid_terms
         # Planck 2018 best-fit ombh2, used when omega_b_mode='fixed'
         _OMBH2_FIXED = jnp.asarray(0.02237, dtype=self._dtype)
-        # BBN prior constants (Cooke et al. 2018), captured for the closures
+        # BBN prior constants (Schoneberg 2024, as used by DESI 2024), captured for the closures
         bbn_mean = jnp.asarray(self.BBN_OMEGA_B_H2, dtype=self._dtype)
         bbn_err = jnp.asarray(self.BBN_OMEGA_B_H2_ERR, dtype=self._dtype)
         bbn_log_norm = jnp.log(bbn_err * jnp.sqrt(2.0 * jnp.pi))
