@@ -1,71 +1,34 @@
-# Tianlai Full-Scale Survey Configuration
-# Reference: Xu, Wang & Chen (2015) ApJ 798, 40; Bull et al. (2015) ApJ 803, 21
-#
-# This file contains ONLY hardware specifications and observing strategy.
-# Cosmological model parameters should be specified in analysis scripts.
+# Tianlai full-scale cylinder array
+name: tianlai
+description: "Tianlai full-scale cylinder array"
 
-name: Tianlai
-description: |
-  Tianlai (天籁) Full-Scale cylinder array for 21cm intensity mapping
-  covering 0.5 < z < 1.6. Eight-cylinder interferometer with north-south
-  drift scan. Configuration follows Xu, Wang & Chen (2015) and Bull et al. (2015).
-
-# Hardware configuration
 instrument:
   telescope_type: cylinder_array
   ncylinders: 8
-  cylinder_length_m: 120.0
   cylinder_width_m: 15.0
-  nfeeds: 2048  # 256 feeds per cylinder × 8 cylinders
+  cylinder_length_m: 120.0
+  nfeeds: 2048
+  min_baseline_m: 15.0  # shorter baselines excluded, as in Bull et al. (2015)
+  nbeam: 1
+  aperture_efficiency: 0.7
+  receiver_temperature_K: 50.0
 
-# Observing strategy
 observing:
-  survey_area_deg2: 10000.0  # From Xu et al. (2015)
-  total_time_hours: 8760.0   # 1 year
-  frequency_range_MHz: [550, 950]  # z=0.49-1.58
-  channel_width_MHz: 0.50
-  channel_width_hz: 500000.0
-  redshift_range: [0.5, 1.6]
+  survey_area_deg2: 10000.0
+  total_time_hours: 8760.0
+  frequency_range_MHz: [550, 950]
+  channel_width_MHz: 0.5
+  npol: 2
 
-# Noise parameters
-noise:
-  system_temperature_K: 50.0
-  sky_temperature:
-    model: power_law
-    T_ref_K: 25.0
-    nu_ref_MHz: 408.0
-    beta: 2.75
-
-# HI tracer properties
 hi_tracers:
-  bias:
-    model: polynomial
-    coefficients: [0.67, 0.18, 0.05]
-  density:
-    model: polynomial
-    coefficients: [0.00048, 0.00039, -0.000065]
+  # Bull et al. (2015) fits (RadioFisher 'powerlaw' model)
+  bias_coefficients: [0.66650, 0.17764, 0.050219]
+  omega_hi_coefficients: [4.8304e-4, 3.8856e-4, -6.5119e-5]
 
-# Redshift binning strategy
 redshift_bins:
-  default_delta_z: 0.15
-  centers:
-    - 0.55
-    - 0.70
-    - 0.85
-    - 1.00
-    - 1.15
-    - 1.30
-    - 1.45
+  delta_z: 0.1
 
-# Metadata
 metadata:
-  reference: "Xu, Wang & Chen (2015) ApJ 798, 40; Bull et al. (2015) ApJ 803, 21"
-  notes: |
-    Full-Scale Tianlai design: 8 cylinders, each 120m × 15m.
-    256 dual-polarization feeds per cylinder = 2048 total.
-    Beam set by cylinder width (15m), following Bull et al. (2015) Table 2.
-    Pathfinder (3 cyl × 40m × 15m, 96 feeds) is a separate, smaller array.
-  telescope_location: "Hongliuxia, Xinjiang, China"
-  date_created: "2025-10-28"
-  date_updated: "2026-06-18"
-  schema_version: "2.0"
+  schema_version: "3.0"
+  reference: "Xu, Wang & Chen 2015; Bull et al. 2015 Table 2"
+  notes: "8 cylinders 15 m x 120 m, 256 feeds each"
