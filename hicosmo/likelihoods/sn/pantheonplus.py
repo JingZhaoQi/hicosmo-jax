@@ -19,6 +19,7 @@ from pathlib import Path
 from ...models.base import CosmologyBase, compute_background_grid_for_model
 from ..base import Likelihood, NuisanceList
 from ...utils.jax_tools import interp_linspace
+from .compression import DEFAULT_NODES, build_compression, compressed_chi2, node_moduli
 from ...utils.logging import get_logger
 from ...models import LCDM
 
@@ -89,6 +90,7 @@ class PantheonPlusLikelihood(Likelihood):
         marginalize_M_B: bool = True,
         cosmology_class: type = None,
         verbose: bool = False,
+        compression_nodes: Optional[int] = DEFAULT_NODES,
     ):
 
         # Resolve data path: use default if None, otherwise convert to Path
@@ -104,6 +106,8 @@ class PantheonPlusLikelihood(Likelihood):
         self.marginalize_M_B = marginalize_M_B
         self._cosmology_class = cosmology_class if cosmology_class is not None else LCDM
         self.verbose = verbose
+        # Nodes of the compressed marginalised chi^2 (see compression.py); None = direct
+        self.compression_nodes = compression_nodes
 
         # Load data
         self._load_data()
@@ -142,6 +146,7 @@ class PantheonPlusLikelihood(Likelihood):
         cosmology_class: type = None,
         marginalize_M_B: bool = True,
         verbose: bool = False,
+        compression_nodes: Optional[int] = DEFAULT_NODES,
     ) -> "PantheonPlusLikelihood":
         """Build an SN likelihood from in-memory arrays instead of data files.
 
@@ -167,6 +172,8 @@ class PantheonPlusLikelihood(Likelihood):
             Cosmology class providing ``compute_grid_traced`` (default LCDM).
         marginalize_M_B : bool, optional
             Marginalize the absolute magnitude analytically (default True).
+        compression_nodes : int or None, optional
+            Nodes of the compressed marginalised chi^2; None evaluates it directly.
         """
         self = cls.__new__(cls)
         z = jnp.asarray(z)
@@ -181,6 +188,7 @@ class PantheonPlusLikelihood(Likelihood):
         self.marginalize_M_B = marginalize_M_B
         self._cosmology_class = cosmology_class if cosmology_class is not None else LCDM
         self.verbose = verbose
+        self.compression_nodes = compression_nodes
 
         self.z_cmb = z
         self.z_hd = z
@@ -377,6 +385,8 @@ class PantheonPlusLikelihood(Likelihood):
         """
         if model is None:
             raise ValueError("model argument must be provided")
+        if self._compressed is not None:
+            return self._compressed(self._dl_grid_from_model(model), self._z_grid)
 
         # Compute theory vector
         if self.include_shoes:
@@ -466,6 +476,13 @@ class PantheonPlusLikelihood(Likelihood):
         # Filter out M_B from cosmology params (don't pass to cosmology model)
         cosmo_params = {k: v for k, v in params.items() if k != "M_B"}
 
+        if self._compressed is not None:
+            if self._can_use_fast_params(cosmo_params):
+                d_L_grid = self._dl_grid_from_params(cosmo_params)
+            else:
+                d_L_grid = self._dl_grid_from_model(self._cosmology_class(**cosmo_params))
+            return self._compressed(d_L_grid, self._z_grid)
+
         # Fast path: avoid constructing model when direct parameters are available
         if self._can_use_fast_params(cosmo_params):
             mu_hubble = self._distance_modulus_from_params(cosmo_params)
@@ -505,7 +522,13 @@ class PantheonPlusLikelihood(Likelihood):
         return True
 
     def _distance_modulus_from_params(self, params: Dict[str, Any]) -> jnp.ndarray:
-        """Compute distance modulus directly from parameter dict using traced grids.
+        """Compute distance modulus directly from parameter dict using traced grids."""
+        d_L = interp_linspace(self.z_cmb, self._z_grid, self._dl_grid_from_params(params))
+        d_A = d_L / (1.0 + self.z_cmb) ** 2
+        return 5.0 * jnp.log10((1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A) + 25.0
+
+    def _dl_grid_from_params(self, params: Dict[str, Any]) -> jnp.ndarray:
+        """Luminosity distance on self._z_grid from a parameter dict.
 
         Note: Must accept JAX Tracer objects during MCMC sampling, not just
         concrete types. Use duck typing to detect numeric/array-like values.
@@ -523,13 +546,9 @@ class PantheonPlusLikelihood(Likelihood):
             elif hasattr(v, "shape"):
                 # Array-like (jnp.ndarray, np.ndarray)
                 cosmo_params[k] = jnp.asarray(v, dtype=dtype)
-        cosmo_grid = compute_background_grid_for_model(
+        return compute_background_grid_for_model(
             self._cosmology_class, self._z_grid, cosmo_params
-        )
-        d_L_grid = cosmo_grid["d_L"]
-        d_L = interp_linspace(self.z_cmb, self._z_grid, d_L_grid)
-        d_A = d_L / (1.0 + self.z_cmb) ** 2
-        return 5.0 * jnp.log10((1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A) + 25.0
+        )["d_L"]
 
     def _initialize_jit_likelihood(self) -> None:
         """Precompile both fixed and marginalized likelihood functions."""
@@ -576,6 +595,24 @@ class PantheonPlusLikelihood(Likelihood):
 
         self._marginalized_likelihood_jit = jit(_marginalized_likelihood_impl)
 
+        # Compressed marginalised likelihood, O(G^2) per call (compression.py)
+        self._compressed = None
+        if self.marginalize_M_B and self.compression_nodes:
+            z_np = np.asarray(self.z_cmb)
+            on_curve = ~np.asarray(self.is_calibrator) if self.include_shoes else np.ones(n_sne, bool)
+            c = np.where(on_curve, 5.0 * np.log10((1.0 + np.asarray(self.z_hel)) / (1.0 + z_np)),
+                         np.asarray(self.ceph_dist))
+            terms = build_compression(
+                z_np, c, np.asarray(m_obs) - c, np.asarray(cov_inv), on_curve, self.compression_nodes
+            )
+
+            def _compressed_impl(d_L_grid: jnp.ndarray, grid_z: jnp.ndarray) -> jnp.ndarray:
+                g = node_moduli(d_L_grid, grid_z, terms[0])
+                return -0.5 * (compressed_chi2(g, terms))
+
+            self._compressed = jit(_compressed_impl)
+        compressed = self._compressed
+
         # Build grid-accepting version (for CombinedLikelihood shared grid)
         z_cmb = self.z_cmb
         z_hel = self.z_hel
@@ -588,6 +625,8 @@ class PantheonPlusLikelihood(Likelihood):
         def _loglike_from_grid_impl(
             cosmo_grid: Dict, grid_z: jnp.ndarray, params: Dict
         ) -> jnp.ndarray:
+            if compressed is not None:
+                return compressed(cosmo_grid["d_L"], grid_z)
             d_L = interp_linspace(z_cmb, grid_z, cosmo_grid["d_L"])
             d_A = d_L / (1.0 + z_cmb) ** 2
             mu = 5.0 * jnp.log10((1.0 + z_cmb) * (1.0 + z_hel) * d_A) + 25.0
@@ -618,14 +657,15 @@ class PantheonPlusLikelihood(Likelihood):
             if isinstance(v, (int, float, jnp.ndarray, np.ndarray))
         }
 
+    def _dl_grid_from_model(self, model: CosmologyBase) -> jnp.ndarray:
+        """Luminosity distance on self._z_grid from a cosmology object."""
+        return compute_background_grid_for_model(
+            self._cosmology_class, self._z_grid, self._extract_cosmo_params(model)
+        )["d_L"]
+
     def _distance_modulus_from_model(self, model: CosmologyBase) -> jnp.ndarray:
         """Compute distance modulus vector using pure JAX traced cosmology."""
-        cosmo_params = self._extract_cosmo_params(model)
-        cosmo_grid = compute_background_grid_for_model(
-            self._cosmology_class, self._z_grid, cosmo_params
-        )
-        d_L_grid = cosmo_grid["d_L"]
-        d_L = interp_linspace(self.z_cmb, self._z_grid, d_L_grid)
+        d_L = interp_linspace(self.z_cmb, self._z_grid, self._dl_grid_from_model(model))
         d_A = d_L / (1.0 + self.z_cmb) ** 2
         return 5.0 * jnp.log10((1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A) + 25.0
 
