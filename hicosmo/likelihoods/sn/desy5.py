@@ -19,6 +19,7 @@ from pathlib import Path
 from ...models.base import CosmologyBase, compute_background_grid_for_model
 from ..base import Likelihood, NuisanceList
 from ...utils.jax_tools import interp_linspace
+from .compression import DEFAULT_NODES, build_compression, compressed_chi2, node_moduli
 from ...utils.logging import get_logger
 from ...models import LCDM
 
@@ -91,6 +92,7 @@ class DESY5Likelihood(Likelihood):
         marginalize_M: bool = True,
         cosmology_class: type = None,
         verbose: bool = False,
+        compression_nodes: Optional[int] = DEFAULT_NODES,
     ):
         if data_path is None:
             self.data_path = str(_get_default_data_path())
@@ -103,6 +105,8 @@ class DESY5Likelihood(Likelihood):
         self.marginalize_M = marginalize_M
         self._cosmology_class = cosmology_class if cosmology_class is not None else LCDM
         self.verbose = verbose
+        # Nodes of the compressed marginalised chi^2 (see compression.py); None = direct
+        self.compression_nodes = compression_nodes
 
         self._load_data()
         self._precompute_covariance()
@@ -305,6 +309,24 @@ class DESY5Likelihood(Likelihood):
 
         self._marginalized_likelihood_jit = jit(_marginalized_likelihood_impl)
 
+        # Compressed marginalised likelihood, O(G^2) per call (compression.py)
+        self._compressed = None
+        if self.marginalize_M and self.compression_nodes:
+            z_np = np.asarray(self.z_cmb)
+            c = 5.0 * np.log10((1.0 + np.asarray(self.z_hel)) / (1.0 + z_np))
+            terms = build_compression(
+                z_np, c, np.asarray(mu_obs) - c, np.asarray(cov_inv),
+                np.ones(self.n_sne, bool), self.compression_nodes,
+            )
+            log_norm = jnp.log(m_denominator_const / (2.0 * jnp.pi))
+
+            def _compressed_impl(d_L_grid: jnp.ndarray, grid_z: jnp.ndarray) -> jnp.ndarray:
+                g = node_moduli(d_L_grid, grid_z, terms[0])
+                return -0.5 * (compressed_chi2(g, terms) + log_norm)
+
+            self._compressed = jit(_compressed_impl)
+        compressed = self._compressed
+
         # Grid-accepting version for CombinedLikelihood shared grid
         z_cmb = self.z_cmb
         z_hel = self.z_hel
@@ -314,6 +336,8 @@ class DESY5Likelihood(Likelihood):
         def _loglike_from_grid_impl(
             cosmo_grid: Dict, grid_z: jnp.ndarray, params: Dict
         ) -> jnp.ndarray:
+            if compressed is not None:
+                return compressed(cosmo_grid["d_L"], grid_z)
             d_L = interp_linspace(z_cmb, grid_z, cosmo_grid["d_L"])
             d_A = d_L / (1.0 + z_cmb) ** 2
             mu = 5.0 * jnp.log10((1.0 + z_cmb) * (1.0 + z_hel) * d_A) + 25.0
@@ -341,19 +365,26 @@ class DESY5Likelihood(Likelihood):
             if isinstance(v, (int, float, jnp.ndarray, np.ndarray))
         }
 
+    def _dl_grid_from_model(self, model: CosmologyBase) -> jnp.ndarray:
+        """Luminosity distance on self._z_grid from a cosmology object."""
+        return compute_background_grid_for_model(
+            self._cosmology_class, self._z_grid, self._extract_cosmo_params(model)
+        )["d_L"]
+
     def _distance_modulus_from_model(self, model: CosmologyBase) -> jnp.ndarray:
         """Compute distance modulus vector using pure JAX traced cosmology."""
-        cosmo_params = self._extract_cosmo_params(model)
-        cosmo_grid = compute_background_grid_for_model(
-            self._cosmology_class, self._z_grid, cosmo_params
-        )
-        d_L_grid = cosmo_grid["d_L"]
-        d_L = interp_linspace(self.z_cmb, self._z_grid, d_L_grid)
+        d_L = interp_linspace(self.z_cmb, self._z_grid, self._dl_grid_from_model(model))
         d_A = d_L / (1.0 + self.z_cmb) ** 2
         return 5.0 * jnp.log10((1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A) + 25.0
 
     def _distance_modulus_from_params(self, params: Dict[str, Any]) -> jnp.ndarray:
         """Compute distance modulus directly from parameter dict using traced grids."""
+        d_L = interp_linspace(self.z_cmb, self._z_grid, self._dl_grid_from_params(params))
+        d_A = d_L / (1.0 + self.z_cmb) ** 2
+        return 5.0 * jnp.log10((1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A) + 25.0
+
+    def _dl_grid_from_params(self, params: Dict[str, Any]) -> jnp.ndarray:
+        """Luminosity distance on self._z_grid from a parameter dict."""
         dtype = self.mu_obs.dtype
         cosmo_params_raw = self._cosmology_class.normalize_params(params, dtype=dtype)
         cosmo_params = {}
@@ -364,13 +395,9 @@ class DESY5Likelihood(Likelihood):
                 cosmo_params[k] = v
             elif hasattr(v, "shape"):
                 cosmo_params[k] = jnp.asarray(v, dtype=dtype)
-        cosmo_grid = compute_background_grid_for_model(
+        return compute_background_grid_for_model(
             self._cosmology_class, self._z_grid, cosmo_params
-        )
-        d_L_grid = cosmo_grid["d_L"]
-        d_L = interp_linspace(self.z_cmb, self._z_grid, d_L_grid)
-        d_A = d_L / (1.0 + self.z_cmb) ** 2
-        return 5.0 * jnp.log10((1.0 + self.z_cmb) * (1.0 + self.z_hel) * d_A) + 25.0
+        )["d_L"]
 
     def _can_use_fast_params(self, params: Dict[str, Any]) -> bool:
         """Check whether we can bypass model construction and use traced params directly."""
@@ -417,6 +444,8 @@ class DESY5Likelihood(Likelihood):
         """
         if model is None:
             raise ValueError("model argument must be provided")
+        if self._compressed is not None:
+            return self._compressed(self._dl_grid_from_model(model), self._z_grid)
 
         theory_mu = self._distance_modulus_from_model(model)
 
@@ -454,6 +483,13 @@ class DESY5Likelihood(Likelihood):
 
         # Filter out M from cosmology params
         cosmo_params = {k: v for k, v in params.items() if k != "M"}
+
+        if self._compressed is not None:
+            if self._can_use_fast_params(cosmo_params):
+                d_L_grid = self._dl_grid_from_params(cosmo_params)
+            else:
+                d_L_grid = self._dl_grid_from_model(self._cosmology_class(**cosmo_params))
+            return self._compressed(d_L_grid, self._z_grid)
 
         if self._can_use_fast_params(cosmo_params):
             theory_mu = self._distance_modulus_from_params(cosmo_params)
