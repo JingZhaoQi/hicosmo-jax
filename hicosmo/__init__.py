@@ -21,7 +21,7 @@ if os.environ.get("HICOSMO_DISABLE_X64", "0") != "1":
 
     _jax.config.update("jax_enable_x64", True)
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Jingzhao Qi"
 
 _MODULE_ALIASES = {
