@@ -20,13 +20,14 @@
 
 ## Overview
 
-**HIcosmo** (**H**igh-performance **I**nference for **Cosmo**logy) is a modern JAX-based cosmological parameter estimation framework, featuring automatic differentiation, JIT compilation, and GPU/TPU acceleration.
+**HIcosmo** (**H**igh-performance **I**nference for **Cosmo**logy) is a JAX-based cosmological parameter estimation framework, featuring automatic differentiation, JIT compilation, and GPU acceleration. It is described in the accompanying paper, [arXiv:2606.28175](https://arxiv.org/abs/2606.28175).
 
 ### Key Features
 
-- **Minimal API**: 3 lines of code for cosmological inference
-- **JAX Native**: Automatic differentiation, JIT compilation, GPU/TPU acceleration
-- **Multi-probe Analysis**: Supernovae, BAO, CMB, Strong Lensing Time Delays
+- **Minimal API**: a few lines of code for cosmological inference
+- **JAX Native**: Automatic differentiation, JIT compilation, GPU acceleration
+- **Multi-probe Analysis**: Supernovae, BAO, CMB distance priors, local $H_0$, strong-lensing time delays
+- **Data Included**: the observational data used by the likelihoods are in `hicosmo/data/`
 - **High-performance Sampling**: NumPyro NUTS + emcee dual backends
 - **Fisher Forecasting**: 21cm intensity mapping survey predictions
 - **Publication-quality Visualization**: GetDist integration
@@ -35,11 +36,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Python Files | 90+ |
-| Lines of Code | ~35,000 |
+| Python Files | 71 |
+| Lines of Code | ~28,500 |
 | Cosmological Models | 4 (LCDM, wCDM, CPL, ILCDM) |
 | Likelihood Functions | 10+ |
-| Supported Surveys | SKA1, Tianlai, BINGO, MeerKAT, CHIME |
+| 21cm Survey Configurations | SKA1-MID Band 1 and Band 2, MeerKAT, BINGO, Tianlai, CHIME |
 
 ---
 
@@ -48,8 +49,8 @@
 ### Requirements
 
 - Python 3.9+
-- JAX 0.4+
-- NumPyro 0.12+
+- JAX 0.4.20+
+- NumPyro 0.15+
 
 ### Install
 
@@ -65,23 +66,36 @@ pip install -e ".[dev]"
 pip install -e .
 ```
 
+Install in development mode (`-e`), so that the data files in `hicosmo/data/` are found.
+
 ### Dependencies
 
+See `requirements.txt`:
+
 ```
-jax>=0.4.0
-jaxlib>=0.4.0
-numpyro>=0.12.0
+jax>=0.4.20
+jaxlib>=0.4.20
+numpyro>=0.15.0
 optax>=0.2.0
-getdist>=1.3.0
-astropy>=5.0
 emcee>=3.1.0
+numpy>=1.24
+scipy>=1.10
+astropy>=5.0
+matplotlib>=3.7
+getdist>=1.4
+h5py>=3.8
+pandas>=2.0
+tqdm>=4.60
+rich>=13.0
+PyYAML>=6.0
+corner>=2.2
 ```
 
 ---
 
 ## Quick Start
 
-### 4 Lines for Cosmological Inference
+### A Few Lines for Cosmological Inference
 
 ```python
 import hicosmo as hc
@@ -141,7 +155,7 @@ from hicosmo.models import LCDM, wCDM, CPL
 
 # Create model instances
 lcdm = LCDM(H0=67.36, Omega_m=0.3153)
-wcdm = wCDM(H0=70, Omega_m=0.3, w=-1.1)
+wcdm = wCDM(H0=70, Omega_m=0.3, w0=-1.1)
 cpl = CPL(H0=70, Omega_m=0.3, w0=-1.0, wa=0.2)
 
 # Compute physical quantities
@@ -158,11 +172,15 @@ E_z = lcdm.E_z(z)                        # Dimensionless Hubble parameter
 ```python
 from hicosmo.likelihoods import SN_likelihood
 
-# Pantheon+ (1701 SNe Ia)
+# Pantheon+ (1590 SNe Ia with z > 0.01)
 sne = SN_likelihood(LCDM, "pantheon+")
 
-# Pantheon+SH0ES (with Cepheid calibration)
+# Pantheon+SH0ES (with Cepheid calibration, 1657 entries)
 sne_shoes = SN_likelihood(LCDM, "pantheon+shoes")
+
+# DES-Dovekie and Union3
+sne_des = SN_likelihood(LCDM, "desy5")
+sne_u3 = SN_likelihood(LCDM, "union3")
 ```
 
 #### Baryon Acoustic Oscillations
@@ -170,38 +188,46 @@ sne_shoes = SN_likelihood(LCDM, "pantheon+shoes")
 ```python
 from hicosmo.likelihoods import BAO_likelihood
 
-# DESI 2024 latest data
+# DESI DR1 (2024) and DR2
 bao = BAO_likelihood(LCDM, "desi2024")
+bao_dr2 = BAO_likelihood(LCDM, "desi_dr2")
 
-# omega_b modes: 'free', 'bbn_prior', 'fixed'
+# Earlier data sets: "sdss_dr12", "sdss_dr16", "boss_dr12", "sixdf"
+
+# omega_b modes: 'fixed', 'free', 'bbn_prior', 'h0rd'
 bao_bbn = BAO_likelihood(LCDM, "desi2024", omega_b_mode='bbn_prior')
 ```
 
 #### Cosmic Microwave Background
 
 ```python
-from hicosmo.likelihoods import Planck2018DistancePriorsLikelihood
+from hicosmo.likelihoods import Planck
 
-# Planck 2018 distance priors (l_A, R, z_*)
-cmb = Planck2018DistancePriorsLikelihood()
+# Planck 2018 distance priors on (R, l_a, omega_b h^2)
+cmb = Planck(LCDM)
 ```
 
-#### Strong Gravitational Lensing
+#### Local H0 and Strong Gravitational Lensing
 
 ```python
-from hicosmo.likelihoods import H0LiCOWLikelihood, TDCOSMOLikelihood
+from hicosmo.likelihoods import SH0ESLikelihood, H0LiCOW, TDCOSMO
+
+# SH0ES local H0 measurement
+shoes = SH0ESLikelihood()
 
 # H0LiCOW (6 lens systems)
-h0licow = H0LiCOWLikelihood()
+h0licow = H0LiCOW(LCDM)
 
 # TDCOSMO hierarchical Bayesian analysis
-tdcosmo = TDCOSMOLikelihood()
+tdcosmo = TDCOSMO(LCDM)
 ```
 
 ### 3. MCMC Sampling
 
 ```python
 from hicosmo.samplers import MCMC
+
+likelihood = sne + bao  # params, sne and bao as in the Complete Example
 
 # NumPyro NUTS (default)
 mcmc = MCMC(params, likelihood, sampler='numpyro')
@@ -215,55 +241,52 @@ mcmc = MCMC(params, likelihood, sampler='emcee')
 
 ```python
 from hicosmo.fisher import IntensityMappingFisher, load_survey
-from hicosmo.models import CPL
+from hicosmo.models import wCDM
 
 # Load survey configuration
-survey = load_survey('ska1_mid_band2')
+survey = load_survey('ska1_wide_band1')
 
-# Create Fisher analyzer
-fisher = IntensityMappingFisher(
-    survey=survey,
-    fiducial_cosmology=CPL(H0=67.36, Omega_m=0.3153, w0=-1.0, wa=0.0)
+# Create Fisher analyzer (fiducial cosmology: Planck 2018 defaults)
+fisher = IntensityMappingFisher(survey, wCDM())
+
+# Forecast w0, marginalized over H0, Omega_m and sigma8
+result = fisher.parameter_forecast(
+    ['w0'], marginalize_over=['H0', 'Omega_m', 'sigma8']
 )
 
-# Run forecast
-result = fisher.forecast(
-    free_params=['w0', 'wa'],
-    external_priors={'Omega_m': 0.007}
-)
-
-print(f"σ(w0) = {result.constraints['w0']:.3f}")
-print(f"FoM = {result.figure_of_merit:.1f}")
+print(f"sigma(w0) = {result['errors'][0]:.3f}")
 ```
 
 #### Supported Surveys
 
-| Survey | Type | Redshift Range |
-|--------|------|----------------|
-| SKA1-MID Band 1 | Single-dish | 0.35-3.05 |
-| SKA1-MID Band 2 | Single-dish | 0.1-0.58 |
-| Tianlai | Interferometer | 0.5-2.5 |
-| BINGO | Single-dish | 0.13-0.45 |
-| MeerKAT | Interferometer | 0.1-0.58 |
-| CHIME | Interferometer | 0.8-2.5 |
+| Survey | Configuration name | Type | Redshift Range |
+|--------|--------------------|------|----------------|
+| SKA1-MID Band 1 | `ska1_wide_band1` | Single-dish | 0.35-3.06 |
+| SKA1-MID Band 2 | `ska1_mid_band2` | Single-dish | 0-0.49 |
+| MeerKAT | `meerkat` | Single-dish | 0.40-1.45 |
+| BINGO | `bingo` | Single-dish | 0.13-0.48 |
+| Tianlai | `tianlai` | Cylinder array | 0.50-1.58 |
+| CHIME | `chime` | Cylinder array | 0.78-2.55 |
+
+`list_available_surveys()` lists all configuration files. A new survey needs only a new YAML file.
 
 ### 5. Visualization
 
 ```python
 from hicosmo.visualization import Plotter
 
-# Load from file
-plotter = Plotter('mcmc_chain.pkl')
+# Load a saved chain by its chain_name (or a path to the .h5 file)
+plotter = Plotter('lcdm_joint')
 
 # Corner plot (confidence ellipses)
 plotter.corner(['H0', 'Omega_m'], filename='corner.pdf')
 
 # Chain traces
-plotter.chains(['H0', 'Omega_m'], filename='chains.pdf')
+plotter.traces(['H0', 'Omega_m'], filename='traces.pdf')
 
-# Multi-chain comparison
+# Multi-chain comparison (chains saved earlier with chain_name='lcdm_cmb' and 'lcdm_shoes')
 plotter = Plotter(
-    ['planck_chain.pkl', 'shoes_chain.pkl'],
+    ['lcdm_cmb', 'lcdm_shoes'],
     chain_labels=['Planck', 'SH0ES']
 )
 plotter.corner(['H0'], filename='h0_tension.pdf')
@@ -275,18 +298,18 @@ plotter.corner(['H0'], filename='h0_tension.pdf')
 
 ```
 hicosmo/
-├── core/                    # Core infrastructure
-│   └── base.py             # CosmologyBase abstract class
+├── hicosmo.py              # hicosmo() one-call interface
 │
 ├── models/                  # Cosmological models
+│   ├── base.py             # CosmologyBase abstract class
 │   ├── lcdm.py             # Standard ΛCDM
 │   ├── wcdm.py             # Constant dark energy
 │   ├── cpl.py              # CPL parameterization
 │   └── ilcdm.py            # Interacting dark energy
 │
 ├── likelihoods/            # Likelihood functions
-│   ├── sn/                 # Supernovae (Pantheon+)
-│   ├── bao/                # BAO (DESI, SDSS, 6dFGS)
+│   ├── sn/                 # Supernovae (Pantheon+, DES-Dovekie, Union3)
+│   ├── bao/                # BAO (DESI DR1/DR2, SDSS/BOSS/eBOSS, 6dFGS)
 │   ├── cmb/                # CMB distance priors
 │   ├── h0/                 # Direct H0 (SH0ES)
 │   └── lensing/            # Strong lensing time delays (H0LiCOW, TDCOSMO)
@@ -297,25 +320,24 @@ hicosmo/
 │   └── emcee_backend.py    # emcee backend
 │
 ├── fisher/                 # Fisher matrix analysis
-│   └── intensity_mapping.py # 21cm IM forecasting
+│   ├── intensity_mapping.py # 21cm IM forecasting
+│   └── surveys/            # Survey configuration files (YAML)
+│
+├── data/                   # Observational data used by the likelihoods
 │
 ├── visualization/          # Visualization system
 │   └── plotter.py          # Unified Plotter interface
 │
 └── utils/                  # Utilities
-    └── constants.py        # Physical constants
+    ├── constants.py        # Physical constants
+    └── jax_tools.py        # Sound horizon, integration and other JAX helpers
 ```
 
 ---
 
-## Performance Benchmarks
+## Performance
 
-| Operation | qcosmc (scipy) | HIcosmo (JAX) | Speedup |
-|-----------|----------------|---------------|---------|
-| Distance (1000 pts) | 0.15s | 0.02s | **7.5x** |
-| MCMC (10k samples) | 180s | 45s | **4.0x** |
-| Fisher matrix | 2.1s | 0.5s | **4.2x** |
-| BAO likelihood | 21.8ms | 1.24ms | **17.6x** |
+Benchmarks, their measurement conditions and the validation against Cobaya are given in section 4 of the accompanying paper ([arXiv:2606.28175](https://arxiv.org/abs/2606.28175)). In the problems tested there, HIcosmo reaches an effective sample size per unit time 6.5 to 27 times higher than Cobaya on the same CPU, mainly because of the gradient-based NUTS sampler and a compressed form of the supernova likelihood.
 
 ---
 
@@ -341,13 +363,17 @@ The `tutorials/` directory contains Jupyter notebooks for learning HIcosmo:
 If you use HIcosmo in your research, please cite:
 
 ```bibtex
-@software{hicosmo,
-  author = {Qi, Jingzhao},
-  title = {HIcosmo: High-performance Inference for Cosmology},
-  year = {2024},
-  url = {https://github.com/JingZhaoQi/hicosmo-jax}
+@article{Qi:2026hicosmo,
+  author = {Qi, Jing-Zhao and Zhang, Jing-Fei and Zhang, Xin},
+  title = {HIcosmo: a differentiable JAX-based framework for cosmology inference},
+  eprint = {2606.28175},
+  archivePrefix = {arXiv},
+  primaryClass = {astro-ph.CO},
+  year = {2026}
 }
 ```
+
+If you use the likelihoods, please also cite the papers of the corresponding data sets.
 
 ---
 
