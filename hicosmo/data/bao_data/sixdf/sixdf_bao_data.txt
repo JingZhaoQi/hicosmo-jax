@@ -1,0 +1,2 @@
+# z value error observable
+0.106 0.336 0.015 rs_over_DV

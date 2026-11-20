@@ -15,8 +15,7 @@
 !pyproject.toml
 !requirements.txt
 
-# Large data files (never commit)
-hicosmo/data/
+# Large example data (not committed)
 examples/data/
 
 # Incomplete modules (not ready for release)
@@ -26,6 +25,9 @@ hicosmo/likelihoods/gw/
 *.pkl
 *.p
 *.npy
+
+# Observational data used by the likelihoods
+!hicosmo/data/**
 
 # Python artifacts
 __pycache__/
