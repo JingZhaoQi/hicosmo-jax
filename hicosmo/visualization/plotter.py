@@ -770,8 +770,11 @@ class Plotter:
 
             selected_ranges = self._extract_ranges_for_params(samples, actual_names)
 
+            # keep the sample weights (e.g. repetition counts of Metropolis-Hastings chains)
             subset = MCSamples(
                 samples=samples.samples[:, indices],
+                weights=samples.weights,
+                loglikes=samples.loglikes,
                 names=actual_names,
                 labels=labels_list,
                 label=getattr(samples, "label", None),
